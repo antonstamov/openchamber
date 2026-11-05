@@ -64,13 +64,13 @@ const keyFor = (language) => buildCacheKey({
 
 describe('normalizeLanguage', () => {
   it('accepts the tags the interface uses', () => {
-    expect(normalizeLanguage('uk')).toBe('uk');
+    expect(normalizeLanguage('ru')).toBe('ru');
     expect(normalizeLanguage('zh-TW')).toBe('zh-TW');
     expect(normalizeLanguage('pt-BR')).toBe('pt-BR');
   });
 
   it('tolerates case and separator drift from a platform locale', () => {
-    expect(normalizeLanguage('uk-UA')).toBe('uk');
+    expect(normalizeLanguage('ru-RU')).toBe('ru');
     expect(normalizeLanguage('pt_br')).toBe('pt-BR');
     expect(normalizeLanguage('ja-JP')).toBe('ja');
   });
@@ -81,11 +81,11 @@ describe('normalizeLanguage', () => {
     expect(normalizeLanguage('kl')).toBe('en');
     expect(normalizeLanguage('')).toBe('en');
     expect(normalizeLanguage(undefined)).toBe('en');
-    expect(normalizeLanguage({ toString: () => 'uk' })).toBe('en');
+    expect(normalizeLanguage({ toString: () => 'ru' })).toBe('en');
   });
 
   it('names languages in English, matching the language of the prompt', () => {
-    expect(languageName('uk')).toBe('Ukrainian');
+    expect(languageName('ru')).toBe('Russian');
     expect(languageName('nope')).toBe('English');
   });
 });
@@ -97,8 +97,8 @@ describe('prompt language instruction', () => {
   });
 
   it('asks for prose in the chosen language', () => {
-    const { system } = buildPrompt({ ...PROMPT_INPUT, language: 'uk' });
-    expect(system).toMatch(/Write all prose in Ukrainian/);
+    const { system } = buildPrompt({ ...PROMPT_INPUT, language: 'ru' });
+    expect(system).toMatch(/Write all prose in Russian/);
   });
 
   // Aliases are keys the server resolves back to hunk ids and icon/importance
@@ -120,11 +120,11 @@ describe('cache key', () => {
   // Without the language in the key, asking for a translation is answered with
   // the untranslated entry that was already there.
   it('separates walkthroughs written in different languages', () => {
-    expect(keyFor('uk')).not.toBe(keyFor('en'));
+    expect(keyFor('ru')).not.toBe(keyFor('en'));
   });
 
   it('is stable for the same language', () => {
-    expect(keyFor('uk')).toBe(keyFor('uk'));
+    expect(keyFor('ru')).toBe(keyFor('ru'));
   });
 });
 
@@ -148,14 +148,14 @@ describe('generating in a language', () => {
   });
 
   it('sends the instruction and records the language with the result', async () => {
-    const result = await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    const result = await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
 
-    expect(generateSmallModelText.mock.calls[0][0].system).toMatch(/Write all prose in Ukrainian/);
-    expect(result.language).toBe('uk');
+    expect(generateSmallModelText.mock.calls[0][0].system).toMatch(/Write all prose in Russian/);
+    expect(result.language).toBe('ru');
   });
 
   it('does not serve one language from the other language cache entry', async () => {
-    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
     generateSmallModelText.mockClear();
 
     const english = await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'en' });
@@ -168,41 +168,41 @@ describe('generating in a language', () => {
   // Switching away and back must not cost a second generation: the earlier
   // walkthrough is still addressed by its own key.
   it('returns the earlier language from cache when it is asked for again', async () => {
-    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
     await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'en' });
     generateSmallModelText.mockClear();
 
-    const back = await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    const back = await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
 
     expect(back.fromCache).toBe(true);
-    expect(back.language).toBe('uk');
+    expect(back.language).toBe('ru');
     expect(generateSmallModelText).not.toHaveBeenCalled();
   });
 
   // The pointer only knows what was generated here last. After a language
   // switch that is the answer to a different question, and reading it instead
-  // left the panel showing English while the picker said Ukrainian — with the
-  // Ukrainian walkthrough sitting unused in the cache.
+  // left the panel showing English while the picker said Russian — with the
+  // Russian walkthrough sitting unused in the cache.
   it('reads back the walkthrough written in the language being asked for', async () => {
-    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
     await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'en' });
     generateSmallModelText.mockClear();
 
-    const ukrainian = await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    const russian = await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
 
-    expect(ukrainian.language).toBe('uk');
-    expect(ukrainian.walkthrough).toBeTruthy();
+    expect(russian.language).toBe('ru');
+    expect(russian.walkthrough).toBeTruthy();
     expect(generateSmallModelText).not.toHaveBeenCalled();
   });
 
   it('switches back and forth without generating anything', async () => {
-    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
     await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ja' });
     generateSmallModelText.mockClear();
 
-    expect((await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' })).language).toBe('uk');
+    expect((await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' })).language).toBe('ru');
     expect((await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'ja' })).language).toBe('ja');
-    expect((await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' })).language).toBe('uk');
+    expect((await getWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' })).language).toBe('ru');
     expect(generateSmallModelText).not.toHaveBeenCalled();
   });
 

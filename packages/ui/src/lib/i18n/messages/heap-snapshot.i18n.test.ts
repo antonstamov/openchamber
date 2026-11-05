@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 
 describe('heap snapshot translations', () => {
   test('every locale has every key, translated', () => {

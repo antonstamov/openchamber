@@ -4,7 +4,7 @@ import { acmeTrackerDescriptor, linearLikeTrackerDescriptor } from '@/lib/tracke
 import { acmeDescriptor, githubLikeDescriptor, gitlabLikeDescriptor } from '@/lib/source-control/providers/descriptor.fixture';
 import { buildSettingsSearchResults, SETTINGS_ANCHOR_PAGES } from './search';
 import { useConfigStore } from '@/stores/useConfigStore';
-import { dict as ukDict } from '@/lib/i18n/messages/uk';
+import { dict as ruDict } from '@/lib/i18n/messages/ru';
 
 const trackers = [linearLikeTrackerDescriptor()];
 const sourceControlProviders = [githubLikeDescriptor(), gitlabLikeDescriptor()];
@@ -69,8 +69,8 @@ describe('settings search', () => {
               autoReadAloudEnabled: false,
               dictationEnabled: enabled,
             });
-            for (const query of ['endpoint path', 'custom endpoint', 'resource path', ukDict['settings.voice.page.field.endpointPath']]) {
-              const results = buildSettingsSearchResults({ query, runtimeCtx: context, t: (key) => ukDict[key], getPageTitle: (page) => page });
+            for (const query of ['endpoint path', 'custom endpoint', 'resource path', ruDict['settings.voice.page.field.endpointPath']]) {
+              const results = buildSettingsSearchResults({ query, runtimeCtx: context, t: (key) => ruDict[key], getPageTitle: (page) => page });
               const ids = results.map((result) => result.id);
               expect(ids.includes('voice.tts-endpoint-path')).toBe(enabled && custom && !context.isVSCode);
               expect(ids.includes('voice.stt-endpoint-path')).toBe(enabled && custom && !context.isVSCode);

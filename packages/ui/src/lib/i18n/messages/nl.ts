@@ -261,7 +261,7 @@ export const dict = {
   'common.language.french': 'Frans',
   'common.language.simplifiedChinese': 'Chinees (vereenvoudigd)',
   'common.language.traditionalChinese': 'Chinees (traditioneel)',
-  'common.language.ukrainian': 'Oekraïens',
+  'common.language.russian': 'Russisch',
   'common.language.spanish': 'Spaans',
   'common.language.brazilianPortuguese': 'Braziliaans-Portugees',
   'common.language.korean': 'Koreaans',

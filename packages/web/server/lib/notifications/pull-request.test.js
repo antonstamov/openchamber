@@ -7,7 +7,7 @@ const harness = (settings = {}, visible = false) => {
   const native = vi.fn(() => true);
   const ui = vi.fn(); const push = vi.fn(); const apns = vi.fn(); const channels = vi.fn();
   const runtime = createNotificationTriggerRuntime({
-    readSettingsFromDisk: async () => ({ nativeNotificationsEnabled: true, notificationMode: 'always', locale: 'uk', ...settings }),
+    readSettingsFromDisk: async () => ({ nativeNotificationsEnabled: true, notificationMode: 'always', locale: 'ru', ...settings }),
     emitDesktopNotification: native, broadcastUiNotification: ui, sendPushToAllUiSessions: push,
     sendApnsToAllUiSessions: apns, isAnyInteractiveClientVisible: () => visible,
     deliverToExtensionChannels: channels,
@@ -20,7 +20,7 @@ describe('pull request notifications', () => {
   it('uses the same native, UI, push and extension channels as session notifications', async () => {
     const h = harness();
     await h.runtime.notifyPullRequest({ item, event: 'checks-failed' });
-    expect(h.native.mock.calls[0][0]).toMatchObject({ kind: 'pull-request', title: 'Перевірки pull request не пройдено', body: 'acme/private#7' });
+    expect(h.native.mock.calls[0][0]).toMatchObject({ kind: 'pull-request', title: 'Проверки pull request не прошли', body: 'acme/private#7' });
     expect(h.ui).toHaveBeenCalledTimes(1);
     expect(h.push).toHaveBeenCalledTimes(1);
     expect(h.apns).toHaveBeenCalledTimes(1);

@@ -22,7 +22,7 @@ const LANGUAGE_NAMES = {
   nl: 'Dutch',
   'zh-CN': 'Simplified Chinese',
   'zh-TW': 'Traditional Chinese',
-  uk: 'Ukrainian',
+  ru: 'Russian',
   es: 'Spanish',
   'pt-BR': 'Brazilian Portuguese',
   ko: 'Korean',
@@ -44,7 +44,7 @@ export function normalizeLanguage(value) {
   if (typeof value !== 'string' || !value) return DEFAULT_LANGUAGE;
   if (Object.hasOwn(LANGUAGE_NAMES, value)) return value;
 
-  // Tolerate case and separator drift (`uk-UA`, `pt_br`) so a runtime that
+  // Tolerate case and separator drift (`ru-RU`, `pt_br`) so a runtime that
   // passes a platform locale does not silently fall back to English.
   const normalized = value.toLowerCase().replace(/_/g, '-');
   const match = Object.keys(LANGUAGE_NAMES).find((tag) => {

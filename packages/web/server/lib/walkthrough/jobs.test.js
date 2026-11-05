@@ -233,13 +233,13 @@ describe('generation jobs', () => {
     await generateWalkthrough({ directory: '/repo', source: SOURCE });
     describeSmallModel.mockResolvedValueOnce(otherModel);
     await generateWalkthrough({ directory: '/repo', source: SOURCE, model: 'openai/gpt-5.6' });
-    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
     expect(sentPrompts.some((prompt) => prompt.includes('A previous walkthrough'))).toBe(false);
 
     getDiff.mockImplementation(async (_dir, options) => (
       options?.staged ? '' : PATCH.replace('const added = true;', 'const added = false;')
     ));
-    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'uk' });
+    await generateWalkthrough({ directory: '/repo', source: SOURCE, language: 'ru' });
     expect(sentPrompts.at(-1)).toContain('A previous walkthrough');
   });
 

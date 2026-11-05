@@ -54,14 +54,14 @@ export const guestStatusViewI18n = {
     'chat.workStatus.guestView.pointNow': '{value} · 現在',
     'chat.workStatus.guestView.pointAgo': '{value} · {seconds} 秒前',
   },
-  uk: {
-    'chat.workStatus.guestView.reading': 'Читаю',
-    'chat.workStatus.guestView.empty': 'Поки нічого показати',
-    'chat.workStatus.guestView.unreachable': 'Сервіс розширення не відповів.',
-    'chat.workStatus.guestView.invalid': 'Сервіс розширення надіслав те, що застосунок не може показати.',
-    'chat.workStatus.guestView.actionFailed': 'Розширенню не вдалося це зробити.',
-    'chat.workStatus.guestView.pointNow': '{value} · зараз',
-    'chat.workStatus.guestView.pointAgo': '{value} · {seconds} с тому',
+  ru: {
+    'chat.workStatus.guestView.reading': 'Чтение',
+    'chat.workStatus.guestView.empty': 'Пока нечего показать',
+    'chat.workStatus.guestView.unreachable': 'Сервис расширения не ответил.',
+    'chat.workStatus.guestView.invalid': 'Сервис расширения прислал данные, которые приложение не может показать.',
+    'chat.workStatus.guestView.actionFailed': 'Расширение не смогло это сделать.',
+    'chat.workStatus.guestView.pointNow': '{value} · сейчас',
+    'chat.workStatus.guestView.pointAgo': '{value} · {seconds} с назад',
   },
   es: {
     'chat.workStatus.guestView.reading': 'Leyendo',

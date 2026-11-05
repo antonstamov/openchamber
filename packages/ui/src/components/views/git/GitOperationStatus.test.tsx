@@ -10,7 +10,7 @@ import { dict as ja } from '@/lib/i18n/messages/ja';
 import { dict as ko } from '@/lib/i18n/messages/ko';
 import { dict as pl } from '@/lib/i18n/messages/pl';
 import { dict as ptBR } from '@/lib/i18n/messages/pt-BR';
-import { dict as uk } from '@/lib/i18n/messages/uk';
+import { dict as ru } from '@/lib/i18n/messages/ru';
 import { dict as zhCN } from '@/lib/i18n/messages/zh-CN';
 import { dict as zhTW } from '@/lib/i18n/messages/zh-TW';
 import { GitOperationStatus } from './GitOperationStatus';
@@ -102,7 +102,7 @@ describe('Git operation feedback', () => {
 
   test('all 11 shipped dictionaries contain translated operation feedback', () => {
     const keys = Object.keys(en).filter((key) => key.startsWith('gitView.operation.'));
-    for (const dictionary of [de, es, fr, ja, ko, pl, ptBR, uk, zhCN, zhTW]) {
+    for (const dictionary of [de, es, fr, ja, ko, pl, ptBR, ru, zhCN, zhTW]) {
       const translated = new Map(Object.entries(dictionary));
       for (const key of keys) expect(translated.get(key)).toBeTruthy();
       expect(dictionary['gitView.operation.unknownHint']).not.toBe(en['gitView.operation.unknownHint']);

@@ -63,12 +63,12 @@ export const fileEditorAidsI18n = {
     'filesView.editor.importNotFound': 'Nenhum arquivo encontrado para {path}',
     'filesView.editor.importLookupFailed': 'Não foi possível procurar {path}',
   },
-  uk: {
-    'filesView.editor.gitHunk.revert': 'Відкотити',
-    'filesView.editor.gitHunk.close': 'Закрити',
-    'filesView.editor.jsonSyntaxError': 'Звідси JSON перестає розбиратися',
-    'filesView.editor.importNotFound': 'Не знайдено файлу для {path}',
-    'filesView.editor.importLookupFailed': 'Не вдалося перевірити {path}',
+  ru: {
+    'filesView.editor.gitHunk.revert': 'Отменить',
+    'filesView.editor.gitHunk.close': 'Закрыть',
+    'filesView.editor.jsonSyntaxError': 'Здесь JSON перестаёт разбираться',
+    'filesView.editor.importNotFound': 'Файл для {path} не найден',
+    'filesView.editor.importLookupFailed': 'Не удалось найти {path}',
   },
   'zh-CN': {
     'filesView.editor.gitHunk.revert': '还原',

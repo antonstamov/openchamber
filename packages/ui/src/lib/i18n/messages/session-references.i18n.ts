@@ -28,9 +28,9 @@ export const sessionReferencesI18n = {
     'chat.fileMentionAutocomplete.sessionArchived': "arquivada",
     'chat.sessionReference.unavailable': "Essa sessão ou mensagem não está neste servidor ou não pôde ser lida. O link fica como texto.",
   },
-  uk: {
-    'chat.fileMentionAutocomplete.sessionArchived': "в архіві",
-    'chat.sessionReference.unavailable': "Цієї сесії чи повідомлення немає на цьому сервері, або їх не вдалося прочитати. Посилання лишається текстом.",
+  ru: {
+    'chat.fileMentionAutocomplete.sessionArchived': 'в архиве',
+    'chat.sessionReference.unavailable': 'Этой сессии или сообщения нет на сервере или их не удалось прочитать. Ссылка останется текстом.',
   },
   ko: {
     'chat.fileMentionAutocomplete.sessionArchived': "보관됨",

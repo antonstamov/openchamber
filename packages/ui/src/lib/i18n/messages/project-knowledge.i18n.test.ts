@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { projectKnowledgeI18n } from './project-knowledge.i18n';
 
-const locales = ['en', 'uk', 'de', 'fr', 'es', 'pt-BR', 'nl', 'pl', 'tr', 'ja', 'ko', 'zh-CN', 'zh-TW', 'ar', 'he'] as const;
+const locales = ['en', 'ru', 'de', 'fr', 'es', 'pt-BR', 'nl', 'pl', 'tr', 'ja', 'ko', 'zh-CN', 'zh-TW', 'ar', 'he'] as const;
 
 describe('project knowledge translations', () => {
   test('every locale has every key, translated', () => {

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { guestStatusViewI18n } from './guest-status-view.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 
 describe('extension status view translations', () => {
   test('provides every key in every supported locale, translated', () => {

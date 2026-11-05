@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { markdownGithubI18n } from './markdown-github.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 // The same word in English and in the locale, as GitHub's own translations write it.
 const sameAsEnglish = new Set(['fr:chat.markdown.alert.important', 'nl:chat.markdown.alert.tip']);
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { snippetsI18n } from './snippets.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 
 // Words a language spells the same as English.
 const sameAsEnglish = new Set(['de snippets.field.name']);

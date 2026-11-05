@@ -16,13 +16,13 @@ import { copy as pl } from './copy/pl';
 import { copy as ptBR } from './copy/pt-BR';
 import { copy as tr } from './copy/tr';
 import type { EasterEggCopy } from './copy/types';
-import { copy as uk } from './copy/uk';
+import { copy as ru } from './copy/ru';
 import { copy as zhCN } from './copy/zh-CN';
 import { copy as zhTW } from './copy/zh-TW';
 import { draftMomentAt, draftTitleLine, gitCleanLine, netDeletionLine, NET_DELETION_THRESHOLD, pushLine, thinkingLine, THINKING_LINE_ODDS } from './lines';
 
 const COPIES = {
-  en, de, fr, nl, 'zh-CN': zhCN, 'zh-TW': zhTW, uk, es, 'pt-BR': ptBR, ko, pl, ja, tr, ar, he,
+  en, de, fr, nl, 'zh-CN': zhCN, 'zh-TW': zhTW, ru, es, 'pt-BR': ptBR, ko, pl, ja, tr, ar, he,
 } satisfies Record<Locale, EasterEggCopy>;
 
 // Local time, the way the app reads the clock. 2026-10-30 is a Friday.
@@ -143,8 +143,8 @@ describe('lines', () => {
   test('only a clear net deletion gets a line, in the right plural', () => {
     expect(netDeletionLine(en, { insertions: 5, deletions: 5 + NET_DELETION_THRESHOLD - 1 }, 'en-US', 0)).toBeNull();
     expect(netDeletionLine(en, { insertions: 3, deletions: 415 }, 'en-US', 0)?.title).toBe('412 lines retired.');
-    expect(netDeletionLine(uk, { insertions: 0, deletions: 22 }, 'uk-UA', 1)?.title).toBe('−22 рядки.');
-    expect(netDeletionLine(uk, { insertions: 0, deletions: 25 }, 'uk-UA', 1)?.title).toBe('−25 рядків.');
+    expect(netDeletionLine(ru, { insertions: 0, deletions: 22 }, 'ru-RU', 1)?.title).toBe('−22 строки.');
+    expect(netDeletionLine(ru, { insertions: 0, deletions: 25 }, 'ru-RU', 1)?.title).toBe('−25 строк.');
     expect(netDeletionLine(en, { insertions: 0, deletions: 1200 }, 'en-US', 1)?.title).toBe('−1,200 lines.');
   });
 });

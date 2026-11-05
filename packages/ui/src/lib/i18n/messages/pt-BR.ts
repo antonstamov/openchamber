@@ -272,7 +272,7 @@ export const dict: Record<I18nKey, string> = {
   "common.language.french": "Francês",
   "common.language.simplifiedChinese": "Chinês (simplificado)",
   "common.language.traditionalChinese": "Chinês (tradicional)",
-  "common.language.ukrainian": "Ucraniano",
+  "common.language.russian": "Russo",
   "common.language.spanish": "Espanhol",
   "common.language.brazilianPortuguese": "Português brasileiro",
   "common.language.korean": "Coreano",

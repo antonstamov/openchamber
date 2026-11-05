@@ -56,13 +56,13 @@ export const markdownGithubI18n = {
     'chat.markdown.alert.caution': 'Cuidado',
     'chat.markdown.suggestion.title': 'Alteração sugerida',
   },
-  uk: {
-    'chat.markdown.alert.note': 'Примітка',
-    'chat.markdown.alert.tip': 'Порада',
-    'chat.markdown.alert.important': 'Важливо',
-    'chat.markdown.alert.warning': 'Попередження',
-    'chat.markdown.alert.caution': 'Обережно',
-    'chat.markdown.suggestion.title': 'Запропонована зміна',
+  ru: {
+    'chat.markdown.alert.note': 'Примечание',
+    'chat.markdown.alert.tip': 'Совет',
+    'chat.markdown.alert.important': 'Важно',
+    'chat.markdown.alert.warning': 'Предупреждение',
+    'chat.markdown.alert.caution': 'Осторожно',
+    'chat.markdown.suggestion.title': 'Предлагаемое изменение',
   },
   ko: {
     'chat.markdown.alert.note': '참고',

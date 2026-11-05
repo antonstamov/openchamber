@@ -1,6 +1,6 @@
-export type Locale = 'en' | 'de' | 'fr' | 'nl' | 'zh-CN' | 'zh-TW' | 'uk' | 'es' | 'pt-BR' | 'ko' | 'pl' | 'ja' | 'tr' | 'ar' | 'he';
+export type Locale = 'en' | 'de' | 'fr' | 'nl' | 'zh-CN' | 'zh-TW' | 'ru' | 'es' | 'pt-BR' | 'ko' | 'pl' | 'ja' | 'tr' | 'ar' | 'he';
 
-export const LOCALES = ['en', 'de', 'fr', 'nl', 'zh-CN', 'zh-TW', 'uk', 'es', 'pt-BR', 'ko', 'pl', 'ja', 'tr', 'ar', 'he'] as const satisfies readonly Locale[];
+export const LOCALES = ['en', 'de', 'fr', 'nl', 'zh-CN', 'zh-TW', 'ru', 'es', 'pt-BR', 'ko', 'pl', 'ja', 'tr', 'ar', 'he'] as const satisfies readonly Locale[];
 
 export const DEFAULT_LOCALE: Locale = 'en';
 
@@ -30,13 +30,13 @@ export function isRightToLeft(element: Element): boolean {
   return element.closest('[dir="rtl"], [dir="ltr"]')?.getAttribute('dir') === 'rtl';
 }
 
-export const LOCALE_LABEL_KEYS: Record<Locale, 'common.language.english' | 'common.language.french' | 'common.language.dutch' | 'common.language.simplifiedChinese' | 'common.language.traditionalChinese' | 'common.language.ukrainian' | 'common.language.spanish' | 'common.language.brazilianPortuguese' | 'common.language.korean' | 'common.language.polish' | 'common.language.german' | 'common.language.japanese' | 'common.language.turkish' | 'common.language.arabic' | 'common.language.hebrew'> = {
+export const LOCALE_LABEL_KEYS: Record<Locale, 'common.language.english' | 'common.language.french' | 'common.language.dutch' | 'common.language.simplifiedChinese' | 'common.language.traditionalChinese' | 'common.language.russian' | 'common.language.spanish' | 'common.language.brazilianPortuguese' | 'common.language.korean' | 'common.language.polish' | 'common.language.german' | 'common.language.japanese' | 'common.language.turkish' | 'common.language.arabic' | 'common.language.hebrew'> = {
   en: 'common.language.english',
   fr: 'common.language.french',
   nl: 'common.language.dutch',
   'zh-CN': 'common.language.simplifiedChinese',
   'zh-TW': 'common.language.traditionalChinese',
-  uk: 'common.language.ukrainian',
+  ru: 'common.language.russian',
   es: 'common.language.spanish',
   'pt-BR': 'common.language.brazilianPortuguese',
   ko: 'common.language.korean',
@@ -78,8 +78,8 @@ export function normalizeLocale(value: string | undefined | null): Locale {
   if (normalized === 'nl' || normalized.startsWith('nl-')) {
     return 'nl';
   }
-  if (normalized === 'uk' || normalized.startsWith('uk-') || normalized === 'ua' || normalized.startsWith('ua-')) {
-    return 'uk';
+  if (normalized === 'ru' || normalized.startsWith('ru-')) {
+    return 'ru';
   }
   if (normalized === 'es' || normalized.startsWith('es-')) {
     return 'es';

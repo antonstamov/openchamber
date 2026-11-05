@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 // Product names stay as written in every locale, and so does a word some languages share with English.
 const sameAsEnglish = (locale: string, key: string) => key.endsWith('.opencode') || key.endsWith('.openchamber') || (locale === 'nl' && key.endsWith('.project'));
 

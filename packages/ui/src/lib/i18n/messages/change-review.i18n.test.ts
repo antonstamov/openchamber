@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { changeReviewI18n } from './change-review.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 
 // Words these languages use as is, so the translation is the English word.
 const sameAsEnglish = {

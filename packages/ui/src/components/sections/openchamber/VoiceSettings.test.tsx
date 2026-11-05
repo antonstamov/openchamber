@@ -6,7 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { I18nProvider } from '@/lib/i18n';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useI18nStore } from '@/lib/i18n/store';
-import { dict as ukDict } from '@/lib/i18n/messages/uk';
+import { dict as ruDict } from '@/lib/i18n/messages/ru';
 import { buildSettingsSearchResults } from '@/lib/settings/search';
 
 import { VoiceSettings } from './VoiceSettings';
@@ -88,14 +88,14 @@ describe('VoiceSettings endpoint paths', () => {
   });
 
   test('localized search results target rendered endpoint inputs and disappear with their controls', async () => {
-    useI18nStore.setState({ locale: 'uk', dictionary: ukDict });
+    useI18nStore.setState({ locale: 'ru', dictionary: ruDict });
     useConfigStore.setState({
       voiceProvider: 'openai-compatible', sttProvider: 'openai-compatible',
       showMessageTTSButtons: true, autoReadAloudEnabled: false, dictationEnabled: true,
     });
     const results = () => buildSettingsSearchResults({
-      query: ukDict['settings.voice.page.field.endpointPath'],
-      t: (key) => ukDict[key], getPageTitle: (page) => page,
+      query: ruDict['settings.voice.page.field.endpointPath'],
+      t: (key) => ruDict[key], getPageTitle: (page) => page,
       runtimeCtx: {
         isVSCode: false, isWeb: true, isDesktop: false, isMobile: false,
         isDesktopLocalOrigin: false, isMac: false, isWindows: false, isLinux: false,

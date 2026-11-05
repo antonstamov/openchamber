@@ -60,10 +60,10 @@ export const selectionApprovalI18n = {
     'settings.openchamber.visual.field.selectionApprovalText': 'Seçim onay metni',
     'settings.openchamber.visual.field.selectionApprovalTextInfo': 'Seçilen asistan metnindeki onay kısayolu için özel geri bildirim. Varsayılan metni kullanmak için boş bırakın.',
   },
-  uk: {
-    'chat.textSelection.title.approveSelection': 'Схвалити виділене',
-    'settings.openchamber.visual.field.selectionApprovalText': 'Текст схвалення виділеного',
-    'settings.openchamber.visual.field.selectionApprovalTextInfo': 'Власний відгук для дії схвалення над виділеним текстом асистента. Залиште порожнім, щоб використовувати типовий текст.',
+  ru: {
+    'chat.textSelection.title.approveSelection': 'Одобрить выделение',
+    'settings.openchamber.visual.field.selectionApprovalText': 'Текст одобрения выделения',
+    'settings.openchamber.visual.field.selectionApprovalTextInfo': 'Свой отзыв для шортката одобрения на выделенном тексте ассистента. Оставьте пустым, чтобы использовать текст по умолчанию.',
   },
   'zh-CN': {
     'chat.textSelection.title.approveSelection': '认可选中内容',

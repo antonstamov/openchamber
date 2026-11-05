@@ -281,9 +281,9 @@ describe('walkthrough routes', () => {
   // that contains the language instruction.
   it('carries the requested language into the service', async () => {
     await fetch(
-      `${base}/api/walkthrough?directory=/repo&language=uk&source=${encodeURIComponent(JSON.stringify(SOURCE))}`,
+      `${base}/api/walkthrough?directory=/repo&language=ru&source=${encodeURIComponent(JSON.stringify(SOURCE))}`,
     );
-    expect(lastArgs.language).toBe('uk');
+    expect(lastArgs.language).toBe('ru');
 
     const seen = generateCalls;
     const pending = fetch(`${base}/api/walkthrough/generate`, {
@@ -301,7 +301,7 @@ describe('walkthrough routes', () => {
 
   it('ignores a language that is not a string', async () => {
     await fetch(
-      `${base}/api/walkthrough?directory=/repo&language[]=uk&source=${encodeURIComponent(JSON.stringify(SOURCE))}`,
+      `${base}/api/walkthrough?directory=/repo&language[]=ru&source=${encodeURIComponent(JSON.stringify(SOURCE))}`,
     );
 
     expect(lastArgs.language).toBeUndefined();

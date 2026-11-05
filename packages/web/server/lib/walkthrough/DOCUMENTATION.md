@@ -301,7 +301,7 @@ model being asked for and answers from that entry when it exists, before
 consulting the pointer. The pointer alone was not enough — it records what was
 generated here *last*, which after a switch is the answer to a different
 question, and the panel kept showing the English review while the picker said
-Ukrainian and the Ukrainian one sat unused in the cache. The key is computed
+Russian and the Russian one sat unused in the cache. The key is computed
 from the diff the read already parsed, so this costs one file read and no extra
 git work.
 

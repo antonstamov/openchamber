@@ -49,12 +49,12 @@ export const autocompleteScopeI18n = {
     'chat.autocomplete.scope.openchamber': 'openchamber',
     'chat.autocomplete.skillsEmpty': 'Nenhum skill encontrado',
   },
-  uk: {
-    'chat.autocomplete.scope.user': 'користувач',
-    'chat.autocomplete.scope.project': 'проєкт',
+  ru: {
+    'chat.autocomplete.scope.user': 'пользователь',
+    'chat.autocomplete.scope.project': 'проект',
     'chat.autocomplete.scope.opencode': 'opencode',
     'chat.autocomplete.scope.openchamber': 'openchamber',
-    'chat.autocomplete.skillsEmpty': 'Скілів не знайдено',
+    'chat.autocomplete.skillsEmpty': 'Навыки не найдены',
   },
   ko: {
     'chat.autocomplete.scope.user': '사용자',

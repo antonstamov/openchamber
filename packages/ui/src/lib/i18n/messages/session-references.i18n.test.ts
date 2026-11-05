@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { sessionReferencesI18n } from './session-references.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 
 describe('session reference translations', () => {
   test('provides every key in every supported locale, translated', () => {

@@ -107,7 +107,7 @@ describe('ready notification on v2 step events', () => {
   it('stays quiet for a step of an auto-review and announces the review once when it ends', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { runtime, emitDesktopNotification } = makeRuntime({
-      settings: { locale: 'uk' },
+      settings: { locale: 'ru' },
       isInAutoReview: (sessionId) => sessionId === 'ses_reviewed',
     });
 
@@ -118,8 +118,8 @@ describe('ready notification on v2 step events', () => {
     await runtime.notifyAutoReviewEnded({ sessionId: 'ses_reviewed', directory: '/repo', status: 'disputed' });
     await runtime.notifyAutoReviewEnded({ sessionId: 'ses_reviewed', directory: '/repo', status: 'failed', error: 'The reviewer session is gone.' });
     expect(emitDesktopNotification.mock.calls.map(([payload]) => payload)).toMatchObject([
-      { kind: 'review', sessionId: 'ses_reviewed', title: 'Ревʼю чекає твого рішення', body: 'Щодо деяких зауважень досі суперечка' },
-      { kind: 'review', title: 'Ревʼю не вдалося', body: 'The reviewer session is gone.' },
+      { kind: 'review', sessionId: 'ses_reviewed', title: 'Ревью ждёт твоего решения', body: 'По некоторым замечаниям всё ещё спор' },
+      { kind: 'review', title: 'Ревью не удалось', body: 'The reviewer session is gone.' },
     ]);
   });
 

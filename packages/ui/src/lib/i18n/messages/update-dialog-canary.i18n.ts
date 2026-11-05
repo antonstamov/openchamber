@@ -70,15 +70,15 @@ export const updateDialogCanaryI18n = {
     'updateDialog.changelog.showMore': 'Mostrar mais {count}',
     'updateDialog.changelog.showLess': 'Mostrar menos',
   },
-  uk: {
+  ru: {
     'updateDialog.canary.version': '{version} Canary · {date}',
     'updateDialog.canary.night': 'Canary · {date}',
     'updateDialog.canary.pair': 'Canary:',
     'updateDialog.canary.build': '{version} · {date}',
-    'updateDialog.changelog.changeCountSingle': '1 зміна',
-    'updateDialog.changelog.changeCountPlural': 'Змін: {count}',
-    'updateDialog.changelog.showMore': 'Ще {count}',
-    'updateDialog.changelog.showLess': 'Згорнути',
+    'updateDialog.changelog.changeCountSingle': '1 изменение',
+    'updateDialog.changelog.changeCountPlural': 'Изменений: {count}',
+    'updateDialog.changelog.showMore': 'Показать ещё {count}',
+    'updateDialog.changelog.showLess': 'Показать меньше',
   },
   ko: {
     'updateDialog.canary.version': '{version} Canary · {date}',

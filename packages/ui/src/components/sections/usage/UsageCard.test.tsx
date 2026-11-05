@@ -10,7 +10,7 @@ const { flushSync } = await import('react-dom');
 const { UsageCard } = await import('./UsageCard');
 const { I18nProvider, useI18nStore } = await import('@/lib/i18n');
 const { dict: enDict } = await import('@/lib/i18n/messages/en');
-const { dict: ukDict } = await import('@/lib/i18n/messages/uk');
+const { dict: ruDict } = await import('@/lib/i18n/messages/ru');
 
 const balanceWindow: UsageWindow = {
   usedPercent: null,
@@ -49,9 +49,9 @@ test('changes the credits-used message when locale changes with the same quota s
   const container = render(window);
   expect(container.textContent).toContain('3,233.3 Credits Used');
 
-  flushSync(() => useI18nStore.setState({ locale: 'uk', dictionary: ukDict }));
+  flushSync(() => useI18nStore.setState({ locale: 'ru', dictionary: ruDict }));
 
-  expect(container.textContent).toContain('Використано кредитів: 3,233.3');
+  expect(container.textContent).toContain('Использовано кредитов: 3,233.3');
   expect(container.textContent).not.toContain('Credits Used');
   expect(container.querySelector('[role="progressbar"]')).toBeNull();
   expect(window.creditsUsed).toBe(3233.27);
@@ -59,7 +59,7 @@ test('changes the credits-used message when locale changes with the same quota s
 
 test('cached Zen values update when the locale changes without another quota request', async () => {
   const originalLocale = useI18nStore.getState();
-  const { dict: ukDictionary } = await import('@/lib/i18n/messages/uk');
+  const { dict: ruDictionary } = await import('@/lib/i18n/messages/ru');
   const count = render({ ...balanceWindow, valueLabel: undefined, value: { kind: 'requests', count: 292 } });
   const spend = render({ ...balanceWindow, valueLabel: undefined, value: { kind: 'spend', spent: 2, limit: null } });
   const capped = render({ ...percentWindow, value: { kind: 'spend', spent: 2, limit: 10 } });
@@ -67,10 +67,10 @@ test('cached Zen values update when the locale changes without another quota req
   expect(spend.textContent).toContain('$2.00 spent');
   expect(capped.textContent).toContain('$2.00 of $10.00');
 
-  flushSync(() => useI18nStore.setState({ locale: 'uk', dictionary: ukDictionary }));
-  expect(count.textContent).toContain('Запити: 292');
-  expect(spend.textContent).toContain('Витрачено');
-  expect(capped.textContent).toContain(' з ');
+  flushSync(() => useI18nStore.setState({ locale: 'ru', dictionary: ruDictionary }));
+  expect(count.textContent).toContain('Запросы: 292');
+  expect(spend.textContent).toContain('Потрачено');
+  expect(capped.textContent).toContain(' из ');
   flushSync(() => useI18nStore.setState(originalLocale));
 });
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { compactionSettingsI18n } from './compaction-settings.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 // "{count} tokens" is the word those languages use too.
 const SHARED_WITH_ENGLISH = new Set(['settings.openchamber.defaults.compaction.tokens']);
 

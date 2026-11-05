@@ -21,7 +21,7 @@ test('formatCanaryBuildDate names the day in the locale, unmoved by the time zon
   const builtOn = new Date(Date.UTC(2026, 9, 30));
   expect(formatCanaryBuildDate(builtOn, 'en-US')).toBe('Oct 30');
   expect(formatCanaryBuildDate(builtOn, 'en-GB')).toBe('30 Oct');
-  expect(formatCanaryBuildDate(builtOn, 'uk')).toBe('30 жовт.');
+  expect(formatCanaryBuildDate(builtOn, 'ru')).toBe('30 окт.');
 });
 
 test('formatCanaryBuild adds the build number only beside another build of the same day', () => {

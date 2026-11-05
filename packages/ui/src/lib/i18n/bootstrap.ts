@@ -114,23 +114,23 @@ const ZH_TW_MESSAGES: BootstrapMessages = {
   loadingData: (providersText, agentsText) => `正在載入資料 (${providersText}, ${agentsText})…`,
 };
 
-const UK_MESSAGES: BootstrapMessages = {
+const RU_MESSAGES: BootstrapMessages = {
   startingApi: 'Запуск OpenCode API…',
-  initializing: 'Ініціалізація…',
-  connecting: 'Підключення…',
-  connected: 'Підключено!',
-  connectionError: 'Помилка підключення',
-  disconnected: 'Відключено',
-  reconnecting: 'Повторне підключення…',
-  initialDataLoadFailed: 'OpenCode підключено, але початкове завантаження даних не вдалося.',
-  cliNotFound: 'OpenCode CLI не знайдено. Спершу встановіть його.',
-  providersReady: '✓ Провайдери',
-  providersLoading: '… Провайдери',
-  agentsReady: '✓ Агенти',
-  agentsLoading: '… Агенти',
+  initializing: 'Инициализация…',
+  connecting: 'Подключение…',
+  connected: 'Подключено!',
+  connectionError: 'Ошибка подключения',
+  disconnected: 'Отключено',
+  reconnecting: 'Переподключение…',
+  initialDataLoadFailed: 'OpenCode подключён, но загрузить начальные данные не удалось.',
+  cliNotFound: 'OpenCode CLI не найден. Сначала установите его.',
+  providersReady: '✓ Провайдеры',
+  providersLoading: '… Провайдеры',
+  agentsReady: '✓ Агенты',
+  agentsLoading: '… Агенты',
   startingDevServer: (hostLabel) => `Запуск dev-сервера webview (${hostLabel})...`,
-  waitingDevServer: (hostLabel, attempt) => `Очікування dev-сервера webview (${hostLabel})... спроба ${attempt}`,
-  loadingData: (providersText, agentsText) => `Завантаження даних (${providersText}, ${agentsText})…`,
+  waitingDevServer: (hostLabel, attempt) => `Ожидание dev-сервера webview (${hostLabel})... попытка ${attempt}`,
+  loadingData: (providersText, agentsText) => `Загрузка данных (${providersText}, ${agentsText})…`,
 };
 
 const ES_MESSAGES: BootstrapMessages = {
@@ -315,7 +315,7 @@ const BOOTSTRAP_MESSAGES: Record<Locale, BootstrapMessages> = {
   nl: NL_MESSAGES,
   'zh-CN': ZH_CN_MESSAGES,
   'zh-TW': ZH_TW_MESSAGES,
-  uk: UK_MESSAGES,
+  ru: RU_MESSAGES,
   es: ES_MESSAGES,
   'pt-BR': PT_BR_MESSAGES,
   ko: KO_MESSAGES,

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { referencePickerI18n } from './reference-picker.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr'] as const;
 
 // Words these languages use as is, so the translation is the English word.
 const sameAsEnglish = {
@@ -11,7 +11,7 @@ const sameAsEnglish = {
   nl: ['references.picker.tab.mergeRequests', 'references.picker.tab.issues', 'references.picker.tab.pulls', 'references.picker.filter.open', 'references.picker.state.open', 'references.picker.preview.team', 'references.picker.preview.branch', 'references.picker.preview.checks', 'references.picker.preview.review', 'references.picker.preview.labels', 'references.picker.preview.reviewers', 'references.picker.preview.commitsSingle', 'references.picker.preview.commitsPlural', 'references.picker.filter.label', 'references.picker.filter.group.status', 'references.picker.filter.tracker.state.open', 'references.picker.filter.tracker.state.backlog', 'references.picker.filter.tracker.state.triage'],
   es: ['references.picker.tab.mergeRequests', 'references.picker.tab.issues', 'references.picker.tab.pulls', 'references.picker.preview.commitsSingle', 'references.picker.preview.commitsPlural'],
   'pt-BR': ['references.picker.tab.mergeRequests', 'references.picker.tab.issues', 'references.picker.tab.pulls', 'references.picker.preview.branch', 'references.picker.preview.commitsSingle', 'references.picker.preview.commitsPlural', 'references.picker.filter.group.status'],
-  uk: ['references.picker.tab.mergeRequests', 'references.picker.tab.issues', 'references.picker.tab.pulls'],
+  ru: ['references.picker.tab.mergeRequests', 'references.picker.tab.pulls'],
   pl: ['references.picker.tab.issues', 'references.picker.preview.review', 'references.picker.preview.commitsSingle', 'references.picker.filter.group.status'],
   tr: ['references.picker.preview.commitsSingle'],
 } satisfies Partial<Record<(typeof locales)[number], readonly string[]>>;

@@ -96,13 +96,13 @@ export const documentToolbarI18n = {
     'documentToolbar.wrapLines': 'Satırları kaydır',
     'documentToolbar.autoSave': 'Otomatik kaydet',
   },
-  uk: {
-    'documentToolbar.moreActions': 'Більше дій',
-    'documentToolbar.preview': 'Попередній перегляд',
-    'documentToolbar.tableView': 'Табличний вигляд',
-    'documentToolbar.treeView': 'Вигляд дерева',
-    'documentToolbar.wrapLines': 'Переносити рядки',
-    'documentToolbar.autoSave': 'Автозбереження',
+  ru: {
+    'documentToolbar.moreActions': 'Другие действия',
+    'documentToolbar.preview': 'Предпросмотр',
+    'documentToolbar.tableView': 'Таблица',
+    'documentToolbar.treeView': 'Дерево',
+    'documentToolbar.wrapLines': 'Переносить строки',
+    'documentToolbar.autoSave': 'Автосохранение',
   },
   'zh-CN': {
     'documentToolbar.moreActions': '更多操作',

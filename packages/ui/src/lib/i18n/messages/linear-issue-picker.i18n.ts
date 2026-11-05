@@ -49,12 +49,12 @@ export const linearIssuePickerI18n = {
     'chat.workStatus.linkedIssues.openTrackerItem': 'Abrir {identifier} no {provider}',
     'session.newWorktree.actions.startFromTrackerItem': 'Começar a partir de uma issue do {provider}',
   },
-  uk: {
-    'chat.chatInput.actions.linkTrackerItem': 'Прив’язати {provider} issue',
-    'chat.chatInput.linked.trackerItem.openInBrowserAria': 'Відкрити issue в {provider}',
-    'chat.chatInput.linked.trackerItem.removeAria': 'Прибрати прив’язаний {provider} issue',
-    'chat.workStatus.linkedIssues.openTrackerItem': 'Відкрити {identifier} у {provider}',
-    'session.newWorktree.actions.startFromTrackerItem': 'Почати з {provider} issue',
+  ru: {
+    'chat.chatInput.actions.linkTrackerItem': 'Связать с issue {provider}',
+    'chat.chatInput.linked.trackerItem.openInBrowserAria': 'Открыть issue в {provider}',
+    'chat.chatInput.linked.trackerItem.removeAria': 'Отвязать issue {provider}',
+    'chat.workStatus.linkedIssues.openTrackerItem': 'Открыть {identifier} в {provider}',
+    'session.newWorktree.actions.startFromTrackerItem': 'Issue {provider}',
   },
   ko: {
     'chat.chatInput.actions.linkTrackerItem': '{provider} 이슈 연결',

@@ -23,21 +23,21 @@ test('lists at most ten unread titles and routes session and mark-all actions', 
 });
 
 test('localizes native actions and untitled fallback', () => {
-  const menu = buildDockMenuTemplate({ dockUnreadSessions: [{ id: 's', title: '', directory: '' }] }, { locale: 'uk', onAction() {} });
-  assert.equal(menu[0].label, 'Сесія без назви');
-  assert.equal(menu[2].label, 'Позначити все прочитаним');
+  const menu = buildDockMenuTemplate({ dockUnreadSessions: [{ id: 's', title: '', directory: '' }] }, { locale: 'ru', onAction() {} });
+  assert.equal(menu[0].label, 'Сессия без названия');
+  assert.equal(menu[2].label, 'Отметить все как прочитанные');
 });
 
 test('jump list shares the cap and order and launches the existing session deep-link route', () => {
   const sessions = Array.from({ length: 15 }, (_, index) => ({ id: `ses_${index}`, title: `Session ${index}`, directory: '/project' }));
-  const list = buildUnreadJumpList({ dockUnreadSessions: sessions }, { execPath: 'C:\\Program Files\\OpenChamber.exe', locale: 'uk' });
-  assert.equal(list[0].name, 'Непрочитані');
+  const list = buildUnreadJumpList({ dockUnreadSessions: sessions }, { execPath: 'C:\\Program Files\\OpenChamber.exe', locale: 'ru' });
+  assert.equal(list[0].name, 'Непрочитанные');
   assert.equal(list[0].items.length, 10);
   assert.equal(list[0].items[0].program, 'C:\\Program Files\\OpenChamber.exe');
   assert.equal(list[0].items[0].args, '"openchamber://session/ses_0?source=jump-list"');
   assert.equal(list[0].items[9].title, 'Session 9');
   assert.equal(list[1].items[0].args, '--mark-all-read');
-  assert.equal(list[1].items[0].title, 'Позначити все прочитаним');
+  assert.equal(list[1].items[0].title, 'Отметить все как прочитанные');
   assert.equal(buildUnreadJumpList({}, { execPath: '/app' }), null);
 });
 

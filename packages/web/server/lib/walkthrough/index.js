@@ -333,7 +333,7 @@ export async function getWalkthrough({ directory, source: rawSource, model: expl
   // The pointer only knows which walkthrough was generated here last, which
   // after a model or language switch is the answer to a different question:
   // the panel would keep showing the English review while the picker said
-  // Ukrainian, even though the Ukrainian one was sitting in the cache. The key
+  // Russian, even though the Russian one was sitting in the cache. The key
   // is computed from the diff this read already parsed, so this costs a file
   // read and no git work at all.
   const requestedKey = model

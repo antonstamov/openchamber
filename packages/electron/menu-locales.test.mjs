@@ -31,7 +31,7 @@ test('normalizeMenuLocale keeps translated locales and defaults everything else 
   assert.equal(normalizeMenuLocale('zh-TW'), 'zh-TW');
   assert.equal(normalizeMenuLocale('en'), 'en');
   assert.equal(normalizeMenuLocale('de'), 'de');
-  assert.equal(normalizeMenuLocale('uk'), 'uk');
+  assert.equal(normalizeMenuLocale('ru'), 'ru');
   assert.equal(normalizeMenuLocale('pt-BR'), 'pt-BR');
   assert.equal(normalizeMenuLocale('xx'), 'en');
   assert.equal(normalizeMenuLocale(undefined), 'en');
@@ -79,6 +79,6 @@ test('createContextMenuLabels starts in English and applies locale dictionaries'
 test('roleMenuItem keeps Electron role labels in English and translates other locales', () => {
   assert.deepEqual(roleMenuItem('en', 'quit', 'quit'), { role: 'quit' });
   assert.deepEqual(roleMenuItem('xx', 'hide', 'hide'), { role: 'hide' });
-  assert.deepEqual(roleMenuItem('uk', 'quit', 'quit'), { role: 'quit', label: menuLabel('uk', 'quit') });
+  assert.deepEqual(roleMenuItem('ru', 'quit', 'quit'), { role: 'quit', label: menuLabel('ru', 'quit') });
   assert.deepEqual(roleMenuItem('zh-CN', 'quit', 'quit'), { role: 'quit', label: menuLabel('zh-CN', 'quit') });
 });

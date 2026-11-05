@@ -68,7 +68,7 @@ const readyPayload = {
       radius: '0.5625rem',
     },
   },
-  locale: 'uk',
+  locale: 'ru',
   directory: '/repo',
   session: { id: 'ses-1', title: 'Hello', busy: false },
   surface: 'panel',

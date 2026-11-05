@@ -429,16 +429,16 @@ describe('updateDesktopSettings', () => {
       saves.push(changes);
       return {};
     }, async () => ({
-      settings: { locale: 'uk', draftStartersCraftGoalAdded: true, draftStartersScheduleTaskAdded: true },
+      settings: { locale: 'ru', draftStartersCraftGoalAdded: true, draftStartersScheduleTaskAdded: true },
       source: 'web',
     }));
 
     try {
       await syncDesktopSettings();
 
-      expect(useI18nStore.getState().locale).toBe('uk');
+      expect(useI18nStore.getState().locale).toBe('ru');
       // The next launch paints in the restored language before the server answers.
-      expect(JSON.parse(localStorage.getItem(LOCALE_STORAGE_KEY) ?? '{}')).toEqual({ locale: 'uk' });
+      expect(JSON.parse(localStorage.getItem(LOCALE_STORAGE_KEY) ?? '{}')).toEqual({ locale: 'ru' });
       await delay(400);
       expect(saves).toEqual([]);
     } finally {

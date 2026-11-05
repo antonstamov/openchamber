@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { workflowsI18n } from './workflows.i18n';
 
-const locales = ['de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 // Words several languages use themselves: "Workflows", "Agents", "Script",
 // "Log", "Prompt", "Arguments", "Tokens", "JSON".
 const SAME_WORD_KEYS = new Set([

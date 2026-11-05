@@ -70,9 +70,9 @@ const isZipFile = (file: File): boolean => file.name.toLowerCase().endsWith('.zi
 
 // Website locales that have their own extensions page; the rest read the English one.
 const WEBSITE_LOCALE_PATHS = {
-  uk: 'uk', 'zh-CN': 'zh', 'zh-TW': 'zh', es: 'es', 'pt-BR': 'pt', ko: 'ko',
+  'zh-CN': 'zh', 'zh-TW': 'zh', es: 'es', 'pt-BR': 'pt', ko: 'ko',
   pl: 'pl', fr: 'fr', ja: 'ja', de: 'de', tr: 'tr', nl: 'nl',
-  en: null, ar: null, he: null,
+  en: null, ar: null, he: null, ru: null,
 } as const satisfies Record<Locale, string | null>;
 
 const communityExtensionsUrl = (locale: Locale): string => {

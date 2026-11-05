@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
 
-const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'uk', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
+const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 'zh-CN', 'zh-TW', 'tr', 'ar', 'he'] as const;
 // The product name and the date are the whole text of these two.
 const SAME_IN_EVERY_LOCALE = new Set(['updateDialog.canary.version', 'updateDialog.canary.night', 'updateDialog.canary.pair', 'updateDialog.canary.build']);
 

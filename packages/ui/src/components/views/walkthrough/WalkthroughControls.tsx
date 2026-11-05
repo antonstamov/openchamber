@@ -231,7 +231,7 @@ export const WalkthroughBanners = ({ review, view }: { review: WalkthroughReview
       {/* Switching the model or the language is a request for a walkthrough
           that may not exist yet. Falling back to the last one is better than an
           empty panel, but only if the panel says so — otherwise the picker
-          claims Ukrainian over English prose. */}
+          claims Russian over English prose. */}
       {(review.languageMissing || review.modelMissing) && (
         <div className="flex shrink-0 items-center gap-2 bg-[var(--status-info-background)] px-3 py-2">
           <Icon name="information" className="size-4 shrink-0 text-[var(--status-info)]" />
