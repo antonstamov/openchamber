@@ -118,7 +118,7 @@ describe('ready notification on v2 step events', () => {
     await runtime.notifyAutoReviewEnded({ sessionId: 'ses_reviewed', directory: '/repo', status: 'disputed' });
     await runtime.notifyAutoReviewEnded({ sessionId: 'ses_reviewed', directory: '/repo', status: 'failed', error: 'The reviewer session is gone.' });
     expect(emitDesktopNotification.mock.calls.map(([payload]) => payload)).toMatchObject([
-      { kind: 'review', sessionId: 'ses_reviewed', title: 'Ревью ждёт твоего решения', body: 'По некоторым замечаниям всё ещё спор' },
+      { kind: 'review', sessionId: 'ses_reviewed', title: 'Ревью ждёт вашего решения', body: 'По некоторым замечаниям всё ещё спор' },
       { kind: 'review', title: 'Ревью не удалось', body: 'The reviewer session is gone.' },
     ]);
   });

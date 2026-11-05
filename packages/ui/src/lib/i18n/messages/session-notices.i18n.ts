@@ -170,7 +170,7 @@ export const sessionNoticesI18n = {
     'chat.sessionNotice.pullRequest.title': 'Pull request #{number}',
     'chat.sessionNotice.mergeRequest.title': 'Merge request !{number}',
     'chat.sessionNotice.change.title': 'Изменение #{number}',
-    'chat.sessionNotice.pullRequest.merged': 'Влит',
+    'chat.sessionNotice.pullRequest.merged': 'Слит',
     'chat.sessionNotice.pullRequest.closed': 'Закрыт без слияния',
     'chat.sessionNotice.pullRequest.checksFailed': 'Проверка не прошла',
     'chat.sessionNotice.pullRequest.checksFailedNames': 'Проверки не прошли: {names}',

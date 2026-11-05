@@ -7,7 +7,7 @@ const titles = {
   es: { merged: 'Pull request fusionada', closed: 'Pull request cerrada', removed: 'La pull request ya no espera la fusión', 'checks-failed': 'Comprobaciones de la pull request fallidas' },
   ja: { merged: 'プルリクエストがマージされました', closed: 'プルリクエストがクローズされました', removed: 'プルリクエストのマージ待機が解除されました', 'checks-failed': 'プルリクエストのチェックが失敗しました' },
   'pt-BR': { merged: 'Pull request mesclada', closed: 'Pull request fechada', removed: 'A pull request não está mais aguardando merge', 'checks-failed': 'As verificações da pull request falharam' },
-  ru: { merged: 'Pull request влит', closed: 'Pull request закрыт', removed: 'Pull request больше не ждёт слияния', 'checks-failed': 'Проверки pull request не прошли' },
+  ru: { merged: 'Pull request слит', closed: 'Pull request закрыт', removed: 'Pull request больше не ждёт слияния', 'checks-failed': 'Проверки pull request не прошли' },
   ko: { merged: '풀 리퀘스트가 병합되었습니다', closed: '풀 리퀘스트가 닫혔습니다', removed: '풀 리퀘스트가 더 이상 병합을 기다리지 않습니다', 'checks-failed': '풀 리퀘스트 검사 실패' },
   pl: { merged: 'Pull request scalony', closed: 'Pull request zamknięty', removed: 'Pull request nie oczekuje już na scalenie', 'checks-failed': 'Kontrole pull requesta nie powiodły się' },
   'zh-CN': { merged: '拉取请求已合并', closed: '拉取请求已关闭', removed: '拉取请求不再等待合并', 'checks-failed': '拉取请求检查失败' },

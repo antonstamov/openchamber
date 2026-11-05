@@ -139,7 +139,7 @@ const ru = {
   buildModeTitle: 'Перейти в режим сборки',
   reviewCleanTitle: 'Ревью завершено',
   reviewCleanBody: 'Замечаний не осталось',
-  reviewDisputedTitle: 'Ревью ждёт твоего решения',
+  reviewDisputedTitle: 'Ревью ждёт вашего решения',
   reviewDisputedBody: 'По некоторым замечаниям всё ещё спор',
   reviewLimitTitle: 'Ревью остановлено после пяти кругов',
   reviewLimitBody: 'Замечания ещё открыты',
