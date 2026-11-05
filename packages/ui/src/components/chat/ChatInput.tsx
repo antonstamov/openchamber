@@ -64,6 +64,7 @@ import { QueuedMessagesStrip } from './QueuedMessagesStrip';
 import { AutoReviewStrip } from './AutoReviewStrip';
 import { PullRequestWatchStrip } from './PullRequestWatchStrip';
 import type { FileMentionHandle } from './FileMentionAutocomplete';
+import { resolveGuestMention, type GuestMention } from '@/lib/guests/mentions';
 import type { CommandAutocompleteHandle, CommandInfo } from './CommandAutocomplete';
 import type { SkillAutocompleteHandle } from './SkillAutocomplete';
 import type { SnippetAutocompleteHandle } from './SnippetAutocomplete';
@@ -116,7 +117,8 @@ import {
     sessionReferencesInText,
     type SessionReference,
 } from './composer/sessionReferences';
-import { findSessionLinks, sessionLinkKey, type SessionLinkTarget } from '@/lib/sessionLinks';
+import { PastedSessionIds, sessionLinkOverPastedId, type PastedSessionIdRange } from './composer/pastedSessionIds';
+import { bareSessionId, findSessionLinks, sessionLinkKey, type SessionLinkTarget } from '@/lib/sessionLinks';
 import { sessionMentionChip } from '@/lib/messages/sessionMentionChip';
 import { appOwnOrigins } from '@/lib/router/appOrigins';
 import type { Session } from '@/lib/opencode/model';
@@ -1070,6 +1072,22 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         }
         return true;
     }, [resolveSessionLinks, sessionLinkOrigins]);
+    const [pastedSessionIds] = React.useState(() => new PastedSessionIds());
+    // A pasted id becomes the link once its session is read. One this server
+    // does not have stays the text it is, with nothing to announce.
+    const linkPastedSessionId = useStableHandler(async (range: PastedSessionIdRange) => {
+        // This composer's own draft: focus moving to another column must not
+        // cancel the link, so the shared attachment slot stays out of it.
+        const scope = largeTextPasteScopeRef.current;
+        const reference = await loadSessionLinkReference({ sessionId: range.sessionId, messageId: null }).catch(() => null);
+        const followed = pastedSessionIds.settle(range);
+        const editor = composerRef.current;
+        if (!reference || !followed || !editor || scope !== largeTextPasteScopeRef.current) return;
+        const replacement = sessionLinkOverPastedId(editor.getValue(), range, editor.getSelection(), sessionLinkOrigins);
+        if (!replacement) return;
+        rememberSessionMentions([reference]);
+        editor.replaceRange(range.from, range.to, replacement.link, replacement.selection.start, replacement.selection.end);
+    });
     // What the text mentions, once each, in order.
     const sessionMentionsIn = React.useCallback((text: string): SessionReference[] => (
         isVSCodeRuntime() ? [] : sessionReferencesInText(text, sessionLinkOrigins, sessionMentionsRef.current).references
@@ -3187,6 +3205,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     }, []);
 
     const handleComposerChange = ({ value, selection, changes, fromPaste, insertedText, fromValueProp }: ComposerChange) => {
+        const pastedSessionId = pastedSessionIds.applyChange({ value, changes, fromPaste, fromValueProp });
+        if (pastedSessionId) void linkPastedSessionId(pastedSessionId);
         if (fromValueProp) {
             mentionCompletion.clear();
         } else {
@@ -3543,6 +3563,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 if (pastedText.includes('@')) {
                     markFileMentionPasteSuppression();
                 }
+                const sessionId = !isVSCodeRuntime() && inputMode === 'normal' ? bareSessionId(pastedText) : null;
+                if (sessionId) pastedSessionIds.expect(sessionId);
                 return;
             }
 
@@ -3676,7 +3698,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
         e.preventDefault();
         await attachFilesWithCitation([...imageFiles, ...otherFiles], pastedText);
-    }, [addAttachedFile, attachFilesWithCitation, currentSessionId, inputMode, largeTextPasteBehavior, largeTextPasteGesture, readLargeTextPasteSnapshot, markFileMentionPasteSuppression, message, mobileShell, newSessionDraftOpen, insertTextAtSelection, setMessage, t, updateAutocompleteState, resolveSessionLinks, sessionLinkOrigins]);
+    }, [addAttachedFile, attachFilesWithCitation, currentSessionId, inputMode, largeTextPasteBehavior, largeTextPasteGesture, readLargeTextPasteSnapshot, markFileMentionPasteSuppression, message, mobileShell, newSessionDraftOpen, insertTextAtSelection, setMessage, t, updateAutocompleteState, resolveSessionLinks, sessionLinkOrigins, pastedSessionIds]);
 
     // Android commits an image through the IME instead of the page (see nativeImagePaste).
     React.useEffect(() => {
@@ -3742,6 +3764,29 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         });
         closeAutocomplete();
         composerRef.current?.focus();
+    });
+
+    // The row's content is read now: a row that cannot be read leaves no chip
+    // to send with nothing behind it, and says so.
+    const handleExtensionMentionSelect = useStableHandler((mention: GuestMention) => {
+        const editor = composerRef.current;
+        if (editor) {
+            const value = editor.getValue();
+            const cursorPosition = editor.getSelection().start;
+            const lastAtSymbol = value.substring(0, cursorPosition).lastIndexOf('@');
+            if (lastAtSymbol !== -1) editor.replaceRange(lastAtSymbol, cursorPosition, '');
+        }
+        closeAutocomplete();
+        editor?.focus();
+        const pickedIn = JSON.stringify(currentChatDraftIdentityRef.current);
+        void resolveGuestMention(mention).then((item) => {
+            if (!item) {
+                toast.error(t('chat.composer.extensionMention.failed', { title: mention.title, extension: mention.label }));
+                return;
+            }
+            // This composer's own chip, and only while it still shows the draft it was picked in.
+            if (JSON.stringify(currentChatDraftIdentityRef.current) === pickedIn) handleGuestAttach(item);
+        });
     });
 
     const handleSkillSelect = useStableHandler((skillName: string) => {
@@ -4169,7 +4214,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // an empty surface.
         const installed = useGuestsStore.getState().guests.find((entry) => entry.id === issue.providerId);
         if (!installed || !isGuestActive(installed)) {
-            toast.info(t('chat.chatInput.toast.guestUnavailableHere'));
+            const supported = useGuestsStore.getState().status !== 'unsupported';
+            toast.info(t(!supported
+                ? 'chat.chatInput.toast.guestUnavailableHere'
+                : installed ? 'chat.chatInput.toast.guestOff' : 'chat.chatInput.toast.guestRemoved'));
             return;
         }
         if (!installed.entry) {
@@ -4980,6 +5028,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onAgentSelect={completeMentionSelection}
                         // VS Code shows no reference chips, so it cannot hold one.
                         onSessionSelect={isVSCode ? undefined : handleSessionSelect}
+                        onExtensionMentionSelect={isVSCode || isBtwActive ? undefined : handleExtensionMentionSelect}
                         currentSessionId={currentSessionId}
                         onEmojiSelect={handleEmojiSelect}
                         onClose={closeAutocomplete}

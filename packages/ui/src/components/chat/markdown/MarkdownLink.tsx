@@ -4,6 +4,9 @@ import { Icon } from '@/components/icon/Icon';
 import { Button } from '@/components/ui/button';
 import { getExternalFaviconUrl, isAppLinkUrl, isExternalHttpUrl, isLoopbackHttpUrl } from '@/lib/url';
 import { parseSessionLink } from '@/lib/sessionLinks';
+import { parseExtensionInstallLink } from '@/lib/guests/install-link';
+import { isMobileSurfaceRuntime } from '@/lib/runtimeSurface';
+import { requestGuestInstall } from '@/lib/guests/install-request';
 import { openSessionLink } from '@/lib/router/openSessionFromRoute';
 import { isDesktopShell, isVSCodeRuntime } from '@/lib/desktop';
 import { getRuntimeKey } from '@/lib/runtime-switch';
@@ -12,6 +15,7 @@ import { sessionLinkKey } from '@/lib/sessionLinks';
 import { SessionMentionChipsContext } from '../message/parts/sessionMentionChips';
 import { SessionMentionChipButton } from '../message/parts/SessionMentionChipButton';
 import { useUIStore } from '@/stores/useUIStore';
+import { HoverTooltip } from '@/components/ui/row-tooltip';
 import { useI18n } from '@/lib/i18n';
 import { parseAgentHref, parseAttachmentHref, parseSkillHref, INLINE_REFERENCE_CHIP_CLASS, INTERACTIVE_REFERENCE_CHIP_CLASS, REFERENCE_CHIP_LABEL_CLASS, buildAgentMentionUrl } from '@/lib/messages/inlineMessageLinks';
 import { openAppLinkWithConfirmation } from '../appLinkConfirmation';
@@ -137,6 +141,7 @@ function ScreenMarkdownHref({ href, children: originalChildren, node, ...props }
   // VS Code keeps session links inert: its sessions live on its own OpenCode,
   // so a link to a web session opens in the browser like any other.
   const session = isVSCodeRuntime() ? null : parseSessionLink(href, appOwnOrigins());
+  const extensionInstall = isVSCodeRuntime() ? null : parseExtensionInstallLink(href);
   // A session or message the user's message mentioned draws as its chip.
   const mentionChips = React.useContext(SessionMentionChipsContext);
   const mentionChip = session ? mentionChips.get(sessionLinkKey(session)) : undefined;
@@ -214,6 +219,24 @@ function ScreenMarkdownHref({ href, children: originalChildren, node, ...props }
       </span>
     );
   }
+  // A reply can offer the extension it built: a click is the go-ahead for a
+  // folder, and the approval dialog still decides what the package may do.
+  if (extensionInstall && isMobileSurfaceRuntime()) return <span>{children}</span>;
+  if (extensionInstall) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="my-1 align-middle"
+        onClick={() => requestGuestInstall({ source: extensionInstall.source, confirmed: extensionInstall.kind === 'path' })}
+      >
+        <Icon name="download" className="size-4" />
+        {children}
+      </Button>
+    );
+  }
+
   if (session && mentionChip) {
     return <SessionMentionChipButton chip={mentionChip} target={session} />;
   }
@@ -251,17 +274,18 @@ function ScreenMarkdownHref({ href, children: originalChildren, node, ...props }
         {skill ? <span className={REFERENCE_CHIP_LABEL_CLASS}>{skill}</span> : children}
       </a>
       {showPreview && (
-        <Button
-          variant="ghost"
-          size="xs"
-          className="ms-1 align-middle"
-          data-export-ignore
-          title={t('terminalView.preview.openTitle')}
-          aria-label={t('terminalView.preview.open')}
-          onClick={() => useUIStore.getState().openContextPreview(directory, href)}
-        >
-          <Icon name="global" className="size-3.5" />
-        </Button>
+        <HoverTooltip label={t('terminalView.preview.openTitle')}>
+          <Button
+            variant="ghost"
+            size="xs"
+            className="ms-1 align-middle"
+            data-export-ignore
+            aria-label={t('terminalView.preview.open')}
+            onClick={() => useUIStore.getState().openContextPreview(directory, href)}
+          >
+            <Icon name="global" className="size-3.5" />
+          </Button>
+        </HoverTooltip>
       )}
     </>
   );

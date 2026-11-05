@@ -18,6 +18,7 @@ import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
 import { useSpaceProjectDirectory } from '@/lib/spaces/spaces-store';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { isVSCodeRuntime } from '@/lib/desktop';
+import { HoverTooltip } from '@/components/ui/row-tooltip';
 import { useI18n } from '@/lib/i18n';
 import { getTypeToCommentText } from '@/lib/typeToComment';
 import { useCommentImagePaste } from '@/components/comments/useCommentImagePaste';
@@ -28,6 +29,11 @@ import {
     useMobileCommentDraft,
 } from '../composer/comment/MobileCommentComposerContext';
 import { SelectionApprovalButton } from './SelectionApprovalButton';
+import { GUEST_ITEM_MESSAGE_TEXT_MAX } from '@openchamber/sdk';
+import { GuestIcon } from '@/components/layout/GuestRailIcon';
+import { useGuestActions } from '@/hooks/useGuestSurfaces';
+import { guestActionsWhere, type GuestActionEntry } from '@/lib/guests/actions';
+import { runGuestAction } from '@/lib/guests/run-action';
 import { rangeToMarkdown, trimSelectionValue, wrapMarkdownSelectionForChat } from './selectionMarkdown';
 import { resolveShadowSelectionRange } from './shadowSelection';
 import { registerActiveSelectionToolbar } from '@/lib/addSelectionToChat';
@@ -102,6 +108,7 @@ const ownsSelection = (container: HTMLElement, range: Range): boolean => {
 };
 
 const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef, readingKey, canReadAloud, frameSelections = false }) => {
+  const guestActions = useGuestActions();
   const { t } = useI18n();
   const { isPlaying: isReading, play: playReading, stop: stopReading } = useMessageTTS(readingKey);
   const [position, setPosition] = React.useState<MenuPosition>({ x: 0, y: 0, placement: 'above', show: false });
@@ -808,6 +815,20 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
     )
     : null;
 
+  const selectionActions = currentSessionId && selectedMessageId ? guestActionsWhere(guestActions, 'selection') : [];
+  const runSelectionAction = (entry: GuestActionEntry) => {
+    if (!currentSessionId || !selectedMessageId) return;
+    void runGuestAction(entry, {
+      kind: 'selection',
+      action: entry.action.id,
+      sessionId: currentSessionId,
+      directory: selectionDirectory || null,
+      messageId: selectedMessageId,
+      text: selectedTextMarkdown.slice(0, GUEST_ITEM_MESSAGE_TEXT_MAX),
+    }, t);
+    hideMenu();
+  };
+
   const approvalButton = currentSessionId && selectedMessageId
     ? <SelectionApprovalButton mobile={isMobile} getSelection={getApprovalSelection} onSuccess={finishApproval} />
     : null;
@@ -835,18 +856,19 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
         placeholder={t('chat.textSelection.comment.placeholder')}
         className="w-64 max-w-[70vw] py-1.5 text-sm leading-5 text-foreground"
       />
-      <button
-        type="button"
-        onClick={handleAttachComment}
-        className={cn(
-          'mb-0.5 flex shrink-0 items-center justify-center rounded-full bg-[var(--primary-base)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity duration-150',
-          'h-8 w-8'
-        )}
-        aria-label={t('chat.textSelection.comment.attach')}
-        title={t('chat.textSelection.comment.attach')}
-      >
-        <Icon name="attachment-2" className="h-4 w-4" />
-      </button>
+      <HoverTooltip label={t('chat.textSelection.comment.attach')}>
+        <button
+          type="button"
+          onClick={handleAttachComment}
+          className={cn(
+            'mb-0.5 flex shrink-0 items-center justify-center rounded-full bg-[var(--primary-base)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity duration-150',
+            'h-8 w-8'
+          )}
+          aria-label={t('chat.textSelection.comment.attach')}
+        >
+          <Icon name="attachment-2" className="h-4 w-4" />
+        </button>
+      </HoverTooltip>
     </div>
   );
 
@@ -975,6 +997,24 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
               </button>
             ) : null}
 
+            {selectionActions.map((entry) => (
+              <button
+                key={`${entry.guest.id}:${entry.action.id}`}
+                onClick={() => runSelectionAction(entry)}
+                className={cn(
+                  'flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-start',
+                  'text-sm font-medium leading-tight',
+                  'bg-foreground/[0.04] text-foreground',
+                  'active:opacity-80',
+                  'transition-opacity duration-150'
+                )}
+                type="button"
+              >
+                <GuestIcon icon={entry.icon} iconSrc={entry.iconSrc} className="h-5 w-5 flex-shrink-0" />
+                <span className="min-w-0 whitespace-normal">{entry.action.label}</span>
+              </button>
+            ))}
+
             {approvalButton}
           </div>
         </div>
@@ -1010,38 +1050,40 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
             isOpening ? 'opacity-0 translate-y-[4px]' : 'opacity-100 translate-y-0'
           )}
         >
-          <button
-            onClick={handleOpenComment}
-            className={cn(
-              'px-3.5 py-1.5 rounded-full',
-              'text-sm font-medium',
-              'text-foreground',
-              'hover:bg-[var(--interactive-hover)]',
-              'transition-colors duration-150'
-            )}
-            title={t('chat.textSelection.title.commentOnSelection')}
-            type="button"
-          >
-            {t('chat.textSelection.actions.comment')}
-          </button>
+          <HoverTooltip label={t('chat.textSelection.title.commentOnSelection')}>
+            <button
+              onClick={handleOpenComment}
+              className={cn(
+                'px-3.5 py-1.5 rounded-full',
+                'text-sm font-medium',
+                'text-foreground',
+                'hover:bg-[var(--interactive-hover)]',
+                'transition-colors duration-150'
+              )}
+              type="button"
+            >
+              {t('chat.textSelection.actions.comment')}
+            </button>
+          </HoverTooltip>
 
           {currentSessionId ? (
             <>
               <div className="mx-0.5 h-5 w-px shrink-0 bg-[var(--interactive-border)]" />
-              <button
-                onClick={handleAskOpenChamber}
-                className={cn(
-                  'px-3.5 py-1.5 rounded-full',
-                  'text-sm font-medium',
-                  'text-foreground',
-                  'hover:bg-[var(--interactive-hover)]',
-                  'transition-colors duration-150'
-                )}
-                title={t('chat.textSelection.title.askOpenChamber')}
-                type="button"
-              >
-                {t('chat.textSelection.actions.askOpenChamber')}
-              </button>
+              <HoverTooltip label={t('chat.textSelection.title.askOpenChamber')}>
+                <button
+                  onClick={handleAskOpenChamber}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-full',
+                    'text-sm font-medium',
+                    'text-foreground',
+                    'hover:bg-[var(--interactive-hover)]',
+                    'transition-colors duration-150'
+                  )}
+                  type="button"
+                >
+                  {t('chat.textSelection.actions.askOpenChamber')}
+                </button>
+              </HoverTooltip>
             </>
           ) : null}
 
@@ -1050,24 +1092,52 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
             <>
               <div className="mx-0.5 h-5 w-px shrink-0 bg-[var(--interactive-border)]" />
 
-              <button
-                onClick={handleAddToNotes}
-                disabled={isAddingToNotes}
-                className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full',
-                  'text-sm font-medium',
-                  'text-foreground',
-                  'hover:bg-[var(--interactive-hover)] disabled:opacity-60 disabled:cursor-not-allowed',
-                  'transition-colors duration-150'
-                )}
-                title={t('chat.textSelection.title.saveInsightToNotes')}
-                type="button"
-              >
-                {isAddingToNotes ? <Icon name="loader-4" className="h-4 w-4 animate-spin" /> : null}
-                <span className="whitespace-nowrap">{t('chat.textSelection.actions.addToNotes')}</span>
-              </button>
+              <HoverTooltip label={t('chat.textSelection.title.saveInsightToNotes')}>
+                <span className="inline-flex">
+                  <button
+                    onClick={handleAddToNotes}
+                    disabled={isAddingToNotes}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full',
+                      'text-sm font-medium',
+                      'text-foreground',
+                      'hover:bg-[var(--interactive-hover)] disabled:opacity-60 disabled:cursor-not-allowed',
+                      'transition-colors duration-150'
+                    )}
+                    type="button"
+                  >
+                    {isAddingToNotes ? <Icon name="loader-4" className="h-4 w-4 animate-spin" /> : null}
+                    <span className="whitespace-nowrap">{t('chat.textSelection.actions.addToNotes')}</span>
+                  </button>
+                </span>
+              </HoverTooltip>
             </>
           ) : null}
+
+          {selectionActions.length > 0 ? <div className="mx-0.5 h-5 w-px shrink-0 bg-[var(--interactive-border)]" /> : null}
+          {selectionActions.map((entry) => (
+            // Each action says how it shows; the label stays its tooltip when only the icon does.
+            <HoverTooltip key={`${entry.guest.id}:${entry.action.id}`} label={entry.action.label}>
+              <button
+                onClick={() => runSelectionAction(entry)}
+                aria-label={entry.action.label}
+                className={cn(
+                  'flex items-center rounded-full',
+                  entry.action.display === 'icon' ? 'h-8 w-8 justify-center' : 'gap-1.5 px-3.5 py-1.5',
+                  'text-sm font-medium',
+                  'text-foreground',
+                  'hover:bg-[var(--interactive-hover)]',
+                  'transition-colors duration-150'
+                )}
+                type="button"
+              >
+                {entry.action.display === 'icon' || entry.action.display === 'both'
+                  ? <GuestIcon icon={entry.icon} iconSrc={entry.iconSrc} className="h-4 w-4" />
+                  : null}
+                {entry.action.display === 'icon' ? null : <span className="whitespace-nowrap">{entry.action.label}</span>}
+              </button>
+            </HoverTooltip>
+          ))}
 
           {approvalButton ? (
             <>
@@ -1079,20 +1149,21 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
           {canReadAloud ? (
             <>
               <div className="mx-0.5 h-5 w-px shrink-0 bg-[var(--interactive-border)]" />
-              <button
-                onClick={handleReadAloud}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full',
-                  isReading ? 'text-[var(--primary-text)]' : 'text-foreground',
-                  'hover:bg-[var(--interactive-hover)]',
-                  'transition-colors duration-150'
-                )}
-                aria-label={readAloudLabel}
-                title={readAloudLabel}
-                type="button"
-              >
-                <Icon name="volume-up" className={cn('h-4 w-4', isReading && 'text-[var(--primary-text)]')} />
-              </button>
+              <HoverTooltip label={readAloudLabel}>
+                <button
+                  onClick={handleReadAloud}
+                  className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-full',
+                    isReading ? 'text-[var(--primary-text)]' : 'text-foreground',
+                    'hover:bg-[var(--interactive-hover)]',
+                    'transition-colors duration-150'
+                  )}
+                  aria-label={readAloudLabel}
+                  type="button"
+                >
+                  <Icon name="volume-up" className={cn('h-4 w-4', isReading && 'text-[var(--primary-text)]')} />
+                </button>
+              </HoverTooltip>
             </>
           ) : null}
         </div>

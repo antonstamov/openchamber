@@ -4,6 +4,10 @@ import { runtimeFetch } from '@/lib/runtime-fetch';
 
 import { toast } from '@/components/ui';
 import { copyTextToClipboard } from '@/lib/clipboard';
+import { GuestIcon } from '@/components/layout/GuestRailIcon';
+import { useGuestActions } from '@/hooks/useGuestSurfaces';
+import { guestActionsWhere, type GuestActionEntry } from '@/lib/guests/actions';
+import { runGuestAction } from '@/lib/guests/run-action';
 import { getDisambiguatingFolders } from '@/lib/path-utils';
 
 import {
@@ -29,6 +33,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { CodeMirrorEditor } from '@/components/ui/CodeMirrorEditor';
 import { GoToLineDialog } from './GoToLineDialog';
 import { FilePathLabel } from './files/FilePathLabel';
+import { DelegatedTooltip } from '@/components/ui/row-tooltip';
 import { DocumentSymbolsPanel } from './DocumentSymbolsPanel';
 import { GitignoredToggleButton } from '@/components/layout/GitignoredToggleButton';
 import { useZoneInteractive } from '@/components/layout/zoneInteractiveContext';
@@ -400,9 +405,11 @@ interface FileRowProps {
   onOpenDialog: (type: 'createFile' | 'createFolder' | 'rename' | 'delete', data: { path: string; name?: string; type?: 'file' | 'directory' }) => void;
   canUpload: boolean;
   onPickFiles: (directory: string) => void;
+  guestActions: GuestActionEntry[];
 }
 
 const FileRow: React.FC<FileRowProps> = ({
+  guestActions,
   node,
   root,
   isExpanded,
@@ -456,6 +463,8 @@ const FileRow: React.FC<FileRowProps> = ({
     setRightClickMenuPath(null);
     setContextMenuPath(node.path);
   }, [node.path, setContextMenuPath, setRightClickMenuPath]);
+
+  const fileActions = guestActionsWhere(guestActions, 'file');
 
   const renderMenuItems = ({
     Item,
@@ -522,6 +531,18 @@ const FileRow: React.FC<FileRowProps> = ({
           <Icon name="external-link" className="me-2 size-4" /> {t('sidebarFilesTree.menu.openInDefaultApp')}
         </Item>
       )}
+      {fileActions.length > 0 && <Separator />}
+      {fileActions.map((entry) => (
+        <Item
+          key={`${entry.guest.id}:${entry.action.id}`}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            void runGuestAction(entry, { kind: 'file', action: entry.action.id, directory: root || null, path: node.path, isDirectory: isDir }, t);
+          }}
+        >
+          <GuestIcon icon={entry.icon} iconSrc={entry.iconSrc} className="me-2 size-4" /> {entry.action.label}
+        </Item>
+      ))}
       {isDir && (canCreateFile || canCreateFolder || canUploadHere) && (
         <>
           <Separator />
@@ -603,11 +624,13 @@ const FileRow: React.FC<FileRowProps> = ({
                 size="icon"
                 className="size-6"
                 onClick={handleMenuButtonClick}
+                aria-label={t('diffView.actions.moreActions')}
+                data-row-tooltip={t('diffView.actions.moreActions')}
               >
                 <Icon name="more-2-fill" className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side={isMobile ? "bottom" : "bottom"} onCloseAutoFocus={() => setContextMenuPath(null)}>
+            <DropdownMenuContent align="end" side="bottom" onCloseAutoFocus={() => setContextMenuPath(null)}>
               {renderMenuItems({ Item: DropdownMenuItem, Separator: DropdownMenuSeparator })}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -764,6 +787,7 @@ const FilePositionEditor = ({
 
 export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = true, onCloseFile }) => {
   const { t } = useI18n();
+  const guestActions = useGuestActions();
   const { files, runtime, git } = useRuntimeAPIs();
   const { currentTheme, availableThemes, lightThemeId, darkThemeId } = useThemeSystem();
   const { isMobile, isTablet, screenWidth } = useDeviceInfo();
@@ -2640,6 +2664,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return (
         <li key={node.path}>
           <FileRow
+            guestActions={guestActions}
             node={node}
             root={root}
             isExpanded={isExpanded}
@@ -2676,10 +2701,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 >
                   <FileTreeIndentGuides depth={depth + 1} />
                   <span className="min-w-0 flex-1 truncate text-[var(--status-error)]" title={loadErrorsByDir[node.path]}>{loadErrorsByDir[node.path]}</span>
-                  <Button variant="ghost" size="xs" className="h-6 gap-1" onClick={() => void refreshDirectory(node.path)}>
-                    <Icon name="refresh" className="size-3.5" />
-                    {t('filesView.tree.actions.refreshTitle')}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="xs" className="h-6 gap-1" onClick={() => void refreshDirectory(node.path)}>
+                        <Icon name="refresh" className="size-3.5" />
+                        {t('filesView.tree.actions.refreshTitle')}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>{t('contextTooltips.files.retryFolder')}</TooltipContent>
+                  </Tooltip>
                 </li>
               ) : null}
               {renderTree(node.path, depth + 1)}
@@ -3782,22 +3812,27 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const pdfSrc = rawAsset.src;
 
   const downloadButton = selectedFile && files.downloadFile ? (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={() => {
-        const fn = files.downloadFile;
-        if (!fn || !selectedFile) return;
-        void fn(selectedFile.path, selectedFileReadOptions).catch((error) => {
-          console.error('Download failed:', error);
-          toast.error(t('sidebarFilesTree.toast.operationFailed'));
-        });
-      }}
-    >
-      <Icon name="download" className="me-2 size-4" />
-      {t('filesView.editor.saveFile')}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const fn = files.downloadFile;
+            if (!fn || !selectedFile) return;
+            void fn(selectedFile.path, selectedFileReadOptions).catch((error) => {
+              console.error('Download failed:', error);
+              toast.error(t('sidebarFilesTree.toast.operationFailed'));
+            });
+          }}
+        >
+          <Icon name="download" className="me-2 size-4" />
+          {t('filesView.editor.saveFile')}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent sideOffset={6}>{t('contextTooltips.files.downloadCopy')}</TooltipContent>
+    </Tooltip>
   ) : null;
 
   const fetchSelectedFile = React.useCallback(async (signal: AbortSignal): Promise<Response> => {
@@ -3832,19 +3867,24 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   }, [fetchSelectedFile]);
 
   const openInDefaultAppButton = selectedFile && isDesktopLocalOriginActive() ? (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={() => {
-        void openDesktopPath(selectedFile.path).then((opened) => {
-          if (!opened) toast.error(t('sidebarFilesTree.toast.operationFailed'));
-        });
-      }}
-    >
-      <Icon name="external-link" className="me-2 size-4" />
-      {t('sidebarFilesTree.menu.openInDefaultApp')}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void openDesktopPath(selectedFile.path).then((opened) => {
+              if (!opened) toast.error(t('sidebarFilesTree.toast.operationFailed'));
+            });
+          }}
+        >
+          <Icon name="external-link" className="me-2 size-4" />
+          {t('sidebarFilesTree.menu.openInDefaultApp')}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent sideOffset={6}>{t('contextTooltips.files.openOutside')}</TooltipContent>
+    </Tooltip>
   ) : null;
   const binaryFileActions = <>{downloadButton}{openInDefaultAppButton}</>;
 
@@ -3946,10 +3986,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       // The generic fallback adds nothing to the title; a server's reason does.
       description={fileError && fileError !== assetAuthErrorFallback ? fileError : undefined}
       actions={(
-        <Button type="button" variant="outline" size="sm" onClick={reloadSelectedFile}>
-          <Icon name="refresh" className="me-2 size-4" />
-          {t('filesView.artifact.state.retry')}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button type="button" variant="outline" size="sm" onClick={reloadSelectedFile}>
+              <Icon name="refresh" className="me-2 size-4" />
+              {t('filesView.artifact.state.retry')}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent sideOffset={6}>{t('contextTooltips.files.retryFile')}</TooltipContent>
+        </Tooltip>
       )}
     />
   );
@@ -4165,7 +4210,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
 
     const docked = layout === 'docked';
-    const saveShortcut = formatShortcutForDisplay(getEffectiveShortcutCombo('save_file'));
+    const saveShortcut = formatShortcutForDisplay(getEffectiveShortcutCombo('save_file', shortcutOverrides));
 
     // `announce` is for the "More actions" menu: the menu closes on select, so
     // the button's check-mark feedback would never be seen there.
@@ -4776,7 +4821,6 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                     return (
                       <div
                         key={file.path}
-                        title={getDisplayPath(root, file.path)}
                         className={cn(
                           'group inline-flex items-center gap-1 rounded-md border px-2 py-1 typography-ui-label transition-colors whitespace-nowrap',
                           isActive
@@ -4792,24 +4836,30 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                               void handleSelectFile(file);
                             }
                           }}
+                          title={getDisplayPath(root, file.path)}
                           className={cn(!folder && 'max-w-[12rem]', 'truncate text-start')}
                         >
                           <FileNameText name={file.name} folder={folder} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleCloseFile(file.path);
-                          }}
-                          className={cn(
-                            'rounded-sm p-0.5 text-[var(--surface-muted-foreground)] hover:text-[var(--surface-foreground)]',
-                            !isActive && !alwaysShowActions && 'opacity-0 group-hover:opacity-100'
-                          )}
-                          aria-label={t('filesView.editor.closeFileAria', { name: file.name })}
-                        >
-                          <Icon name="close" className="size-3.5" />
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleCloseFile(file.path);
+                              }}
+                              className={cn(
+                                'rounded-sm p-0.5 text-[var(--surface-muted-foreground)] hover:text-[var(--surface-foreground)]',
+                                !isActive && !alwaysShowActions && 'opacity-0 group-hover:opacity-100'
+                              )}
+                              aria-label={t('filesView.editor.closeFileAria', { name: file.name })}
+                            >
+                              <Icon name="close" className="size-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>{t('filesView.editor.closeFileAria', { name: file.name })}</TooltipContent>
+                        </Tooltip>
                       </div>
                     );
                   })}
@@ -4837,9 +4887,14 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
         <div className="flex flex-shrink-0 items-center gap-2 border-b border-edge-muted bg-[var(--surface-muted)] px-3 py-1.5 typography-ui text-muted-foreground">
           <Icon name="information" className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t('filesView.excalidraw.installHint')}</span>
-          <Button type="button" size="xs" variant="outline" onClick={openExcalidrawExtensionCard}>
-            {t('filesView.excalidraw.installAction')}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" size="xs" variant="outline" onClick={openExcalidrawExtensionCard}>
+                {t('filesView.excalidraw.installAction')}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>{t('contextTooltips.files.excalidrawSettings')}</TooltipContent>
+          </Tooltip>
         </div>
       ) : null}
       <div className="flex-1 min-h-0 min-w-0 relative">
@@ -4949,17 +5004,22 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               actions={(
                 // For this file only: leaving this message is not choosing code
                 // as the default, which would follow the user to a direct host.
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    htmlViewModeByPathRef.current[selectedFile.path] = 'edit';
-                    setHtmlViewMode('edit');
-                  }}
-                >
-                  {t('filesView.editor.htmlPreviewShowCode')}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        htmlViewModeByPathRef.current[selectedFile.path] = 'edit';
+                        setHtmlViewMode('edit');
+                      }}
+                    >
+                      {t('filesView.editor.htmlPreviewShowCode')}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>{t('contextTooltips.files.showCodeForFile')}</TooltipContent>
+                </Tooltip>
               )}
             />
           ) : selectedFile && isHtml && htmlViewMode === 'preview' ? (
@@ -5074,17 +5134,22 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               className="h-8 ps-8 pe-8 typography-meta"
             />
             {searchQuery.trim().length > 0 && (
-              <button
-                type="button"
-                aria-label={t('filesView.tree.search.clearAria')}
-                className="absolute inset-e-2 top-2 inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setSearchQuery('');
-                  searchInputRef.current?.focus();
-                }}
-              >
-                <Icon name="close" className="size-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={t('filesView.tree.search.clearAria')}
+                    className="absolute inset-e-2 top-2 inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSearchQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <Icon name="close" className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>{t('filesView.tree.search.clearAria')}</TooltipContent>
+              </Tooltip>
             )}
           </div>
           {/* Beside the 32px search field, so the row keeps one height. */}
@@ -5162,10 +5227,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           ) : rootLoadError ? (
             <li className="flex flex-col gap-2 px-2 py-1 typography-meta text-muted-foreground">
               <span className="text-[var(--status-error)]">{rootLoadError}</span>
-              <Button variant="outline" size="xs" className="w-fit gap-1.5" onClick={() => void refreshRoot()}>
-                <Icon name="refresh" className="size-3.5" />
-                {t('filesView.tree.actions.refreshTitle')}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="xs" className="w-fit gap-1.5" onClick={() => void refreshRoot()}>
+                    <Icon name="refresh" className="size-3.5" />
+                    {t('filesView.tree.actions.refreshTitle')}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>{t('contextTooltips.files.retryFileList')}</TooltipContent>
+              </Tooltip>
             </li>
           ) : hasTree ? (
             renderTree(root, 0)
@@ -5173,6 +5243,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             <li className="px-2 py-1 typography-meta text-muted-foreground">{t('filesView.state.loading')}</li>
           )}
         </ul>
+        <DelegatedTooltip containerRef={treeListRef} />
       </ScrollableOverlay>
     </section>
   ) : null;

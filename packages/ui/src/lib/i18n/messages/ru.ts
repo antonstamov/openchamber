@@ -49,6 +49,15 @@ import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
 import { workflowsI18n } from './workflows.i18n';
 import { sessionReferencesI18n } from './session-references.i18n';
 import { guestStatusViewI18n } from './guest-status-view.i18n';
+import { tooltipsDiffI18n } from './tooltips-diff.i18n';
+import { tooltipsFilesI18n } from './tooltips-files.i18n';
+import { tooltipsGitI18n } from './tooltips-git.i18n';
+import { tooltipsTrackerI18n } from './tooltips-tracker.i18n';
+import { tooltipsWalkthroughI18n } from './tooltips-walkthrough.i18n';
+import { tooltipsTerminalBrowserI18n } from './tooltips-terminal-browser.i18n';
+import { tooltipsWorkspaceI18n } from './tooltips-workspace.i18n';
+import { tooltipsPanelI18n } from './tooltips-panel.i18n';
+import { tooltipsChatI18n } from './tooltips-chat.i18n';
 
 export const dict = {
   'quota.family.zen': 'Модели Zen',
@@ -207,6 +216,15 @@ export const dict = {
   ...providersI18n.ru,
   ...mcpGridI18n.ru,
   ...pluginsGridI18n.ru,
+  ...tooltipsDiffI18n.ru,
+  ...tooltipsFilesI18n.ru,
+  ...tooltipsGitI18n.ru,
+  ...tooltipsTrackerI18n.ru,
+  ...tooltipsWalkthroughI18n.ru,
+  ...tooltipsTerminalBrowserI18n.ru,
+  ...tooltipsWorkspaceI18n.ru,
+  ...tooltipsPanelI18n.ru,
+  ...tooltipsChatI18n.ru,
   ...integrationsCatalogI18n['en'],
   ...diffFindI18n['en'],
   ...markdownGithubI18n['en'],
@@ -1700,7 +1718,6 @@ export const dict = {
   'sidebarFilesTree.actions.addMenuTitle': 'Новый файл, папка или загрузка',
   'sidebarFilesTree.actions.refreshTitle': 'Обновить',
   'sidebarFilesTree.actions.collapseAllTitle': 'Свернуть все папки',
-  'sidebarFilesTree.actions.fileMenuTitle': 'Меню «Файл»',
   'sidebarFilesTree.state.searching': 'Идёт поиск...',
   'sidebarFilesTree.state.loading': 'Загрузка...',
   'sidebarFilesTree.dialog.createFile.title': 'Создать файл',

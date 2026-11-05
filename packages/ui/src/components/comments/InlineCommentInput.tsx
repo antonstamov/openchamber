@@ -5,6 +5,7 @@ import { isPastedInput } from '@/components/inline-picker/useTextareaInlinePicke
 import { Icon } from '@/components/icon/Icon';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeviceInfo } from '@/lib/device';
 import { useI18n } from '@/lib/i18n';
 import { isIMECompositionEvent } from '@/lib/ime';
@@ -12,6 +13,11 @@ import { formatShortcutForDisplay } from '@/lib/shortcuts';
 import { useCommentImagePaste } from './useCommentImagePaste';
 import { useCommentFieldPicker } from './useCommentFieldPicker';
 import { useCommentEnterSubmit } from './useCommentEnterSubmit';
+import { resolveEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
+import { GuestIcon } from '@/components/layout/GuestRailIcon';
+import { useGuestActions } from '@/hooks/useGuestSurfaces';
+import { guestActionsWhere } from '@/lib/guests/actions';
+import { runGuestAction } from '@/lib/guests/run-action';
 
 export interface InlineCommentInputProps {
   initialText?: string;
@@ -93,6 +99,7 @@ export function InlineCommentInput({
 }: InlineCommentInputProps) {
   const { t } = useI18n();
   const { isMobile } = useDeviceInfo();
+  const lineActions = guestActionsWhere(useGuestActions(), 'diff');
   const [text, setText] = React.useState(initialText);
   const [addingToReview, setAddingToReview] = React.useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -282,31 +289,65 @@ export function InlineCommentInput({
           style={{ minHeight: 0 }}
         />
         {floating ? (
-          <button
-            type="button"
-            onClick={handleSaveClick}
-            onPointerDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            disabled={!text.trim()}
-            className={cn(
-              'mb-0.5 flex shrink-0 items-center justify-center rounded-full bg-[var(--primary-base)] text-[var(--primary-foreground)] transition-opacity duration-150 hover:opacity-90 disabled:opacity-40',
-              isMobile ? 'h-9 w-9' : 'h-8 w-8'
-            )}
-            aria-label={t('inlineComment.actions.comment')}
-            title={t('inlineComment.actions.comment')}
-          >
-            <Icon name="attachment-2" className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleSaveClick}
+                onPointerDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                disabled={!text.trim()}
+                className={cn(
+                  'mb-0.5 flex shrink-0 items-center justify-center rounded-full bg-[var(--primary-base)] text-[var(--primary-foreground)] transition-opacity duration-150 hover:opacity-90 disabled:opacity-40',
+                  isMobile ? 'h-9 w-9' : 'h-8 w-8'
+                )}
+                aria-label={t('inlineComment.actions.comment')}
+              >
+                <Icon name="attachment-2" className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>{t('inlineComment.actions.comment')}</TooltipContent>
+          </Tooltip>
         ) : (
           <div className="flex min-w-0 items-center gap-1.5 pb-1.5 pe-1.5 ps-3">
             <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground">
               {fileLabel ? <span className="min-w-0 truncate font-medium text-foreground" title={fileLabel}>{baseName(fileLabel)}</span> : null}
               {rangeLabel ? <span className="shrink-0 whitespace-nowrap">{rangeLabel}</span> : null}
             </span>
+            {fileLabel && lineRange ? lineActions.map((entry) => (
+              <Tooltip key={`${entry.guest.id}:${entry.action.id}`}>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground"
+                    aria-label={entry.action.label}
+                    onClick={() => void runGuestAction(entry, {
+                      kind: 'diff',
+                      action: entry.action.id,
+                      directory: resolveEffectiveDirectory() || null,
+                      path: fileLabel,
+                      startLine: lineRange.start,
+                      endLine: lineRange.end,
+                      ...(lineRange.side ? { side: lineRange.side } : {}),
+                    }, t)}
+                  >
+                    <GuestIcon icon={entry.icon} iconSrc={entry.iconSrc} className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={6}>{entry.action.label}</TooltipContent>
+              </Tooltip>
+            )) : null}
             {suggestionCode ? (
-              <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 text-muted-foreground" onClick={insertSuggestion} aria-label={t('review.action.suggest')} title={t('review.action.suggest')}>
-                <Icon name="code-box" className="size-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 text-muted-foreground" onClick={insertSuggestion} aria-label={t('review.action.suggest')}>
+                    <Icon name="code-box" className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={6}>{t('review.action.suggest')}</TooltipContent>
+              </Tooltip>
             ) : null}
             {review ? (
               <Button type="button" variant="outline" size="xs" className="shrink-0" onClick={() => void addToReview()} disabled={!text.trim() || addingToReview}>
