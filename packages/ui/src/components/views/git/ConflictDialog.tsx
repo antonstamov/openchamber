@@ -178,7 +178,7 @@ export const ConflictDialog: React.FC<ConflictDialogProps> = ({
     onNavigatedToChat?.();
   };
 
-  const operationLabel = operation === 'merge' ? t('gitView.operation.merge') : t('gitView.operation.rebase');
+  const operationLabel = operation === 'merge' ? t('gitView.operation.mergeNoun') : t('gitView.operation.rebaseNoun');
   const displayFiles = conflictDetails?.unmergedFiles || conflictFiles;
 
   return (

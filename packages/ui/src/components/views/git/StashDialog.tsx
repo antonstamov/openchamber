@@ -33,6 +33,7 @@ export const StashDialog: React.FC<StashDialogProps> = ({
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   const operationLabel = operation === 'merge' ? t('gitView.operation.merge') : t('gitView.operation.rebase');
+  const operationNoun = operation === 'merge' ? t('gitView.operation.mergeNoun') : t('gitView.operation.rebaseNoun');
 
   const handleConfirm = async () => {
     setIsProcessing(true);
@@ -63,7 +64,7 @@ export const StashDialog: React.FC<StashDialogProps> = ({
             <DialogTitle>{t('gitView.stash.title')}</DialogTitle>
           </div>
           <DialogDescription>
-            {t('gitView.stash.description', { operation })}
+            {t('gitView.stash.description', { operation: operationNoun })}
           </DialogDescription>
         </DialogHeader>
 
@@ -93,7 +94,7 @@ export const StashDialog: React.FC<StashDialogProps> = ({
             className="typography-ui-label text-foreground cursor-pointer select-none"
             onClick={() => !isProcessing && setRestoreAfter(!restoreAfter)}
           >
-            {t('gitView.stash.restoreAfterOperation', { operation })}
+            {t('gitView.stash.restoreAfterOperation', { operation: operationNoun })}
           </span>
         </div>
 

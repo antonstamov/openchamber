@@ -57,7 +57,7 @@ export const InProgressOperationBanner: React.FC<InProgressOperationBannerProps>
   const isProcessing = processingAction !== null;
   const hasUnresolvedConflicts = conflictCount > 0;
 
-  const operationLabel = operation === 'merge' ? t('gitView.operation.merge') : t('gitView.operation.rebase');
+  const operationLabel = operation === 'merge' ? t('gitView.operation.mergeNoun') : t('gitView.operation.rebaseNoun');
 
   // Build description
   let description = '';
@@ -75,7 +75,9 @@ export const InProgressOperationBanner: React.FC<InProgressOperationBannerProps>
     ? t('gitView.operation.inProgressTitle', { operation: operationLabel })
     : conflictCount === 1
       ? t('gitView.operation.inProgressTitleOneConflict', { operation: operationLabel, count: conflictCount })
-      : t('gitView.operation.inProgressTitleManyConflicts', { operation: operationLabel, count: conflictCount });
+      : conflictCount >= 2 && conflictCount <= 4
+        ? t('gitView.operation.inProgressTitleFewConflicts', { operation: operationLabel, count: conflictCount })
+        : t('gitView.operation.inProgressTitleManyConflicts', { operation: operationLabel, count: conflictCount });
 
   const hint = hasUnresolvedConflicts
     ? t('gitView.operation.resolveConflictsHint')
