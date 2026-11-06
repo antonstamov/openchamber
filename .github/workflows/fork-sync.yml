@@ -164,9 +164,10 @@ jobs:
           git diff --quiet && git diff --cached --quiet || { echo 'worktree is not clean' >&2; git status --short; exit 1; }
 
       - name: Push, tag a new version
-        # Quiet days and check-only dispatches never mint a release: the
-        # script no-ops when HEAD already carries the latest release tag.
-        if: steps.merge.outputs.status != 'up-to-date'
+        # The script no-ops on quiet days (HEAD already carries the latest
+        # release tag). Dispatch always reaches it so fork-only commits
+        # release even when upstream has nothing new.
+        if: steps.merge.outputs.status != 'up-to-date' || github.event_name == 'workflow_dispatch'
         id: tag
         run: |
           set -euo pipefail
