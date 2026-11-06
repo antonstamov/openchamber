@@ -436,7 +436,7 @@ describe('getUpdateCommand', () => {
     const sdk = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-sdk-1.10.0.tgz';
     const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, sdkDownloadUrl: sdk });
     const overlay = `node ${quoteArg(joinOverlayPath())} ${quoteArg(sdk)} ${quoteArg(joinNestedSdkDir())} ${quoteArg('1.10.0')}`;
-    expect(command).toBe(`npm install -g ${quoteArg(web)} && ${overlay}`);
+    expect(command).toBe(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)} && ${overlay}`);
     expect(command).not.toContain('@openchamber/web@');
   });
 
@@ -546,7 +546,7 @@ describe('executeUpdate', () => {
     });
     const result = executeUpdate('npm', { targetVersion: '1.24.1', downloadUrl: web, sdkDownloadUrl: sdk });
     expect(result.success).toBe(true);
-    expect(ran).toContain(`npm install -g ${quoteArg(web)}`);
+    expect(ran).toContain(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)}`);
     expect(ran).toContain('fork-sdk-overlay.js');
     expect(ran).toContain(sdk);
   });

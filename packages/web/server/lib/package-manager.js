@@ -692,22 +692,28 @@ function getPnpmAllowBuildFlags(pmCommand) {
  * check behind a fresh release (stale packument cache, pnpm minimumReleaseAge).
  */
 export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
-  // Fork: install the release tarballs instead of the npm version. The web
-  // tarball is installed globally, then the matching SDK build is overlaid
-  // over the nested published copy, which can lag the web sources.
+  // Fork: install the release tarballs instead of the npm version. The SDK
+  // tarball rides in the same install transaction as the web tarball so the
+  // package manager links the local SDK copy: the fork version routinely
+  // runs ahead of the SDK published to the npm registry, and installing the
+  // web tarball alone would fail resolving it. The matching SDK build is
+  // then overlaid over the nested published copy, which can lag the web
+  // sources even when the registry copy exists.
   if (options.downloadUrl) {
     const resolvedCommand = resolvePackageManagerCommand(pm);
     const pmCommand = quoteCommand(resolvedCommand);
     const quote = (value) => quoteArg(value);
     const allowBuild = pm === 'pnpm' ? getPnpmAllowBuildFlags(resolvedCommand) : '';
-    const installSpec = (spec) => pm === 'pnpm'
-      ? `${pmCommand} add -g${allowBuild} ${quote(spec)}`
+    const installSpec = (...specs) => pm === 'pnpm'
+      ? `${pmCommand} add -g${allowBuild} ${specs.map(quote).join(' ')}`
       : pm === 'yarn'
-        ? `${pmCommand} global add ${quote(spec)}`
+        ? `${pmCommand} global add ${specs.map(quote).join(' ')}`
         : pm === 'bun'
-          ? `${pmCommand} add -g ${quote(spec)}`
-          : `${pmCommand} install -g ${quote(spec)}`;
-    const installStep = installSpec(options.downloadUrl);
+          ? `${pmCommand} add -g ${specs.map(quote).join(' ')}`
+          : `${pmCommand} install -g ${specs.map(quote).join(' ')}`;
+    const installStep = options.sdkDownloadUrl
+      ? installSpec(options.sdkDownloadUrl, options.downloadUrl)
+      : installSpec(options.downloadUrl);
     if (!options.sdkDownloadUrl || !options.targetVersion) return installStep;
     // Paths are derived from the running copy: the update replaces the
     // install in place, so the global root does not move under us.
