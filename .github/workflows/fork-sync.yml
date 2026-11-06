@@ -9,8 +9,6 @@ name: Fork sync and release
 on:
   schedule:
     - cron: '23 3 * * *'
-    # TEMP canary: remove after the scheduler is proven to fire.
-    - cron: '34 4 * * *'
   workflow_dispatch:
     inputs:
       model:
