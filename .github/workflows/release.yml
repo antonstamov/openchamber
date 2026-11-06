@@ -58,27 +58,44 @@ jobs:
             echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build release notes from merged commits
+      - name: Build release notes from the upstream release and fork commits
         id: release_notes
         env:
           VERSION: ${{ steps.get_version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p artifacts
           DATE="$(date -u +%F)"
           prev="$(git tag --list 'v*' --sort=-v:refname | grep -v "^v$VERSION$" | head -1 || true)"
+          git fetch origin '+refs/heads/main-upstream:refs/remotes/origin/main-upstream' 2>/dev/null || true
+          upstream_body="$(gh release view "v$VERSION" --repo openchamber/openchamber --json body --jq '.body // empty' 2>/dev/null || true)"
+          fork_log=""
+          if git rev-parse --verify --quiet refs/remotes/origin/main-upstream >/dev/null; then
+            if [ -n "$prev" ]; then
+              fork_log="$(git log "$prev"..HEAD --no-merges --not refs/remotes/origin/main-upstream --format='- %s (%h)' | head -40 || true)"
+            else
+              fork_log="$(git log HEAD --no-merges --not refs/remotes/origin/main-upstream --format='- %s (%h)' | head -40 || true)"
+            fi
+          fi
           {
             echo "## [$VERSION] - $DATE"
             echo
-            if [ -n "$prev" ]; then
-              echo "### Changes since $prev"
-            else
-              echo "### Changes"
+            if [ -n "$upstream_body" ]; then
+              printf '%s\n' "$upstream_body"
             fi
-            if [ -n "$prev" ]; then
-              git log --format='- %s (%h)' "$prev"..HEAD --first-parent | head -80
-            else
-              git log --format='- %s (%h)' --first-parent | head -80
+            if [ -n "$fork_log" ]; then
+              echo
+              echo "### Fork"
+              echo "$fork_log"
+            elif [ -z "$upstream_body" ]; then
+              echo
+              echo "### Fork"
+              if [ -n "$prev" ]; then
+                git log --format='- %s (%h)' "$prev"..HEAD --first-parent | head -80
+              else
+                git log --format='- %s (%h)' --first-parent | head -80
+              fi
             fi
           } > artifacts/release-notes.md
           echo "name=OpenChamber v$VERSION (fork RU build)" >> "$GITHUB_OUTPUT"
