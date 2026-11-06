@@ -71,11 +71,22 @@ jobs:
           git fetch origin '+refs/heads/main-upstream:refs/remotes/origin/main-upstream' 2>/dev/null || true
           upstream_body="$(gh release view "v$VERSION" --repo openchamber/openchamber --json body --jq '.body // empty' 2>/dev/null || true)"
           fork_log=""
+          upstream_log=""
           if git rev-parse --verify --quiet refs/remotes/origin/main-upstream >/dev/null; then
             if [ -n "$prev" ]; then
               fork_log="$(git log "$prev"..HEAD --no-merges --not refs/remotes/origin/main-upstream --format='- %s (%h)' | head -40 || true)"
             else
               fork_log="$(git log HEAD --no-merges --not refs/remotes/origin/main-upstream --format='- %s (%h)' | head -40 || true)"
+            fi
+            # Fork releases carry their own patch version, which upstream has not
+            # released yet, so there is no upstream release body to copy. List the
+            # upstream commits this merge brought in instead of dropping them.
+            if [ -z "$upstream_body" ]; then
+              if [ -n "$prev" ]; then
+                upstream_log="$(git log refs/remotes/origin/main-upstream --not "$prev" --no-merges --format='- %s (%h)' | head -40 || true)"
+              else
+                upstream_log="$(git log refs/remotes/origin/main-upstream --no-merges --format='- %s (%h)' | head -40 || true)"
+              fi
             fi
           fi
           {
@@ -83,12 +94,16 @@ jobs:
             echo
             if [ -n "$upstream_body" ]; then
               printf '%s\n' "$upstream_body"
+            elif [ -n "$upstream_log" ]; then
+              echo "### Upstream"
+              echo
+              echo "$upstream_log"
             fi
             if [ -n "$fork_log" ]; then
               echo
               echo "### Fork"
               echo "$fork_log"
-            elif [ -z "$upstream_body" ]; then
+            elif [ -z "$upstream_body" ] && [ -z "$upstream_log" ]; then
               echo
               echo "### Fork"
               if [ -n "$prev" ]; then
