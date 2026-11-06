@@ -400,7 +400,7 @@ jobs:
             artifacts/arm64/latest-linux-arm64.yml "$VERSION" \
             "artifacts/arm64/OpenChamber-${VERSION}-linux-arm64.AppImage" \
             "artifacts/arm64/OpenChamber-${VERSION}-linux-arm64.deb" \
-            "artifacts/arm64/OpenChamber-${VERSION}-linux-arm64.rpm"
+            "artifacts/arm64/OpenChamber-${VERSION}-linux-aarch64.rpm"
 
       - name: Upload Linux packages and manifests to release
         if: ${{ github.event.inputs.dry_run != 'true' }}
