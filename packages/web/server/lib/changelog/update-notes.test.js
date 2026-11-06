@@ -120,12 +120,24 @@ describe('fetchUpdateNotes with a fork', () => {
     expect(await fetchUpdateNotes('2.6.1', '2.6.2', compare, { fetch, fork })).toBe('## [2.6.2] - 2026-11-06\n\nFork notes.');
   });
 
-  it('keeps upstream notes when they cover the range', async () => {
+  it('falls back to the upstream index when the fork has nothing in range', async () => {
     const fetch = async (url) => {
-      if (String(url).includes('api.github.com')) throw new Error('must not fetch the fork');
+      if (String(url).includes('api.github.com')) return { ok: true, json: async () => [] };
       return { ok: true, json: async () => index };
     };
     expect(await fetchUpdateNotes('1.2.2', '1.2.3', compare, { fetch, fork })).toMatch(/^## \[1\.2\.3\]/);
+  });
+
+  it('prefers fork bodies when both sources cover the range', async () => {
+    const seen = [];
+    const fetch = async (url) => {
+      seen.push(String(url));
+      if (String(url).includes('api.github.com')) return { ok: true, json: async () => releases };
+      return { ok: true, json: async () => index };
+    };
+    expect(await fetchUpdateNotes('1.2.2', '2.6.2', compare, { fetch, fork })).toContain('Fork notes.');
+    expect(seen.some((url) => url.includes('api.github.com'))).toBe(true);
+    expect(seen.some((url) => url.includes('raw.githubusercontent.com'))).toBe(false);
   });
 
   it('requires fork coordinates before touching the releases API', async () => {

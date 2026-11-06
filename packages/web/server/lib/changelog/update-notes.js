@@ -169,20 +169,20 @@ export async function fetchForkReleaseNotes(fromVersion, toVersion, compareVersi
 
 /** Fetch the notes and render them for one update; null on any failure. */
 export async function fetchUpdateNotes(fromVersion, toVersion, compareVersions, options = {}) {
-  const fetchImpl = options.fetch ?? fetch;
   const canary = CANARY_VERSION_PATTERN.test(String(toVersion ?? ''));
+  // Fork builds take updates from the fork's releases, so the fork bodies
+  // are the default and the upstream index only fills gaps they leave.
+  if (!canary && options.fork) {
+    const forkNotes = await fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
+    if (forkNotes) return forkNotes;
+  }
+  const fetchImpl = options.fetch ?? fetch;
   try {
     const response = await fetchImpl(canary ? CANARY_NOTES_URL : CHANGELOG_INDEX_URL, { signal: AbortSignal.timeout(options.timeoutMs ?? 10_000) });
-    if (response.ok) {
-      const render = canary ? renderCanaryNotes : renderUpdateNotes;
-      const notes = render(await response.json(), fromVersion, toVersion, compareVersions);
-      if (notes || canary || !options.fork) return notes;
-      return fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
-    }
-    if (!canary && options.fork) return fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
-    return null;
+    if (!response.ok) return null;
+    const render = canary ? renderCanaryNotes : renderUpdateNotes;
+    return render(await response.json(), fromVersion, toVersion, compareVersions);
   } catch {
-    if (!canary && options.fork) return fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
     return null;
   }
 }
