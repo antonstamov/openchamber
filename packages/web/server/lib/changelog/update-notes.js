@@ -119,16 +119,70 @@ export function renderCanaryNotes(nights, fromVersion, toVersion, compareVersion
   return renderBetween(nights, parseCanaryNight, fromVersion, toVersion, compareVersions);
 }
 
+// Fork: desktop builds take updates from the fork's releases, whose notes
+// the upstream changelog index does not carry. The fork release bodies
+// already use the dialog's `## [x.y.z] - date` sections, so they render
+// as-is: one body per release in (fromVersion, toVersion], newest first.
+// Drafts and pre-releases never count.
+const parseForkRelease = (entry) => {
+  if (entry === null || entry === undefined) return null;
+  const tag = text(entry.tag_name);
+  const version = tag?.startsWith('v') ? tag.slice(1) : tag;
+  if (!version || !VERSION_PATTERN.test(version)) return null;
+  const body = text(entry.body);
+  if (!body) return null;
+  return {
+    version,
+    body,
+    draft: entry.draft === true,
+    prerelease: entry.prerelease === true,
+  };
+};
+
+export function renderForkReleaseNotes(releases, fromVersion, toVersion, compareVersions) {
+  if (!Array.isArray(releases)) return null;
+  const relevant = releases
+    .map(parseForkRelease)
+    .filter((release) => release !== null && release.draft !== true && release.prerelease !== true)
+    .filter((release) => compareVersions(release.version, fromVersion) > 0 && compareVersions(release.version, toVersion) <= 0)
+    .sort((a, b) => compareVersions(b.version, a.version));
+  if (relevant.length === 0) return null;
+  return relevant.map((release) => release.body).join('\n\n');
+}
+
+export async function fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options = {}) {
+  const owner = text(options.fork?.owner);
+  const repo = text(options.fork?.repo);
+  if (!owner || !repo) return null;
+  const fetchImpl = options.fetch ?? fetch;
+  try {
+    const response = await fetchImpl(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=30`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'openchamber-update-check' },
+      signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
+    });
+    if (!response.ok) return null;
+    return renderForkReleaseNotes(await response.json(), fromVersion, toVersion, compareVersions);
+  } catch {
+    return null;
+  }
+}
+
 /** Fetch the notes and render them for one update; null on any failure. */
 export async function fetchUpdateNotes(fromVersion, toVersion, compareVersions, options = {}) {
   const fetchImpl = options.fetch ?? fetch;
   const canary = CANARY_VERSION_PATTERN.test(String(toVersion ?? ''));
   try {
     const response = await fetchImpl(canary ? CANARY_NOTES_URL : CHANGELOG_INDEX_URL, { signal: AbortSignal.timeout(options.timeoutMs ?? 10_000) });
-    if (!response.ok) return null;
-    const render = canary ? renderCanaryNotes : renderUpdateNotes;
-    return render(await response.json(), fromVersion, toVersion, compareVersions);
+    if (response.ok) {
+      const render = canary ? renderCanaryNotes : renderUpdateNotes;
+      const notes = render(await response.json(), fromVersion, toVersion, compareVersions);
+      if (notes || canary || !options.fork) return notes;
+      return fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
+    }
+    if (!canary && options.fork) return fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
+    return null;
   } catch {
+    if (!canary && options.fork) return fetchForkReleaseNotes(fromVersion, toVersion, compareVersions, options);
     return null;
   }
 }

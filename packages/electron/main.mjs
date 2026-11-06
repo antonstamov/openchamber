@@ -3843,7 +3843,11 @@ const installDownloadedUpdate = () => new Promise((resolve, reject) => {
   });
 });
 
-const parseRelevantChangelogNotes = (fromVersion, toVersion) => fetchUpdateNotes(fromVersion, toVersion, compareVersions);
+const parseRelevantChangelogNotes = (fromVersion, toVersion) => fetchUpdateNotes(fromVersion, toVersion, compareVersions, {
+  // Fork: the updater feed is the fork's releases, whose notes the upstream
+  // changelog index does not carry; fall back to the fork release bodies.
+  fork: { owner: PRODUCTION_UPDATER_FEED.owner, repo: PRODUCTION_UPDATER_FEED.repo },
+});
 
 const buildInstalledAppsCachePath = () => path.join(path.dirname(settingsFilePath()), INSTALLED_APPS_CACHE_FILE);
 

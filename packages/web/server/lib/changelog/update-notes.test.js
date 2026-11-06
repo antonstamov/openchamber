@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchUpdateNotes, renderCanaryNotes, renderUpdateNotes } from './update-notes.js';
+import { fetchForkReleaseNotes, fetchUpdateNotes, renderCanaryNotes, renderForkReleaseNotes, renderUpdateNotes } from './update-notes.js';
 import { compareVersions } from '../version-order.js';
 
 const compare = (a, b) => {
@@ -75,6 +75,66 @@ describe('fetchUpdateNotes', () => {
   it('renders a successful response', async () => {
     const ok = async () => ({ ok: true, json: async () => index });
     expect(await fetchUpdateNotes('1.2.2', '1.2.3', compare, { fetch: ok })).toMatch(/^## \[1\.2\.3\] - 2026-03-03\n\n\*\*Comments everywhere\*\*/);
+  });
+});
+
+describe('renderForkReleaseNotes', () => {
+  const releases = [
+    { tag_name: 'v2.6.2', body: '## [2.6.2] - 2026-11-06\n\nNotes.', draft: false, prerelease: false },
+    { tag_name: 'v2.6.1', body: '## [2.6.1] - 2026-11-05\n\nOlder.', draft: false, prerelease: false },
+    { tag_name: 'v2.6.3', body: 'Draft body.', draft: true, prerelease: false },
+    { tag_name: 'canary', body: 'Nightly.', draft: false, prerelease: true },
+    { tag_name: 'nope', body: 'Junk.', draft: false, prerelease: false },
+  ];
+
+  it('renders fork release bodies in range, newest first, skipping drafts and pre-releases', () => {
+    expect(renderForkReleaseNotes(releases, '2.6.1', '2.6.2', compare)).toBe('## [2.6.2] - 2026-11-06\n\nNotes.');
+    expect(renderForkReleaseNotes(releases, '2.6.0', '2.6.2', compare)).toContain('## [2.6.1] - 2026-11-05');
+  });
+
+  it('returns null when nothing lies in the range or the payload is not a list', () => {
+    expect(renderForkReleaseNotes(releases, '2.6.2', '2.6.2', compare)).toBe(null);
+    expect(renderForkReleaseNotes({ releases: [] }, '1.0.0', '9.9.9', compare)).toBe(null);
+  });
+});
+
+describe('fetchUpdateNotes with a fork', () => {
+  const fork = { owner: 'antonstamov', repo: 'openchamber' };
+  const releases = [
+    { tag_name: 'v2.6.2', body: '## [2.6.2] - 2026-11-06\n\nFork notes.', draft: false, prerelease: false },
+  ];
+
+  it('falls back to fork release bodies when the upstream index has nothing in range', async () => {
+    const fetch = async (url) => {
+      if (String(url).includes('api.github.com')) return { ok: true, json: async () => releases };
+      return { ok: true, json: async () => [] };
+    };
+    expect(await fetchUpdateNotes('2.6.1', '2.6.2', compare, { fetch, fork })).toBe('## [2.6.2] - 2026-11-06\n\nFork notes.');
+  });
+
+  it('falls back to fork releases when the upstream index request fails', async () => {
+    const fetch = async (url) => {
+      if (String(url).includes('api.github.com')) return { ok: true, json: async () => releases };
+      throw new Error('offline');
+    };
+    expect(await fetchUpdateNotes('2.6.1', '2.6.2', compare, { fetch, fork })).toBe('## [2.6.2] - 2026-11-06\n\nFork notes.');
+  });
+
+  it('keeps upstream notes when they cover the range', async () => {
+    const fetch = async (url) => {
+      if (String(url).includes('api.github.com')) throw new Error('must not fetch the fork');
+      return { ok: true, json: async () => index };
+    };
+    expect(await fetchUpdateNotes('1.2.2', '1.2.3', compare, { fetch, fork })).toMatch(/^## \[1\.2\.3\]/);
+  });
+
+  it('requires fork coordinates before touching the releases API', async () => {
+    const fetch = async (url) => {
+      if (String(url).includes('api.github.com')) throw new Error('must not fetch without coordinates');
+      return { ok: true, json: async () => [] };
+    };
+    expect(await fetchUpdateNotes('2.6.1', '2.6.2', compare, { fetch })).toBe(null);
+    expect(await fetchForkReleaseNotes('2.6.1', '2.6.2', compare, { fetch, fork: {} })).toBe(null);
   });
 });
 
