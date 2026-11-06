@@ -1,0 +1,51 @@
+---
+title: Установка
+description: Установите OpenChamber на компьютер, в веб, VS Code или на телефон.
+---
+
+# Установка
+
+Выберите приложение под ваш способ работы:
+
+- десктопное приложение для macOS, Windows и Linux
+- веб-приложение, запускаемое через CLI, которое можно установить как приложение на телефон (PWA)
+- расширение VS Code, также для Cursor, Windsurf и Trae
+- мобильные приложения для iPhone и Android, в публичной бете
+
+## Десктоп
+
+Скачайте последнюю сборку со [страницы загрузки](https://openchamber.dev/download/) или из [GitHub Releases](https://github.com/openchamber/openchamber/releases/latest), затем откройте её. Сборки для Linux поставляются как `.deb`, `.rpm` и AppImage.
+
+Десктопное приложение содержит собственную копию [OpenCode](https://opencode.ai) (ИИ-агент для кодинга, на котором работает OpenChamber), поэтому больше ничего устанавливать не нужно.
+
+## Веб + PWA
+
+Веб-приложению нужны [OpenCode](https://opencode.ai) и Node.js 24.14 или новее на машине, где оно запускается.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/openchamber/openchamber/main/scripts/install.sh | bash
+openchamber --ui-password be-creative-here
+```
+
+Откройте URL, который выведет CLI (обычно `http://localhost:3000`). Вы должны увидеть список сессий OpenChamber. Чтобы держать его под рукой, используйте опцию «Установить» в адресной строке браузера, чтобы добавить его как приложение.
+
+## VS Code
+
+Установите OpenChamber из [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=fedaykindev.openchamber). В Cursor, Windsurf и Trae установите его из [Open VSX](https://open-vsx.org/extension/FedaykinDev/openchamber). Расширению нужен установленный [OpenCode](https://opencode.ai); после этого вид OpenChamber откроется в боковой панели.
+
+## Мобильная версия
+
+Установите приложение для iPhone через TestFlight или приложение для Android из последнего релиза, затем свяжите его с компьютером. Оба способа описаны в разделе [Мобильные приложения](/ru/mobile/).
+
+## Nix
+
+На NixOS или любом Linux с Nix флакон (flake) в репозитории OpenChamber собирает те же приложения:
+
+```bash
+nix run github:openchamber/openchamber        # web server on http://localhost:3000
+nix run github:openchamber/openchamber#gui    # desktop app
+```
+
+Флак также предоставляет `packages.openchamber` и `packages.openchamber-desktop`, а также системный модуль `nixosModules.openchamber` с параметрами `host`, `port`, `openFirewall` и `uiPasswordFile`. Файл пароля читается через `LoadCredential` systemd, поэтому секрет с правами 0400, принадлежащий root, работает с динамическим пользователем по умолчанию.
+
+Обновления проходят через флак. Встроенное обновление упакованного CLI OpenCode отключено, потому что путь в Nix store не может обновить сам себя, поэтому для обновления заберите флак и пересоберите.

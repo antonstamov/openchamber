@@ -4,7 +4,7 @@
       "label": "Start here",
       "translations": {
         "nl": "Begin hier",
-        "uk": "Почніть тут",
+        "ru": "Начните здесь",
         "zh-CN": "从这里开始",
         "es": "Empieza aquí",
         "pt-BR": "Comece aqui",
@@ -21,7 +21,7 @@
           "link": "/",
           "translations": {
             "nl": "Overzicht",
-            "uk": "Огляд",
+            "ru": "Обзор",
             "zh-CN": "概览",
             "es": "Visión general",
             "pt-BR": "Visão geral",
@@ -38,7 +38,7 @@
           "link": "/install/",
           "translations": {
             "nl": "Installeren",
-            "uk": "Встановлення",
+            "ru": "Установка",
             "zh-CN": "安装",
             "es": "Instalación",
             "pt-BR": "Instalação",
@@ -55,7 +55,7 @@
           "link": "/quickstart/",
           "translations": {
             "nl": "Snel aan de slag",
-            "uk": "Швидкий старт",
+            "ru": "Быстрый старт",
             "zh-CN": "快速开始",
             "es": "Inicio rápido",
             "pt-BR": "Início rápido",
@@ -72,7 +72,7 @@
           "link": "/opencode-server/",
           "translations": {
             "nl": "OpenCode-server",
-            "uk": "Сервер OpenCode",
+            "ru": "Сервер OpenCode",
             "zh-CN": "OpenCode 服务器",
             "es": "Servidor OpenCode",
             "pt-BR": "Servidor OpenCode",
@@ -89,7 +89,7 @@
           "link": "/environment/",
           "translations": {
             "nl": "Omgevingsvariabelen",
-            "uk": "Змінні середовища",
+            "ru": "Переменные окружения",
             "zh-CN": "环境变量",
             "es": "Variables de entorno",
             "pt-BR": "Variáveis de ambiente",
@@ -107,7 +107,7 @@
       "label": "Workflows",
       "translations": {
         "nl": "Werkwijzen",
-        "uk": "Робочі процеси",
+        "ru": "Рабочие процессы",
         "zh-CN": "工作流",
         "es": "Flujos de trabajo",
         "pt-BR": "Fluxos de trabalho",
@@ -124,7 +124,7 @@
           "link": "/projects/",
           "translations": {
             "nl": "Projecten",
-            "uk": "Проєкти",
+            "ru": "Проекты",
             "zh-CN": "项目",
             "es": "Proyectos",
             "pt-BR": "Projetos",
@@ -141,7 +141,7 @@
           "link": "/chats/",
           "translations": {
             "nl": "Chats",
-            "uk": "Чати",
+            "ru": "Чаты",
             "zh-CN": "聊天",
             "es": "Chats",
             "pt-BR": "Conversas",
@@ -158,7 +158,7 @@
           "link": "/context/",
           "translations": {
             "nl": "Context",
-            "uk": "Контекст",
+            "ru": "Контекст",
             "zh-CN": "上下文",
             "es": "Contexto",
             "pt-BR": "Contexto",
@@ -175,7 +175,7 @@
           "link": "/notes-todos-plans/",
           "translations": {
             "nl": "Notities, taken en plannen",
-            "uk": "Нотатки, справи та плани",
+            "ru": "Заметки, дела и планы",
             "zh-CN": "笔记、待办与计划",
             "es": "Notas, tareas y planes",
             "pt-BR": "Notas, tarefas e planos",
@@ -192,7 +192,7 @@
           "link": "/scheduled-tasks/",
           "translations": {
             "nl": "Geplande taken",
-            "uk": "Заплановані задачі",
+            "ru": "Запланированные задачи",
             "zh-CN": "计划任务",
             "es": "Tareas programadas",
             "pt-BR": "Tarefas agendadas",
@@ -209,7 +209,7 @@
           "link": "/agent-control-tool/",
           "translations": {
             "nl": "Besturingstool voor agents",
-            "uk": "Інструмент керування для агентів",
+            "ru": "Управление агентом",
             "zh-CN": "智能体控制工具",
             "es": "Herramienta de control para agentes",
             "pt-BR": "Ferramenta de controle para agentes",
@@ -226,7 +226,7 @@
           "link": "/workflows/",
           "translations": {
             "nl": "Workflows",
-            "uk": "Воркфлоу",
+            "ru": "Рабочие процессы",
             "zh-CN": "工作流",
             "es": "Workflows",
             "pt-BR": "Workflows",
@@ -243,7 +243,7 @@
           "link": "/session-goals/",
           "translations": {
             "nl": "Sessiedoelen",
-            "uk": "Цілі сесії",
+            "ru": "Цели сессий",
             "zh-CN": "会话目标",
             "es": "Objetivos de sesión",
             "pt-BR": "Objetivos de sessão",
@@ -260,7 +260,7 @@
           "link": "/sidebar/",
           "translations": {
             "nl": "Zijbalk",
-            "uk": "Бічна панель",
+            "ru": "Боковая панель",
             "zh-CN": "侧边栏",
             "es": "Barra lateral",
             "pt-BR": "Barra lateral",
@@ -277,7 +277,7 @@
           "link": "/sessions-in-work/",
           "translations": {
             "nl": "Sessies in uitvoering",
-            "uk": "Сесії в роботі",
+            "ru": "Сессии в работе",
             "zh-CN": "进行中的会话",
             "es": "Sesiones en curso",
             "pt-BR": "Sessões em andamento",
@@ -294,7 +294,7 @@
           "link": "/permissions/",
           "translations": {
             "nl": "Toestemmingen en vangnet",
-            "uk": "Дозволи та запобіжник",
+            "ru": "Разрешения и защита",
             "zh-CN": "权限与安全网",
             "es": "Permisos y red de seguridad",
             "pt-BR": "Permissões e rede de segurança",
@@ -311,7 +311,7 @@
           "link": "/auto-model-routing/",
           "translations": {
             "nl": "Automatische modelkeuze",
-            "uk": "Автоматичний вибір моделі",
+            "ru": "Автовыбор модели",
             "zh-CN": "自动模型路由",
             "es": "Enrutamiento automático de modelos",
             "pt-BR": "Roteamento automático de modelos",
@@ -328,7 +328,7 @@
           "link": "/project-actions/",
           "translations": {
             "nl": "Projectacties",
-            "uk": "Дії проєкту",
+            "ru": "Действия проекта",
             "zh-CN": "项目操作",
             "es": "Acciones del proyecto",
             "pt-BR": "Ações do projeto",
@@ -345,7 +345,7 @@
           "link": "/repository-config/",
           "translations": {
             "nl": "Repositoryconfiguratie",
-            "uk": "Конфіг у репозиторії",
+            "ru": "Конфиг репозитория",
             "zh-CN": "仓库配置",
             "es": "Configuración en el repositorio",
             "pt-BR": "Configuração no repositório",
@@ -362,7 +362,7 @@
           "link": "/preview/",
           "translations": {
             "nl": "Voorbeeldweergave en ontwikkelservers",
-            "uk": "Перегляд і dev-сервери",
+            "ru": "Предпросмотр и dev-серверы",
             "zh-CN": "预览与开发服务器",
             "es": "Vista previa y servidores de desarrollo",
             "pt-BR": "Pré-visualização e servidores de desenvolvimento",
@@ -379,7 +379,7 @@
           "link": "/worktrees/",
           "translations": {
             "nl": "Worktree-sessies",
-            "uk": "Сесії worktree",
+            "ru": "Сессии worktree",
             "zh-CN": "Worktree 会话",
             "es": "Sesiones de worktree",
             "pt-BR": "Sessões de worktree",
@@ -396,6 +396,7 @@
           "link": "/multi-run/",
           "translations": {
             "nl": "Parallelle runs",
+            "ru": "Мультизапуск",
             "fr": "Multi-run",
             "ja": "Multi-run",
             "de": "Mehrfachausführung",
@@ -407,6 +408,7 @@
           "link": "/git/",
           "translations": {
             "nl": "Git",
+            "ru": "Git",
             "fr": "Git",
             "es": "Git",
             "ja": "Git",
@@ -419,7 +421,7 @@
           "link": "/walkthrough/",
           "translations": {
             "nl": "Rondleiding door wijzigingen",
-            "uk": "Розбір змін",
+            "ru": "Разбор изменений",
             "zh-CN": "改动导读",
             "es": "Recorrido por los cambios",
             "pt-BR": "Percurso pelas mudanças",
@@ -436,7 +438,7 @@
           "link": "/github/",
           "translations": {
             "nl": "Git-hosts",
-            "uk": "Git-хости",
+            "ru": "Git-хосты",
             "zh-CN": "Git 托管服务",
             "es": "Hosts Git",
             "pt-BR": "Hosts Git",
@@ -453,7 +455,7 @@
           "link": "/issues-and-prs/",
           "translations": {
             "nl": "Issues en PR's",
-            "uk": "Issues і PR",
+            "ru": "Issues и PR",
             "zh-CN": "Issue 与 PR",
             "es": "Issues y PRs",
             "pt-BR": "Issues e PRs",
@@ -470,7 +472,7 @@
           "link": "/magic-prompts/",
           "translations": {
             "nl": "Magische prompts",
-            "uk": "Магічні підказки",
+            "ru": "Магические промпты",
             "zh-CN": "魔法提示词",
             "es": "Prompts mágicos",
             "pt-BR": "Prompts mágicos",
@@ -487,7 +489,7 @@
           "link": "/git-identities/",
           "translations": {
             "nl": "Git-identiteiten",
-            "uk": "Git-ідентичності",
+            "ru": "Git-идентичности",
             "zh-CN": "Git 身份",
             "es": "Identidades de Git",
             "pt-BR": "Identidades do Git",
@@ -505,7 +507,7 @@
       "label": "OpenCode setup",
       "translations": {
         "nl": "OpenCode instellen",
-        "uk": "Налаштування OpenCode",
+        "ru": "Настройка OpenCode",
         "zh-CN": "OpenCode 设置",
         "es": "Configuración de OpenCode",
         "pt-BR": "Configuração do OpenCode",
@@ -522,7 +524,7 @@
           "link": "/providers/",
           "translations": {
             "nl": "Providers, modellen en agents",
-            "uk": "Провайдери, моделі та агенти",
+            "ru": "Провайдеры, модели и агенты",
             "zh-CN": "提供商、模型与智能体",
             "es": "Proveedores, modelos y agentes",
             "pt-BR": "Provedores, modelos e agentes",
@@ -539,7 +541,7 @@
           "link": "/classification-providers/",
           "translations": {
             "nl": "Classificatieproviders en Jev",
-            "uk": "Постачальники класифікації (Jev)",
+            "ru": "Провайдеры классификации (Jev)",
             "zh-CN": "分类提供方（Jev）",
             "es": "Proveedores de clasificación (Jev)",
             "pt-BR": "Provedores de classificação (Jev)",
@@ -556,7 +558,7 @@
           "link": "/integrations/",
           "translations": {
             "nl": "Integraties",
-            "uk": "Інтеграції",
+            "ru": "Интеграции",
             "zh-CN": "集成",
             "es": "Integraciones",
             "pt-BR": "Integrações",
@@ -573,7 +575,7 @@
           "link": "/mcp/",
           "translations": {
             "nl": "MCP-servers",
-            "uk": "Сервери MCP",
+            "ru": "MCP-серверы",
             "zh-CN": "MCP 服务器",
             "es": "Servidores MCP",
             "pt-BR": "Servidores MCP",
@@ -590,7 +592,7 @@
           "link": "/skills/",
           "translations": {
             "nl": "Skills",
-            "uk": "Навички",
+            "ru": "Навыки",
             "zh-CN": "技能",
             "es": "Habilidades",
             "pt-BR": "Habilidades",
@@ -607,7 +609,7 @@
           "link": "/skills-catalog/",
           "translations": {
             "nl": "Skillcatalogus",
-            "uk": "Каталог навичок",
+            "ru": "Каталог навыков",
             "zh-CN": "技能目录",
             "es": "Catálogo de habilidades",
             "pt-BR": "Catálogo de habilidades",
@@ -624,7 +626,7 @@
           "link": "/chat-input/",
           "translations": {
             "nl": "Chatinvoer",
-            "uk": "Введення в чаті",
+            "ru": "Ввод в чате",
             "zh-CN": "聊天输入",
             "es": "Entrada del chat",
             "pt-BR": "Entrada do chat",
@@ -641,7 +643,7 @@
           "link": "/usage/",
           "translations": {
             "nl": "Gebruik en limieten",
-            "uk": "Використання та квоти",
+            "ru": "Использование и квоты",
             "zh-CN": "用量与配额",
             "es": "Uso y cuotas",
             "pt-BR": "Uso e cotas",
@@ -659,7 +661,7 @@
       "label": "Remote access",
       "translations": {
         "nl": "Toegang op afstand",
-        "uk": "Віддалений доступ",
+        "ru": "Удалённый доступ",
         "zh-CN": "远程访问",
         "es": "Acceso remoto",
         "pt-BR": "Acesso remoto",
@@ -676,7 +678,7 @@
           "link": "/connect-devices/",
           "translations": {
             "nl": "Een apparaat verbinden",
-            "uk": "Підключення пристрою",
+            "ru": "Подключение устройства",
             "zh-CN": "连接设备",
             "es": "Conectar un dispositivo",
             "pt-BR": "Conectar um dispositivo",
@@ -693,7 +695,7 @@
           "link": "/private-relay/",
           "translations": {
             "nl": "Privérelay",
-            "uk": "Приватний Relay",
+            "ru": "Приватный Relay",
             "zh-CN": "私密中继",
             "es": "Relay privado",
             "pt-BR": "Relay privado",
@@ -710,7 +712,7 @@
           "link": "/tunnels/",
           "translations": {
             "nl": "Tunnels",
-            "uk": "Тунелі",
+            "ru": "Туннели",
             "zh-CN": "隧道",
             "es": "Túneles",
             "pt-BR": "Túneis",
@@ -727,7 +729,7 @@
           "link": "/reverse-proxy/",
           "translations": {
             "nl": "Reverse proxy",
-            "uk": "Зворотний проксі",
+            "ru": "Обратный прокси",
             "zh-CN": "反向代理",
             "es": "Proxy inverso",
             "pt-BR": "Proxy reverso",
@@ -744,7 +746,7 @@
           "link": "/mobile/",
           "translations": {
             "nl": "Mobiele apps en PWA",
-            "uk": "Мобільні застосунки та PWA",
+            "ru": "Мобильные приложения и PWA",
             "zh-CN": "移动应用与 PWA",
             "es": "Apps móviles y PWA",
             "pt-BR": "Apps móveis e PWA",
@@ -761,7 +763,7 @@
           "link": "/security/",
           "translations": {
             "nl": "Beveiliging",
-            "uk": "Безпека",
+            "ru": "Безопасность",
             "zh-CN": "安全",
             "es": "Seguridad",
             "pt-BR": "Segurança",
@@ -779,7 +781,7 @@
       "label": "Customize",
       "translations": {
         "nl": "Aanpassen",
-        "uk": "Налаштування",
+        "ru": "Персонализация",
         "zh-CN": "自定义",
         "es": "Personalizar",
         "pt-BR": "Personalizar",
@@ -796,7 +798,7 @@
           "link": "/themes/",
           "translations": {
             "nl": "Thema's",
-            "uk": "Теми",
+            "ru": "Темы",
             "zh-CN": "主题",
             "es": "Temas",
             "pt-BR": "Temas",
@@ -813,7 +815,7 @@
           "link": "/notifications/",
           "translations": {
             "nl": "Meldingen",
-            "uk": "Сповіщення",
+            "ru": "Уведомления",
             "zh-CN": "通知",
             "es": "Notificaciones",
             "pt-BR": "Notificações",
@@ -830,7 +832,7 @@
           "link": "/voice/",
           "translations": {
             "nl": "Spraakmodus",
-            "uk": "Голосовий режим",
+            "ru": "Голосовой режим",
             "zh-CN": "语音模式",
             "es": "Modo de voz",
             "pt-BR": "Modo de voz",
@@ -847,7 +849,7 @@
           "link": "/project-icons/",
           "translations": {
             "nl": "Projectpictogrammen",
-            "uk": "Іконки проєктів",
+            "ru": "Иконки проектов",
             "zh-CN": "项目图标",
             "es": "Iconos de proyecto",
             "pt-BR": "Ícones de projeto",
@@ -865,7 +867,7 @@
       "label": "Extensions",
       "translations": {
         "nl": "Extensies",
-        "uk": "Розширення",
+        "ru": "Расширения",
         "zh-CN": "扩展",
         "es": "Extensiones",
         "pt-BR": "Extensões",
@@ -882,7 +884,7 @@
           "link": "/extensions/",
           "translations": {
             "nl": "Extensies gebruiken",
-            "uk": "Користування розширеннями",
+            "ru": "Использование расширений",
             "zh-CN": "使用扩展",
             "es": "Usar extensiones",
             "pt-BR": "Usar extensões",
@@ -899,7 +901,7 @@
           "link": "/sdk/",
           "translations": {
             "nl": "Een extensie bouwen",
-            "uk": "Зробити розширення",
+            "ru": "Создание расширений",
             "zh-CN": "构建扩展",
             "es": "Crear una extensión",
             "pt-BR": "Criar uma extensão",
@@ -916,7 +918,7 @@
           "link": "/sdk/host/",
           "translations": {
             "nl": "Host-API",
-            "uk": "API хоста",
+            "ru": "API хоста",
             "zh-CN": "宿主 API",
             "es": "API del host",
             "pt-BR": "API do host",
@@ -933,7 +935,7 @@
           "link": "/sdk/ui/",
           "translations": {
             "nl": "UI-kit",
-            "uk": "UI-набір",
+            "ru": "UI-кит",
             "zh-CN": "UI 套件",
             "es": "Kit de UI",
             "pt-BR": "Kit de UI",
@@ -950,7 +952,7 @@
           "link": "/sdk/example/",
           "translations": {
             "nl": "Voorbeeld",
-            "uk": "Приклад",
+            "ru": "Пример",
             "zh-CN": "示例",
             "es": "Ejemplo",
             "pt-BR": "Exemplo",
@@ -968,7 +970,7 @@
       "label": "Desktop",
       "translations": {
         "nl": "Desktop",
-        "uk": "Десктоп",
+        "ru": "Десктоп",
         "zh-CN": "桌面端",
         "es": "Escritorio",
         "pt-BR": "Desktop",
@@ -985,7 +987,7 @@
           "link": "/remote-instances/",
           "translations": {
             "nl": "Remote-instanties",
-            "uk": "Віддалені інстанси",
+            "ru": "Удалённые инстансы",
             "zh-CN": "远程实例",
             "es": "Instancias remotas",
             "pt-BR": "Instâncias remotas",
@@ -1002,7 +1004,7 @@
           "link": "/desktop-browser/",
           "translations": {
             "nl": "Browserpaneel",
-            "uk": "Панель браузера",
+            "ru": "Панель браузера",
             "zh-CN": "浏览器面板",
             "es": "Panel del navegador",
             "pt-BR": "Painel do navegador",
@@ -1019,7 +1021,7 @@
           "link": "/desktop-tunnels/",
           "translations": {
             "nl": "Desktoptunnels",
-            "uk": "Десктопні тунелі",
+            "ru": "Туннели десктопа",
             "zh-CN": "桌面端隧道",
             "es": "Túneles de escritorio",
             "pt-BR": "Túneis no desktop",
@@ -1036,7 +1038,7 @@
           "link": "/ssh-hosts-proxying/",
           "translations": {
             "nl": "SSH-hosts en poortdoorsturing",
-            "uk": "SSH-хости та проксі",
+            "ru": "SSH-хосты и прокси",
             "zh-CN": "SSH 主机与代理",
             "es": "Hosts SSH y proxy",
             "pt-BR": "Hosts SSH e proxy",
@@ -1053,7 +1055,7 @@
           "link": "/updates/",
           "translations": {
             "nl": "Updates",
-            "uk": "Оновлення",
+            "ru": "Обновления",
             "zh-CN": "更新",
             "es": "Actualizaciones",
             "pt-BR": "Atualizações",
@@ -1071,7 +1073,7 @@
       "label": "Help",
       "translations": {
         "nl": "Hulp",
-        "uk": "Допомога",
+        "ru": "Помощь",
         "zh-CN": "帮助",
         "es": "Ayuda",
         "pt-BR": "Ajuda",
@@ -1088,7 +1090,7 @@
           "link": "/troubleshooting/",
           "translations": {
             "nl": "Problemen oplossen",
-            "uk": "Усунення несправностей",
+            "ru": "Устранение неполадок",
             "zh-CN": "问题排查",
             "es": "Resolución de problemas",
             "pt-BR": "Solução de problemas",
@@ -1105,7 +1107,7 @@
           "link": "/troubleshooting/opencode-connection/",
           "translations": {
             "nl": "Verbinding met OpenCode",
-            "uk": "Підключення до OpenCode",
+            "ru": "Подключение к OpenCode",
             "zh-CN": "OpenCode 连接",
             "es": "Conexión con OpenCode",
             "pt-BR": "Conexão com o OpenCode",
@@ -1122,7 +1124,7 @@
           "link": "/troubleshooting/worktrees-git/",
           "translations": {
             "nl": "Worktrees en Git",
-            "uk": "Worktree та Git",
+            "ru": "Worktree и Git",
             "zh-CN": "Worktree 与 Git",
             "es": "Worktrees y Git",
             "pt-BR": "Worktrees e Git",
@@ -1139,7 +1141,7 @@
           "link": "/troubleshooting/remote-access/",
           "translations": {
             "nl": "Toegang op afstand",
-            "uk": "Віддалений доступ",
+            "ru": "Удалённый доступ",
             "zh-CN": "远程访问",
             "es": "Acceso remoto",
             "pt-BR": "Acesso remoto",

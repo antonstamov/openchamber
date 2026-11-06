@@ -158,7 +158,7 @@ Rules:
 
 For translations, reuse the same shared image when it carries no text. If a
 screenshot contains localized UI text, add a per-locale copy under that locale's
-folder (e.g. `uk/images/...`) and point the translated page at it.
+folder (e.g. `ru/images/...`) and point the translated page at it.
 
 `docs:validate` only checks `.mdx`, so images never block validation.
 
@@ -203,7 +203,7 @@ other language mirrors the English files under a locale folder.
 | Language | Content folder | Sidebar `translations` key |
 | --- | --- | --- |
 | English | _(root, no folder)_ | `en` |
-| Ukrainian | `uk/` | `uk` |
+| Russian | `ru/` | `ru` |
 | Chinese (Simplified) | `zh-cn/` | `zh-CN` |
 | Spanish | `es/` | `es` |
 | Brazilian Portuguese | `pt-br/` | `pt-BR` |
@@ -219,7 +219,7 @@ other language mirrors the English files under a locale folder.
 > The **content folder** uses the lowercase locale key (`zh-cn`, `pt-br`); the
 > **sidebar `translations`** key uses the BCP-47 language tag (`zh-CN`, `pt-BR`).
 > They look similar but are not interchangeable — Starlight resolves them with
-> different rules. Everything else (`uk`, `es`, `ko`, `pl`, `fr`, `de`, `ja`, `tr`, `nl`, `en`) is identical
+> different rules. Everything else (`es`, `ko`, `pl`, `fr`, `de`, `ja`, `tr`, `nl`, `en`) is identical
 > in both columns.
 
 This locale set is mirrored in the website at
@@ -234,7 +234,7 @@ filename and path**. Starlight matches a translation to its English page by path
 ```
 content/docs/
   install.mdx              # English (source of truth)
-  uk/install.mdx           # Ukrainian
+  ru/install.mdx           # Russian
   zh-cn/install.mdx        # Chinese (Simplified)
   es/install.mdx           # Spanish
   pt-br/install.mdx        # Brazilian Portuguese
@@ -245,7 +245,7 @@ content/docs/
   ja/install.mdx           # Japanese
 
   guides/tunnels.mdx       # nested English page
-  uk/guides/tunnels.mdx    # its Ukrainian translation
+  ru/guides/tunnels.mdx    # its Russian translation
 ```
 
 Each translated file needs its **own translated frontmatter** (`title` and
@@ -253,8 +253,8 @@ Each translated file needs its **own translated frontmatter** (`title` and
 
 ```mdx
 ---
-title: Встановлення
-description: Встановіть OpenChamber для десктопа, вебу або VS Code.
+title: Установка
+description: Установите OpenChamber для десктопа, веба или VS Code.
 ---
 ```
 
@@ -273,7 +273,6 @@ to each section and item in `sidebar.config.json`:
 {
   "label": "Start here",
   "translations": {
-    "uk": "Почніть тут",
     "zh-CN": "从这里开始",
     "es": "Empieza aquí",
     "pt-BR": "Comece aqui",
@@ -288,7 +287,6 @@ to each section and item in `sidebar.config.json`:
       "label": "Install",
       "link": "/install/",
       "translations": {
-        "uk": "Встановлення",
         "zh-CN": "安装",
         "es": "Instalación",
         "pt-BR": "Instalação",
@@ -327,7 +325,7 @@ after adding or translating pages.
 After docs content updates here:
 
 1. copy `packages/docs/content/docs/*` -> `openchamber-website/apps/docs/src/content/docs/*`
-   (this is recursive, so locale folders like `uk/` and `zh-cn/` carry over with
+   (this is recursive, so locale folders like `ru/` and `zh-cn/` carry over with
    no extra steps)
 2. map `packages/docs/sidebar.config.json` into `openchamber-website/apps/docs/astro.config.mjs` sidebar
    (the `translations` maps carry over as-is)
