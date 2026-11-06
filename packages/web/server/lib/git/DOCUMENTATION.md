@@ -59,6 +59,7 @@ An identity is one repository's complete answer: signature, provider account (`a
 
 - `getRangeDiff(directory, { base, head, path, contextLines, includeWorkingTree })`: Compare the merge base of the exact selected refs with `head`. With `includeWorkingTree: true`, compare with the checked-out branch's current files instead, including committed, staged, unstaged, and untracked work in one net diff. This mode rejects a head that is not the checked-out branch. Exposed as `GET /api/git/range-diff`; omit `path` for the whole comparison.
 - `getRangeFiles(directory, { base, head, includeWorkingTree })`: List changed paths using the same comparison as `getRangeDiff`. A successful empty list means the final files match the merge base, even if staging and working-tree changes cancel each other out. With `includeWorkingTree: true` each entry also carries `revision`: the merge base plus the file's `lstat` signature (size, mtime and ctime in ns, mode, inode; `missing` for a deleted file). It moves exactly when that file's patch can change, so the Changes view re-reads a patch only after the merge base moved or the file was written. A same-size edit with the same line counts still moves it; a status refresh that wrote nothing does not.
+- `getRangeFileVersions(directory, { base, head, path, previousPath, includeWorkingTree })`: Both versions of one file as `data:` URLs, for documents the viewer compares itself. Exposed as `GET /api/git/range-file-versions`. `previousPath` names a renamed file on the base side, as it does in `getCommitFileDiff`.
 - Both range operations honor refs literally. A local `main` is never replaced with `origin/main`, and an unavailable ref fails rather than choosing a different remote. The UI picker sends qualified refs to distinguish local and remote branches with matching display names.
 - Working-tree comparisons use the real index read-only. When untracked paths exist, a temporary copy of the index receives intent-to-add entries so Git computes additions, deletions, recreations, and renames together. Current contents come from the working tree, symlinks remain links, ignored files stay excluded, and temporary files are removed on success or failure.
 - `getFileDiff(directory, { path, staged })`: Get original and modified file contents for a single file (handles images as data URLs and symbolic links as their link-target text). For a submodule, both sides are Git's `Subproject commit <sha>` text (HEAD against the worktree checkout, or against the index when `staged`) and the result carries the same `submodule` state as `getPathDiff`; other paths return no `submodule`, which the route sends as `null`.
@@ -109,6 +110,89 @@ A stale status row can outlive its repository. Returning empty contents would re
 - When the setting is absent, or names no usable directory, worktrees keep landing in OpenChamber's data-dir folder keyed by project ID. Changing the setting only affects worktrees created afterwards; nothing is moved.
 - `removeWorktree` deletes an unregistered leftover only under the data-dir root, so worktrees created before the setting was set stay removable while a shared configured folder such as `".."` can never make a sibling project eligible for deletion; a config read failure there falls back to the data-dir root instead of blocking the removal. Creation still fails loudly on an unreadable config so a worktree is never created in an unchosen folder.
 - Both the web and VS Code readers merge a secondary user config file (`opencode.jsonc` beside `opencode.json`) as an override layer, as OpenCode does, so `worktree.directory` set there applies in every runtime.
+
+### Worktree teardown commands
+
+`DELETE /api/git/worktrees` takes an optional `teardownCommand`: the project's
+`teardownWorktree` list joined with `&&`, after the client's trust prompt
+(`resolveWorktreeTeardownCommands` in
+`packages/ui/src/lib/sharedTrustConfirmation.ts`). `POST
+/api/git/worktrees/teardown` runs it alone and removes nothing
+(`teardownWorktree`). An archive uses that route before it archives any session,
+so a failing teardown leaves the sessions alone, and `POST
+/api/git/worktrees/archives` then snapshots what the teardown left; a delete
+with a remote branch uses it the same way before the remote delete. It runs through the same shell runner as the setup
+commands, with the worktree as working directory, stdin closed, and the
+project's current environment (both routes are user actions). The request
+waits for it, so it is stopped after 5 minutes and the removal fails as for any
+other failing command.
+
+- It runs before anything is touched: before the bootstrap record is cleared,
+  the OpenCode instance released and `git worktree remove` runs.
+- A failing command throws `Worktree teardown command failed, so the worktree
+  was kept: <output>` with `code: 'WORKTREE_TEARDOWN_FAILED'` and leaves the
+  worktree, its instance and its branch as they were; `<output>` keeps only the
+  last 2000 characters. The routes answer 500 with that text and the code. The
+  delete toasts (the delete dialogs, mobile and the overview) then offer
+  "Delete without teardown", which repeats that delete with the same options
+  and no teardown command, and stay until answered or closed. Only that click
+  skips a teardown.
+- A registered worktree whose folder is already gone skips the teardown, so a
+  folder deleted outside the app stays removable. So does a worktree whose
+  bootstrap failed: its setup commands never ran, and the teardown would run
+  against a checkout that may not have landed. An unregistered leftover never
+  runs it.
+- A contributor-fork checkout never runs it: the folder holds the
+  contributor's code, and a "run" checkout-trust decision is a one-time
+  `checkout-actions` operation, not a trust kept on the worktree, so nothing
+  tells an approved checkout from one never approved. Setup that a "run"
+  started is not torn down. The routes inject `isContributorCheckout`, which
+  reads `contributorProvenance`. A read that fails runs nothing and keeps the
+  worktree with `WORKTREE_TEARDOWN_FAILED`, so "Delete without teardown" stays
+  available. The VS Code host makes the same check from the store file
+  (`isContributorForkGitDirectory`).
+- The client asks for no trust where the server runs no teardown: a checkout
+  whose bootstrap state it has as failed, or whose `provenance.kind` is
+  `contributor-fork` (`resolveWorktreeTeardownCommand` in
+  `packages/ui/src/lib/worktrees/worktreeManager.ts`). Concurrent deletes in one
+  project share one prompt and one answer.
+- Only removals the client starts carry it. Server-side cleanups (scheduled-task
+  runs, a failed session move) run no teardown, as they run no setup commands.
+  The client's merged-PR cleanup never opens the trust prompt: untrusted shared
+  teardown commands make its archive fail before any session is archived, and
+  the worktree waits for a removal by hand. A trusted teardown that fails stops
+  that archive at the same point, so the cleanup's retries leave the sessions
+  alone.
+- A delete that also removes the remote branch checks that the remote is
+  ready, then runs the teardown alone, then plans and runs the remote delete,
+  then removes the worktree without a teardown command
+  (`runBoundRemoteBranchDelete`'s `beforePlan`). A remote that refuses stops
+  nothing, and a failing teardown never reaches the remote delete.
+- The VS Code runtime applies the same rules in `removeWorktree` and
+  `teardownWorktree` (`packages/vscode/src/gitService.ts`) and has no archive.
+  It creates no contributor-fork worktree, but one the desktop or web app
+  created can be deleted from it, so it reads the server's store file at the
+  server's path. Its webview sends both requests without the bridge's 30 second timeout, since the host may run
+  the teardown for 5 minutes.
+
+#### Why a failed teardown keeps the worktree
+
+The commands exist to stop what lives in the folder (a Docker stack, a dev
+server). Deleting it anyway leaves that process running against a folder that is
+gone, or fails `git worktree remove` halfway. A failed removal already restores
+the sessions archived for it (`packages/ui/src/lib/worktrees/worktreeRemovalFlow.ts`),
+so keeping the worktree fits the existing failure path. The command list is
+shared with the whole team, so one broken command must not block a delete:
+"Delete without teardown" lets the user go on, and only by hand.
+
+#### Why the client's rollbacks still run teardown
+
+A worktree removed because session creation, a session move or an archive
+restore failed right after creating it has run its setup commands, which may
+have started what the teardown stops. Skipping the teardown there would leave
+that running with nothing on screen; a failing teardown leaves a worktree the
+user sees and can delete. A worktree whose bootstrap failed is the exception
+above.
 
 ### Worktree removal and the folder's OpenCode location
 
