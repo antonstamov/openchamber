@@ -138,7 +138,7 @@ jobs:
           bun check -b
 
       - name: Commit the merge if needed
-        if: steps.merge.outputs.status != 'up-to-date' && steps.verify-final.outcome == 'success'
+        if: steps.merge.outputs.status != 'up-to-date' && steps['verify-final'].outcome == 'success'
         run: |
           set -euo pipefail
           if git diff --quiet && git diff --cached --quiet; then
