@@ -24,8 +24,9 @@ other.
   `schedule.create` and `schedule.update` accept `targetSessionId`, validated
   by the scheduled-task service. An empty `targetSessionId` on update clears
   the target. Create
-  without a model inherits the target selection; an explicit agent overrides
-  it. A task without a target still requires a model. When a call names a
+  without a model inherits the target selection; a model or agent the task
+  names switches the target session to it on every run, so the tool
+  descriptions say so. A task without a target still requires a model. When a call names a
   model, it is checked against the execution directory's catalog first. The
   scheduled-task service resolves the project checkout or Chats root through
   its storage/public ID mapping. A target task uses the target session's own
@@ -71,7 +72,9 @@ other.
   `awaitAnswer` the action waits in `createPageAnswers`, keyed by session and
   call id, until `answerPage` resolves it (`POST /api/openchamber/render/answer`
   from the chat: a summary of at most 500 characters and data of at most
-  16,000 characters as JSON) or the request is aborted. Nothing outlives the
+  16,000 characters as JSON, or `declined: true` when the user declined, which
+  ends the call with `{ answered: false, reason: "declined" }` and a note that
+  tells the agent not to choose for them) or the request is aborted. Nothing outlives the
   call, so a second answer, an answer for a call that ended, and an answer
   after a server restart are a `404`, never a silent success.
   Before it waits, the action reads the session's OpenCode inbox. A message

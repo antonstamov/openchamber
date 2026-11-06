@@ -5789,12 +5789,12 @@ contextMenu({
   showCopyLink: true,
 });
 
-const loadUrlInsideWebContents = (contents, rawUrl) => {
+const loadUrlInsideWebContents = (contents, rawUrl, loadOptions) => {
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
     if (contents.isDestroyed()) return false;
-    void contents.loadURL(url.toString()).catch((error) => {
+    void contents.loadURL(url.toString(), loadOptions).catch((error) => {
       log.warn('[webview] failed to load popup URL in place:', error);
     });
     return true;
@@ -5849,6 +5849,31 @@ const trackBrowserPanelPopup = (contents, popup) => {
   });
 };
 
+/**
+ * Gives a popup the panel's user agent. The popup already runs in the panel's
+ * session, but Electron applies that session's user agent to a window.open
+ * window only on navigations the app starts (electron/electron#45897): the
+ * opener's own navigation sends Electron's default agent, and every later
+ * navigation in the popup inherits it. So the first navigation is cancelled
+ * before it sends anything and started again from here. A form posted into a
+ * new window keeps Electron's agent: starting it again would drop the form.
+ */
+const loadBrowserPanelPopupWithPanelUserAgent = (popup, { url, referrer }) => {
+  const contents = popup.webContents;
+  contents.once('will-navigate', (event, navigationUrl) => {
+    if (navigationUrl !== url) return;
+    event.preventDefault();
+    setImmediate(() => {
+      // The page may close its popup before this runs.
+      if (contents.isDestroyed()) return;
+      loadUrlInsideWebContents(contents, url, {
+        userAgent: contents.session.getUserAgent(),
+        httpReferrer: referrer,
+      });
+    });
+  });
+};
+
 app.on('web-contents-created', (_event, contents) => {
   if (contents.getType() === 'window') {
     guardAttachedWebviews(contents);
@@ -5860,7 +5885,7 @@ app.on('web-contents-created', (_event, contents) => {
   // theirs would leave the space's session for the user's.
   const isUserPanelPage = () => contents.session === session.fromPartition(BROWSER_PANEL_PARTITION);
 
-  contents.setWindowOpenHandler(({ url, disposition, postBody }) => {
+  contents.setWindowOpenHandler(({ url, disposition, postBody, referrer }) => {
     const target = isUserPanelPage()
       ? browserPanelWindowOpenTarget({ url, disposition, hasPostBody: Boolean(postBody) })
       : 'in-place';
@@ -5873,6 +5898,13 @@ app.on('web-contents-created', (_event, contents) => {
           autoHideMenuBar: true,
           webPreferences: BROWSER_PANEL_POPUP_WEB_PREFERENCES,
         },
+        // Created here so the window is tied to this request and its form body.
+        createWindow: (options) => {
+          const popup = new BrowserWindow(options);
+          trackBrowserPanelPopup(contents, popup);
+          if (!postBody) loadBrowserPanelPopupWithPanelUserAgent(popup, { url, referrer });
+          return popup.webContents;
+        },
       };
     }
     if (target === 'tab' || target === 'background-tab') {
@@ -5881,10 +5913,6 @@ app.on('web-contents-created', (_event, contents) => {
       loadUrlInsideWebContents(contents, url);
     }
     return { action: 'deny' };
-  });
-
-  contents.on('did-create-window', (popup) => {
-    trackBrowserPanelPopup(contents, popup);
   });
 });
 
@@ -5980,6 +6008,9 @@ ipcMain.on('openchamber:read-runtime-config', (event) => {
       localOrigin: state.localOrigin || state.sidecarUrl || '',
       apiBaseUrl: state.apiBaseUrl || state.sidecarUrl || '',
       clientToken: state.clientToken || '',
+      // The asking window's own: a window opened for another host must not
+      // send the main window's headers there.
+      requestHeaders: sanitizeRuntimeRequestHeaders(BrowserWindow.fromWebContents(event.sender)?.__ocRuntimeConfig?.requestHeaders || {}),
     }
     : null;
 });
