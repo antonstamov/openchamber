@@ -65,18 +65,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
+          DATE="$(date -u +%F)"
           prev="$(git tag --list 'v*' --sort=-v:refname | grep -v "^v$VERSION$" | head -1 || true)"
           {
-            echo "## OpenChamber v$VERSION (fork RU build)"
-            echo
-            echo "Upstream main merged into main-ru, fork localization on top."
+            echo "## [$VERSION] - $DATE"
             echo
             if [ -n "$prev" ]; then
-              echo "Changes since $prev:"
-              echo
-              git log --format='- %s (%h)' "$prev"..HEAD --first-parent
+              echo "### Changes since $prev"
             else
-              echo "First fork release."
+              echo "### Changes"
+            fi
+            if [ -n "$prev" ]; then
+              git log --format='- %s (%h)' "$prev"..HEAD --first-parent | head -80
+            else
+              git log --format='- %s (%h)' --first-parent | head -80
             fi
           } > artifacts/release-notes.md
           echo "name=OpenChamber v$VERSION (fork RU build)" >> "$GITHUB_OUTPUT"
