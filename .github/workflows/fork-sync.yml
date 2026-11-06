@@ -77,7 +77,7 @@ jobs:
           fi
 
       - name: Install OpenCode for the merge agent
-        if: steps.merge.outputs.status == 'conflicts'
+        if: steps.merge.outputs.status != 'up-to-date'
         run: |
           set -euo pipefail
           installer="$(mktemp)"
@@ -105,16 +105,50 @@ jobs:
             opencode run --agent fork-merge --model "$MODEL" --format json "$prompt"
 
       - name: Verify the merged tree
+        id: verify1
+        continue-on-error: true
+        if: steps.merge.outputs.status != 'up-to-date'
+        run: |
+          set -euo pipefail
+          bun test packages/ui/src/lib/i18n/
+          bun check -b
+
+      - name: Fix the merged tree with the agent
+        if: steps.merge.outputs.status == 'clean' && steps.verify1.outcome == 'failure'
+        env:
+          PROMPT_FILE: .github/fork-merge-prompt.md
+        run: |
+          set -euo pipefail
+          if [ -z "${MODEL:-}" ]; then
+            echo 'No model configured: set the FORK_MERGE_MODEL repo variable or pass the model input.' >&2
+            exit 1
+          fi
+          prompt="$(cat "$PROMPT_FILE")"
+          prompt="$prompt
+
+          FIX MODE, not a fresh merge: upstream/main is already merged into the worktree (check git status), the tests above it are red. Do not start a new merge. Run the i18n suite and bun check, fix what is red following the same rules, stage the fixes with explicit git add paths, and commit. If everything is already green without changes from you (flaky check), just commit the merge. Do not push, do not tag."
+          timeout --signal=TERM --kill-after=60s 45m \
+            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt"
+
+      - name: Verify the final tree
+        if: steps.merge.outputs.status != 'up-to-date'
         run: |
           set -euo pipefail
           bun test packages/ui/src/lib/i18n/
           bun check -b
 
       - name: Commit a clean merge
-        if: steps.merge.outputs.status == 'clean'
+        if: steps.merge.outputs.status == 'clean' && steps.verify1.outcome == 'success'
         run: |
           set -euo pipefail
           git commit --no-edit -m "Merge remote-tracking branch 'upstream/main' into main-ru"
+
+      - name: Assert the merge is committed
+        if: steps.merge.outputs.status != 'up-to-date'
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor upstream/main HEAD || { echo 'upstream/main is not merged into HEAD' >&2; exit 1; }
+          git diff --quiet && git diff --cached --quiet || { echo 'worktree is not clean' >&2; git status --short; exit 1; }
 
       - name: Push, tag a new version
         # Quiet days still push the branch pointer but never mint a release:
