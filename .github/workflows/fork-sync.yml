@@ -137,11 +137,24 @@ jobs:
           bun test packages/ui/src/lib/i18n/
           bun check -b
 
-      - name: Commit a clean merge
-        if: steps.merge.outputs.status == 'clean' && steps.verify1.outcome == 'success'
+      - name: Commit the merge if needed
+        if: steps.merge.outputs.status != 'up-to-date' && steps.verify-final.outcome == 'success'
         run: |
           set -euo pipefail
-          git commit --no-edit -m "Merge remote-tracking branch 'upstream/main' into main-ru"
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "worktree clean, nothing to commit"
+          else
+            if git grep -l -e '^<<<<<<< ' -- . ':!bun.lock' | grep -q .; then
+              echo 'unresolved conflict markers remain' >&2
+              git grep -l -e '^<<<<<<< ' -- . ':!bun.lock'
+              exit 1
+            fi
+            # The agent is told to commit, this only catches it when it did
+            # not: stage resolutions of tracked files and finish the merge.
+            # Untracked files never ride along.
+            git add -u
+            git commit --no-edit -m "Merge remote-tracking branch 'upstream/main' into main-ru"
+          fi
 
       - name: Assert the merge is committed
         if: steps.merge.outputs.status != 'up-to-date'
