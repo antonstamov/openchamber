@@ -1222,6 +1222,7 @@ interface UIStore {
   stickyUserHeader: boolean;
   promptNavigatorEnabled: boolean;
   showSplitAssistantMessageActions: boolean;
+  showMessageTimestamps: boolean;
   allowPromptingSubagentSessions: boolean;
   savePastedImagesAsFiles: boolean;
   isExpandedInput: boolean;
@@ -1505,6 +1506,7 @@ interface UIStore {
   setStickyUserHeader: (value: boolean) => void;
   setPromptNavigatorEnabled: (value: boolean) => void;
   setShowSplitAssistantMessageActions: (value: boolean) => void;
+  setShowMessageTimestamps: (value: boolean) => void;
   setAllowPromptingSubagentSessions: (value: boolean) => void;
   setSavePastedImagesAsFiles: (value: boolean) => void;
   viewPagerPage: 'left' | 'center' | 'right';
@@ -1760,6 +1762,7 @@ export const useUIStore = create<UIStore>()(
         stickyUserHeader: false,
         promptNavigatorEnabled: true,
         showSplitAssistantMessageActions: false,
+        showMessageTimestamps: false,
         allowPromptingSubagentSessions: false,
         savePastedImagesAsFiles: false,
         draftStartersVisible: true,
@@ -3518,6 +3521,9 @@ export const useUIStore = create<UIStore>()(
         setShowSplitAssistantMessageActions: (value) => {
           set({ showSplitAssistantMessageActions: value });
         },
+        setShowMessageTimestamps: (value) => {
+          set({ showMessageTimestamps: value });
+        },
         setAllowPromptingSubagentSessions: (value) => {
           set({ allowPromptingSubagentSessions: value });
         },
@@ -4006,6 +4012,7 @@ export const useUIStore = create<UIStore>()(
           stickyUserHeader: state.stickyUserHeader,
           promptNavigatorEnabled: state.promptNavigatorEnabled,
           showSplitAssistantMessageActions: state.showSplitAssistantMessageActions,
+          showMessageTimestamps: state.showMessageTimestamps,
           allowPromptingSubagentSessions: state.allowPromptingSubagentSessions,
           savePastedImagesAsFiles: state.savePastedImagesAsFiles,
           draftStartersVisible: state.draftStartersVisible,

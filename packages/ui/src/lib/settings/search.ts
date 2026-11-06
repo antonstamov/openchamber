@@ -108,6 +108,12 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => ctx.isMac,
   },
   {
+    id: 'chat.message-timestamps',
+    page: 'chat',
+    titleKey: 'settings.openchamber.visual.field.showMessageTimestamps',
+    keywords: ['time', 'timestamp', 'clock', 'date', 'duration'],
+  },
+  {
     id: 'appearance.scrollbars',
     page: 'appearance',
     titleKey: 'settings.openchamber.visual.field.alwaysShowScrollbars',

@@ -437,6 +437,9 @@
     "showSplitAssistantMessageActions": {
       "scope": "profile"
     },
+    "showMessageTimestamps": {
+      "scope": "profile"
+    },
     "showToolFileIcons": {
       "scope": "profile"
     },

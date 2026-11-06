@@ -137,6 +137,8 @@ const MessagesTab: React.FC = () => {
   const setStickyUserHeader = useUIStore((state) => state.setStickyUserHeader);
   const showSplitAssistantMessageActions = useUIStore((state) => state.showSplitAssistantMessageActions);
   const setShowSplitAssistantMessageActions = useUIStore((state) => state.setShowSplitAssistantMessageActions);
+  const showMessageTimestamps = useUIStore((state) => state.showMessageTimestamps);
+  const setShowMessageTimestamps = useUIStore((state) => state.setShowMessageTimestamps);
   const userMessageRenderingMode = useUIStore((state) => state.userMessageRenderingMode);
   const setUserMessageRenderingMode = useUIStore((state) => state.setUserMessageRenderingMode);
   const mermaidRenderingMode = useUIStore((state) => state.mermaidRenderingMode);
@@ -286,6 +288,16 @@ const MessagesTab: React.FC = () => {
           ariaLabel={t('settings.openchamber.visual.field.showSplitAssistantMessageActionsAria')}
           info={t('settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip')}
           settingsItem="chat.inline-assistant-actions"
+        />
+        <SettingsCheckboxRow
+          checked={showMessageTimestamps}
+          onChange={(enabled) => {
+            setShowMessageTimestamps(enabled);
+            void updateDesktopSettings({ showMessageTimestamps: enabled });
+          }}
+          label={t('settings.openchamber.visual.field.showMessageTimestamps')}
+          ariaLabel={t('settings.openchamber.visual.field.showMessageTimestampsAria')}
+          settingsItem="chat.message-timestamps"
         />
         <SelectionApprovalField />
       </SettingsSection>

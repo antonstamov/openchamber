@@ -2462,6 +2462,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsAria': 'Действия встроенного помощника',
   'settings.openchamber.visual.field.showSplitAssistantMessageActions': 'Действия встроенного помощника',
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip': 'Показывать «Копировать ответ», «Сохранить как изображение» и «Читать вслух» в текстовых блоках помощника, которые появляются перед последующими вызовами инструмента в том же ответе.',
+  'settings.openchamber.visual.field.showMessageTimestampsAria': 'Показывать время сообщений',
+  'settings.openchamber.visual.field.showMessageTimestamps': 'Показывать время сообщений',
   'settings.openchamber.visual.field.allowPromptingSubagentSessionsAria': 'Разрешить отправлять запросы в сессии субагентов',
   'settings.openchamber.visual.field.allowPromptingSubagentSessions': 'Разрешить запросы в сессиях субагентов',
   'settings.openchamber.visual.field.savePastedImagesAsFiles': 'Сохранять вставленные изображения как файлы',

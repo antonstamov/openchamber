@@ -34,7 +34,7 @@ describe('ChatSettings', () => {
   let globalDescriptors: Map<string, PropertyDescriptor | undefined>;
 
   // The tab strip measures itself, so it needs ResizeObserver too.
-  const globalNames = ['window', 'document', 'HTMLElement', 'Element', 'Node', 'Event', 'ResizeObserver', 'localStorage', 'sessionStorage', 'IS_REACT_ACT_ENVIRONMENT'];
+  const globalNames = ['window', 'document', 'HTMLElement', 'Element', 'Node', 'Event', 'PointerEvent', 'ResizeObserver', 'localStorage', 'sessionStorage', 'IS_REACT_ACT_ENVIRONMENT'];
 
   beforeEach(async () => {
     windowInstance = new Window();
@@ -48,6 +48,7 @@ describe('ChatSettings', () => {
       Element: windowInstance.Element,
       Node: windowInstance.Node,
       Event: windowInstance.Event,
+      PointerEvent: windowInstance.PointerEvent,
       ResizeObserver: windowInstance.ResizeObserver,
       localStorage: windowInstance.localStorage,
       sessionStorage: windowInstance.sessionStorage,
@@ -90,6 +91,21 @@ describe('ChatSettings', () => {
     await act(async () => fourth.click());
     expect(useUIStore.getState().largeTextPasteBehavior).toBe('inline-double-paste');
     expect(fourth.getAttribute('aria-checked')).toBe('true');
+  });
+
+  test('the message timestamps checkbox toggles the store', async () => {
+    useChatSettingsTabStore.setState({ tab: 'messages' });
+    useUIStore.setState({ showMessageTimestamps: false });
+    await act(async () => root.render(<I18nProvider><ChatSettings /></I18nProvider>));
+
+    const row = host.querySelector('[data-settings-item="chat.message-timestamps"]');
+    if (!row) throw new Error('Missing message timestamps setting');
+    const checkbox = row.querySelector<HTMLElement>('[role="checkbox"]');
+    if (!checkbox) throw new Error('Missing message timestamps checkbox');
+    expect(checkbox.getAttribute('aria-label')).toBe('Show message timestamps');
+    await act(async () => checkbox.click());
+    expect(useUIStore.getState().showMessageTimestamps).toBe(true);
+    useUIStore.setState({ showMessageTimestamps: false });
   });
 
   test('search reaches the approval text field and edits or clears its value', async () => {

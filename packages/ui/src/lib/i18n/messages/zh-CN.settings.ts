@@ -2409,6 +2409,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsAria': '内联助手操作',
   'settings.openchamber.visual.field.showSplitAssistantMessageActions': '内联助手操作',
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip': '在同一条回复中，如果助手文本块后面还有工具调用，则显示“复制回答”“保存为图片”和“朗读”操作。',
+  'settings.openchamber.visual.field.showMessageTimestampsAria': '显示消息时间',
+  'settings.openchamber.visual.field.showMessageTimestamps': '显示消息时间',
   'settings.openchamber.visual.field.allowPromptingSubagentSessionsAria': '允许向子智能体会话发送提示',
   'settings.openchamber.visual.field.allowPromptingSubagentSessions': '允许向子智能体会话发送提示',
   'settings.openchamber.visual.field.savePastedImagesAsFiles': '将粘贴的图像保存为文件',

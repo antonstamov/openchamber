@@ -2424,6 +2424,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsAria': 'إجراءات المساعد داخل النص',
   'settings.openchamber.visual.field.showSplitAssistantMessageActions': 'إجراءات المساعد داخل النص',
   'settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip': 'إظهار «نسخ الإجابة» و«حفظ كصورة» و«القراءة بصوت عالٍ» على كتل نص المساعد التي تظهر قبل استدعاءات أدوات لاحقة في الرد نفسه.',
+  'settings.openchamber.visual.field.showMessageTimestampsAria': 'إظهار وقت الرسائل',
+  'settings.openchamber.visual.field.showMessageTimestamps': 'إظهار وقت الرسائل',
   'settings.openchamber.visual.field.allowPromptingSubagentSessionsAria': 'السماح بإرسال طلبات إلى جلسات الوكلاء الفرعيين',
   'settings.openchamber.visual.field.allowPromptingSubagentSessions': 'السماح بإرسال طلبات إلى جلسات الوكلاء الفرعيين',
   'settings.openchamber.visual.field.savePastedImagesAsFiles': 'حفظ الصور الملصقة كملفات',

@@ -2409,6 +2409,8 @@ export const settingsDict = {
   "settings.openchamber.visual.field.showSplitAssistantMessageActionsAria": "Ações inline do assistente",
   "settings.openchamber.visual.field.showSplitAssistantMessageActions": "Ações inline do assistente",
   "settings.openchamber.visual.field.showSplitAssistantMessageActionsTooltip": "Mostra Copiar resposta, Salvar como imagem e Ler em voz alta em blocos de texto do assistente que aparecem antes de chamadas de ferramenta posteriores na mesma resposta.",
+  "settings.openchamber.visual.field.showMessageTimestampsAria": "Mostrar horário das mensagens",
+  "settings.openchamber.visual.field.showMessageTimestamps": "Mostrar horário das mensagens",
   "settings.openchamber.visual.field.allowPromptingSubagentSessionsAria": "Permitir prompts em sessões de subagentes",
   "settings.openchamber.visual.field.allowPromptingSubagentSessions": "Permitir prompts em sessões de subagentes",
   "settings.openchamber.visual.field.savePastedImagesAsFiles": "Salvar imagens coladas como arquivos",

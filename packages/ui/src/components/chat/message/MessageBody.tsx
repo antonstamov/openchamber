@@ -410,6 +410,7 @@ const UserMessageBody = React.memo(({ parts, messageCreatedAt, isMobile, alwaysS
     const { locale, t } = useI18n();
     const chatSurfaceMode = useChatSurfaceMode();
     const timeFormatPreference = useUIStore((state) => state.timeFormatPreference);
+    const showMessageTimestamps = useUIStore((state) => state.showMessageTimestamps);
     const [copyHintVisible, setCopyHintVisible] = React.useState(false);
     const copyHintTimeoutRef = React.useRef<number | null>(null);
 
@@ -590,13 +591,26 @@ const UserMessageBody = React.memo(({ parts, messageCreatedAt, isMobile, alwaysS
         return formatted.length > 0 ? formatted : null;
     }, [locale, messageCreatedAt, timeFormatPreference]);
     const hasExtraActions = Boolean(extraActions && extraActions.length > 0);
-    const actionsBlock = chatSurfaceMode !== 'peek' && ((canCopyMessage && hasCopyableText) || onRevert || effectiveOnFork || onToggleContextPin || hasExtraActions) ? (
+    // The setting pins the time outside the hover row, so the row exists
+    // even for messages that offer no actions.
+    const showPinnedUserTime = Boolean(timestamp) && showMessageTimestamps;
+    const hasUserActions = (canCopyMessage && hasCopyableText) || onRevert || effectiveOnFork || onToggleContextPin || hasExtraActions;
+    const actionsBlock = chatSurfaceMode !== 'peek' && (hasUserActions || showPinnedUserTime) ? (
         <div className={cn(
             'group/user-actions flex items-start justify-end',
             // In a sticky turn header (TurnItem) the mobile row is shorter: it
             // stays on screen, and the reply below keeps its own top margin.
             isMobile ? 'h-11 pt-0 in-data-[turn-sticky-header]:h-9' : 'h-8 pt-2'
         )}>
+            {showPinnedUserTime ? (
+                <span
+                    className="me-1 flex items-center gap-1 typography-meta tabular-nums text-muted-foreground"
+                    aria-label={t('contextTooltips.chat.messageTime', { time: timestamp })}
+                >
+                    <Icon name="time" className="h-3.5 w-3.5" />
+                    <span>{timestamp}</span>
+                </span>
+            ) : null}
             <div
                 className={cn(
                     'flex items-center justify-end gap-1.5 [&_button]:!h-[26px] [&_button]:!w-[26px] [&_svg]:!size-[13px]',
@@ -607,7 +621,7 @@ const UserMessageBody = React.memo(({ parts, messageCreatedAt, isMobile, alwaysS
                 )}
             >
                 {/* Touch reads the time in the actions sheet instead — see below. */}
-                {timestamp && !alwaysShowActions ? (
+                {timestamp && !alwaysShowActions && !showPinnedUserTime ? (
                     <span
                         className="me-1 flex items-center gap-1 typography-meta tabular-nums text-muted-foreground"
                         aria-label={t('contextTooltips.chat.messageTime', { time: timestamp })}
@@ -1315,6 +1329,7 @@ const AssistantMessageBody = React.memo(({
     const [isForkSubmitting, setIsForkSubmitting] = React.useState(false);
     const collapsibleThinkingBlocks = useUIStore((state) => state.collapsibleThinkingBlocks);
     const showSplitAssistantMessageActions = useUIStore((state) => state.showSplitAssistantMessageActions);
+    const showMessageTimestamps = useUIStore((state) => state.showMessageTimestamps);
     const timeFormatPreference = useUIStore((state) => state.timeFormatPreference);
     const vscodeApi = useRuntimeAPIs().vscode;
     const liveFinalActivity = React.useContext(LiveFinalActivityContext);
@@ -1960,6 +1975,9 @@ const AssistantMessageBody = React.memo(({
         return formatted.length > 0 ? formatted : null;
     }, [messageCompletedAt, messageCreatedAt, timeFormatPreference, locale]);
 
+    // Pinned inline, the time needs no tooltip: it would only repeat it.
+    const showPinnedAssistantTime = Boolean(showMessageTimestamps && footerTimestamp);
+
     const footerEffortLabel = footerVariant && !['default', 'none'].includes(footerVariant.toLowerCase())
         ? footerVariant[0].toLowerCase() + footerVariant.slice(1)
         : null;
@@ -2340,16 +2358,25 @@ const AssistantMessageBody = React.memo(({
                                     {footerAgentName}
                                 </span>
                             ) : null}
-                            {turnDurationText ? (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="message-footer__fact tabular-nums">
-                                            {footerModelName || footerAgentName ? <span className="opacity-60" aria-hidden>·</span> : null}
-                                            {turnDurationText}
-                                        </span>
-                                    </TooltipTrigger>
-                                    {footerTimestamp ? <TooltipContent sideOffset={6}>{footerTimestamp}</TooltipContent> : null}
-                                </Tooltip>
+                            {turnDurationText || showPinnedAssistantTime ? (
+                                showPinnedAssistantTime ? (
+                                    <span className="message-footer__fact tabular-nums">
+                                        {footerModelName || footerAgentName ? <span className="opacity-60" aria-hidden>·</span> : null}
+                                        {footerTimestamp}
+                                        {turnDurationText ? <span className="opacity-60" aria-hidden>·</span> : null}
+                                        {turnDurationText}
+                                    </span>
+                                ) : (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="message-footer__fact tabular-nums">
+                                                {footerModelName || footerAgentName ? <span className="opacity-60" aria-hidden>·</span> : null}
+                                                {turnDurationText}
+                                            </span>
+                                        </TooltipTrigger>
+                                        {footerTimestamp ? <TooltipContent sideOffset={6}>{footerTimestamp}</TooltipContent> : null}
+                                    </Tooltip>
+                                )
                             ) : null}
                         </div>
                         {alwaysShowMessageActions || isTouchContext ? (

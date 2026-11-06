@@ -8,6 +8,7 @@ import type { Part } from '@/lib/opencode/model';
 import { RuntimeAPIContext } from '@/contexts/runtimeAPIContext';
 import type { RuntimeAPIs } from '@/lib/api/types';
 import { I18nProvider } from '@/lib/i18n';
+import { useUIStore } from '@/stores/useUIStore';
 import { SyncProvider } from '@/sync/sync-context';
 import { Window } from 'happy-dom';
 import { compileAst } from 'tailwindcss';
@@ -138,3 +139,97 @@ for (const pointer of ['fine', 'coarse'] as const) {
     expect(rowStyle('hover', pointer, 'none')).toEqual(hidden);
   });
 }
+
+test('message timestamps setting pins user time on touch surfaces too', async () => {
+  const { createRoot } = await import('react-dom/client');
+  const { act } = await import('react');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    useUIStore.setState({ showMessageTimestamps: true });
+    await act(async () => {
+      root.render(
+        <RuntimeAPIContext.Provider value={runtimeApis}>
+          <SyncProvider sdk={sdk} directory="">
+            <I18nProvider>
+              <MessageBody
+                messageId="user"
+                parts={[userText]}
+                isUser
+                isMessageCompleted
+                messageFinish="stop"
+                isMobile
+                copiedCode={null}
+                onCopyCode={() => {}}
+                expandedTools={new Set()}
+                onToggleTool={() => {}}
+                onShowPopup={() => {}}
+                streamPhase="completed"
+                allowAnimation={false}
+                hasTextContent
+                onCopyMessage={() => {}}
+                userMessagePart="actions"
+                messageCreatedAt={new Date('2026-11-06T12:34:00').getTime()}
+              />
+            </I18nProvider>
+          </SyncProvider>
+        </RuntimeAPIContext.Provider>,
+      );
+    });
+    const pinned = host.querySelector('[class~="group/user-actions"] > span');
+    expect(pinned).not.toBeNull();
+    expect(pinned?.textContent ?? '').toContain(':');
+  } finally {
+    await act(async () => { root.unmount(); });
+    host.remove();
+    useUIStore.setState({ showMessageTimestamps: false });
+  }
+});
+test('message timestamps setting pins user time outside the hover row', async () => {
+  const { createRoot } = await import('react-dom/client');
+  const { act } = await import('react');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  const tree = (
+    <RuntimeAPIContext.Provider value={runtimeApis}>
+      <SyncProvider sdk={sdk} directory="">
+        <I18nProvider>
+          <MessageBody
+            messageId="user"
+            parts={[userText]}
+            isUser
+            isMessageCompleted
+            messageFinish="stop"
+            isMobile={false}
+            copiedCode={null}
+            onCopyCode={() => {}}
+            expandedTools={new Set()}
+            onToggleTool={() => {}}
+            onShowPopup={() => {}}
+            streamPhase="completed"
+            allowAnimation={false}
+            hasTextContent
+            onCopyMessage={() => {}}
+            userMessagePart="actions"
+            messageCreatedAt={new Date('2026-11-06T12:34:00').getTime()}
+          />
+        </I18nProvider>
+      </SyncProvider>
+    </RuntimeAPIContext.Provider>
+  );
+  try {
+    useUIStore.setState({ showMessageTimestamps: true });
+    await act(async () => { root.render(tree); });
+    const pinned = host.querySelector('[class~="group/user-actions"] > span');
+    expect(pinned).not.toBeNull();
+    expect(pinned?.textContent ?? '').toContain(':');
+    await act(async () => { useUIStore.setState({ showMessageTimestamps: false }); });
+    expect(host.querySelector('[class~="group/user-actions"] > span')).toBeNull();
+  } finally {
+    await act(async () => { root.unmount(); });
+    host.remove();
+    useUIStore.setState({ showMessageTimestamps: false });
+  }
+});

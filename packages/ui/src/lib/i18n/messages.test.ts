@@ -122,6 +122,19 @@ describe('i18n dictionaries', () => {
       }
     }
   });
+  test('message timestamps setting copy is translated', () => {
+    const labelKey = 'settings.openchamber.visual.field.showMessageTimestamps';
+    const ariaKey = 'settings.openchamber.visual.field.showMessageTimestampsAria';
+    expect(enDict[labelKey]).toBe('Show message timestamps');
+    for (const [locale, dictionary] of Object.entries(localeDictionaries)) {
+      expect(dictionary[labelKey]).toBeTruthy();
+      expect(dictionary[ariaKey]).toBeTruthy();
+      if (locale !== 'en') {
+        expect(dictionary[labelKey]).not.toBe(enDict[labelKey]);
+        expect(dictionary[ariaKey]).not.toBe(enDict[ariaKey]);
+      }
+    }
+  });
   test('all locales stay in key parity with english', () => {
     const englishKeys = Object.keys(enDict).sort();
 
