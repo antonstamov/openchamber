@@ -20,14 +20,14 @@ test('production updater feed is immutable GitHub configuration', () => {
   assert.equal(Object.isFrozen(PRODUCTION_UPDATER_FEED), true);
   assert.deepEqual(PRODUCTION_UPDATER_FEED, {
     provider: 'github',
-    owner: 'openchamber',
+    owner: 'antonstamov',
     repo: 'openchamber',
   });
 });
 
 test('the Canary channel reads the canary pre-release; on a release build every other stored value is Stable', () => {
   assert.equal(resolveUpdaterFeed({ channel: 'canary' }), CANARY_UPDATER_FEED);
-  assert.equal(CANARY_UPDATER_FEED.url, 'https://github.com/openchamber/openchamber/releases/download/canary/');
+  assert.equal(CANARY_UPDATER_FEED.url, 'https://github.com/antonstamov/openchamber/releases/download/canary/');
   assert.equal(resolveUpdaterFeed({ channel: 'stable' }), PRODUCTION_UPDATER_FEED);
   assert.equal(normalizeUpdateChannel('canary', '2.6.1'), 'canary');
   for (const value of ['stable', undefined, null, 'beta', 'Canary', 1]) assert.equal(normalizeUpdateChannel(value, '2.6.1'), 'stable');

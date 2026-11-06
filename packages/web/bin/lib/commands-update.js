@@ -127,6 +127,8 @@ function createUpdateCommand({
     const pm = detectPackageManager();
     const result = executeUpdate(pm, {
       targetVersion: updateInfo.version,
+      downloadUrl: updateInfo.downloadUrl,
+      sdkDownloadUrl: updateInfo.sdkDownloadUrl,
       silent: isJsonMode(options) || isQuietMode(options),
     });
     if (!result.success) {

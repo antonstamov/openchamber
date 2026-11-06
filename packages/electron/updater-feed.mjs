@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 
+// Fork: updates come from this fork's releases, not upstream's.
 export const PRODUCTION_UPDATER_FEED = Object.freeze({
   provider: 'github',
-  owner: 'openchamber',
+  owner: 'antonstamov',
   repo: 'openchamber',
 });
 
@@ -10,9 +11,11 @@ export const PRODUCTION_UPDATER_FEED = Object.freeze({
 // night. The GitHub provider reads only the latest full release, so the
 // Canary channel reads that pre-release's files directly, and the Stable
 // channel never sees them.
+// Fork: no canary builds are published here yet; the channel resolves to
+// this fork so a canary pick never offers upstream builds.
 export const CANARY_UPDATER_FEED = Object.freeze({
   provider: 'generic',
-  url: 'https://github.com/openchamber/openchamber/releases/download/canary/',
+  url: 'https://github.com/antonstamov/openchamber/releases/download/canary/',
 });
 
 // Where the app takes its updates from: the releases, or the nightly Canary

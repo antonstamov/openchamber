@@ -210,7 +210,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "openchamber",
+      "owner": "antonstamov",
       "repo": "openchamber"
     }
   }

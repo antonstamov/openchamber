@@ -15,8 +15,13 @@ const __dirname = path.dirname(__filename);
 
 const PACKAGE_NAME = '@openchamber/web';
 const PACKAGE_PATH_SEGMENTS = PACKAGE_NAME.split('/');
-const GITHUB_RELEASES_URL = 'https://github.com/openchamber/openchamber/releases';
-const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/openchamber/openchamber/releases';
+// Fork: releases live on the fork, not upstream. The web install checks the
+// fork's latest release and installs its tarballs; the npm registry and the
+// upstream update API only know upstream builds.
+const FORK_OWNER = 'antonstamov';
+const FORK_REPO = 'openchamber';
+const GITHUB_RELEASES_URL = `https://github.com/${FORK_OWNER}/${FORK_REPO}/releases`;
+const GITHUB_RELEASES_API_URL = `https://api.github.com/repos/${FORK_OWNER}/${FORK_REPO}/releases`;
 // The reason is kept with the package manager: a later call must still tell
 // a copy no package manager installed from one it did.
 let cachedDetection = null;
@@ -573,6 +578,17 @@ function quoteCommand(command) {
   return `'${command.replace(/'/g, "'\\''")}'`;
 }
 
+// Fork: quote a shell argument for the platform that runs the update (the
+// local machine). POSIX shells strip single quotes, cmd.exe only understands
+// double quotes, so the quoting differs the same way quoteCommand does it.
+export function quoteArg(value, platform = process.platform) {
+  const text = String(value);
+  if (platform === 'win32') {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
 function isCommandAvailable(command) {
   try {
     const result = spawnSync(command, ['--version'], {
@@ -676,6 +692,32 @@ function getPnpmAllowBuildFlags(pmCommand) {
  * check behind a fresh release (stale packument cache, pnpm minimumReleaseAge).
  */
 export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
+  // Fork: install the release tarballs instead of the npm version. The web
+  // tarball is installed globally, then the matching SDK build is overlaid
+  // over the nested published copy, which can lag the web sources.
+  if (options.downloadUrl) {
+    const resolvedCommand = resolvePackageManagerCommand(pm);
+    const pmCommand = quoteCommand(resolvedCommand);
+    const quote = (value) => quoteArg(value);
+    const allowBuild = pm === 'pnpm' ? getPnpmAllowBuildFlags(resolvedCommand) : '';
+    const installSpec = (spec) => pm === 'pnpm'
+      ? `${pmCommand} add -g${allowBuild} ${quote(spec)}`
+      : pm === 'yarn'
+        ? `${pmCommand} global add ${quote(spec)}`
+        : pm === 'bun'
+          ? `${pmCommand} add -g ${quote(spec)}`
+          : `${pmCommand} install -g ${quote(spec)}`;
+    const installStep = installSpec(options.downloadUrl);
+    if (!options.sdkDownloadUrl || !options.targetVersion) return installStep;
+    // Paths are derived from the running copy: the update replaces the
+    // install in place, so the global root does not move under us.
+    const webPackageDir = path.resolve(__dirname, '..', '..');
+    const nestedSdkDir = path.join(webPackageDir, 'node_modules', '@openchamber', 'sdk');
+    const overlayStep = `node ${quote(path.join(__dirname, 'fork-sdk-overlay.js'))}`
+      + ` ${quote(options.sdkDownloadUrl)}`
+      + ` ${quote(nestedSdkDir)} ${quote(options.targetVersion)}`;
+    return `${installStep} && ${overlayStep}`;
+  }
   const targetVersion = normalizeTargetVersion(options.targetVersion);
   if (options.targetVersion != null && !targetVersion) {
     throw new Error(`Invalid target version for update: ${String(options.targetVersion)}`);
@@ -768,33 +810,52 @@ async function fetchChangelogNotes(fromVersion, toVersion) {
   return (await fetchUpdateNotes(fromVersion, toVersion, compareVersions)) ?? undefined;
 }
 
+
 /**
- * Canary, and the way back from it. The target is what the channel's npm
- * dist-tag points at; Stable from a Canary build offers the release even
- * though it is older. The website still gets the check-in, so usage counts
- * include it, but its answer is about releases only.
+ * Fork: the newest full release on the fork (drafts and pre-releases are
+ * skipped by the /latest endpoint). Returns the web and SDK tarball assets
+ * the self-update installs, or availability false when there is nothing new.
  */
-async function checkChannelForUpdates(channel, currentVersion, options) {
-  const [, distTags] = await Promise.all([
-    checkForUpdatesFromApi(currentVersion, options),
-    fetchDistTags(),
-  ]);
-  if (!distTags) {
-    return { available: false, currentVersion, error: 'Unable to determine versions' };
+async function checkForkWebUpdate(currentVersion) {
+  try {
+    const response = await fetch(`${GITHUB_RELEASES_API_URL}/latest`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'openchamber-update-check' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.status === 404) return { available: false, currentVersion };
+    if (!response.ok) return null;
+    const release = await response.json();
+    const version = String(release?.tag_name || '').replace(/^v/, '');
+    if (!version || version === currentVersion) {
+      return { available: false, currentVersion, version: version || currentVersion };
+    }
+    // A newer release is an update; a canary build is also offered the
+    // release as the way back to stable. An older release is not.
+    const available = compareVersions(version, currentVersion) > 0 || isCanaryVersion(currentVersion);
+    const assets = Array.isArray(release?.assets) ? release.assets : [];
+    // GitHub serves release metadata as JSON; coerce instead of
+    // typeof-checking so unexpected shapes fall out through the name and
+    // URL patterns below.
+    const textOf = (value) => (value === null || value === undefined ? '' : String(value));
+    const webAsset = assets.find((asset) => /openchamber-web-.*\.tgz$/.test(textOf(asset?.name))
+      && /^https:\/\//.test(textOf(asset?.browser_download_url)));
+    if (!webAsset) return { available: false, currentVersion, error: 'Release has no web package yet' };
+    const sdkAsset = assets.find((asset) => /openchamber-sdk-.*\.tgz$/.test(textOf(asset?.name))
+      && /^https:\/\//.test(textOf(asset?.browser_download_url)));
+    const bodyText = textOf(release?.body);
+    const htmlUrl = textOf(release?.html_url);
+    return {
+      available,
+      version,
+      currentVersion,
+      body: bodyText === '' ? undefined : bodyText,
+      releaseUrl: htmlUrl === '' ? `${GITHUB_RELEASES_URL}/tag/v${version}` : htmlUrl,
+      downloadUrl: webAsset.browser_download_url,
+      sdkDownloadUrl: sdkAsset ? sdkAsset.browser_download_url : undefined,
+    };
+  } catch {
+    return null;
   }
-  const target = normalizeTargetVersion(channel === 'canary' ? distTags.canary : distTags.latest);
-  // No Canary published yet: nothing to install, which is not an error.
-  if (!target) {
-    return { available: false, currentVersion };
-  }
-  const available = channel === 'canary' ? compareVersions(target, currentVersion) > 0 : target !== currentVersion;
-  return {
-    available,
-    version: target,
-    currentVersion,
-    body: available ? await fetchChangelogNotes(currentVersion, target) : undefined,
-    releaseUrl: channel === 'canary' ? `${GITHUB_RELEASES_URL}/tag/canary` : `${GITHUB_RELEASES_URL}/tag/v${target}`,
-  };
 }
 
 export async function checkForUpdates(options = {}) {
@@ -804,15 +865,12 @@ export async function checkForUpdates(options = {}) {
   const platform = normalizePlatform(options.platform);
 
   // The channel belongs to the npm server; the desktop app, VS Code and the
-  // phones ask about their own builds.
+  // phones ask about their own builds. Fork: the canary channel has nothing
+  // to offer since the fork publishes no canary builds; a canary install on
+  // the stable channel is offered the fork release as the way back.
   if (appType === 'web' && currentVersion !== 'unknown') {
-    const channel = readUpdateChannel(currentVersion);
-    if (channel === 'canary' || isCanaryVersion(currentVersion)) {
-      return {
-        ...await checkChannelForUpdates(channel, currentVersion, options),
-        packageManager: pm,
-        updateCommand: 'openchamber update',
-      };
+    if (readUpdateChannel(currentVersion) === 'canary') {
+      return { available: false, currentVersion };
     }
   }
 
@@ -840,6 +898,15 @@ export async function checkForUpdates(options = {}) {
   }
 
   if (currentVersion !== 'unknown') {
+    // Fork: web installs track the fork's releases, not the npm registry or
+    // the upstream update API. Every other app type keeps its own channel.
+    if (appType === 'web') {
+      const fork = await checkForkWebUpdate(currentVersion);
+      if (!fork) {
+        return { available: false, currentVersion, error: 'Unable to determine versions' };
+      }
+      return { ...fork, packageManager: pm, updateCommand: 'openchamber update' };
+    }
     const remote = await checkForUpdatesFromApi(currentVersion, options);
     if (remote) {
       if (remote.available && appType === 'web') {
@@ -889,7 +956,11 @@ export async function checkForUpdates(options = {}) {
  * and the caller must not report success without the version matching.
  */
 export function executeUpdate(pm = detectPackageManager(), options = {}) {
-  const command = getUpdateCommand(pm, { targetVersion: options.targetVersion });
+  const command = getUpdateCommand(pm, {
+    targetVersion: options.targetVersion,
+    downloadUrl: options.downloadUrl,
+    sdkDownloadUrl: options.sdkDownloadUrl,
+  });
   if (!options?.silent) {
     console.log(`Updating ${PACKAGE_NAME} using ${pm}...`);
     console.log(`Running: ${command}`);

@@ -2,9 +2,6 @@ import React from 'react';
 
 import { useUpdateStore } from '@/stores/useUpdateStore';
 
-// TEMP-RU-BUILD: see the polling effect below.
-const RU_LOCAL_BUILD_PAUSE_POLLING = true;
-
 export function useUpdatePolling() {
   const checkForUpdates = useUpdateStore((state) => state.checkForUpdates);
   const checkForUpdatesRef = React.useRef(checkForUpdates);
@@ -14,11 +11,6 @@ export function useUpdatePolling() {
   }, [checkForUpdates]);
 
   React.useEffect(() => {
-    // TEMP-RU-BUILD: automatic checks read the upstream feed and would swap
-    // this local Russian build for the English release. Polling stays off
-    // until the fork feed lands; manual "Check for updates" in
-    // Settings → About still works. Remove this block with the fork change.
-    if (RU_LOCAL_BUILD_PAUSE_POLLING) return;
     const initialDelayMs = 3000;
     const defaultIntervalMs = 60 * 60 * 1000;
     const minIntervalMs = 5 * 60 * 1000;

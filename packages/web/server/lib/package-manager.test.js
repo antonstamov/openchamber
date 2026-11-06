@@ -17,6 +17,7 @@ const {
   executeUpdate,
   getCurrentVersion,
   getUpdateCommand,
+  quoteArg,
   readUpdateChannel,
 } = await import('./package-manager.js');
 
@@ -64,149 +65,92 @@ describe('checkForUpdates', () => {
     else process.env.OPENCHAMBER_DATA_DIR = previousDataDir;
   });
 
-  // --- Scenario: API says update available, npm confirms ---
+  // --- Fork: web installs track the fork's releases, not npm or the upstream API ---
 
-  it('returns available=true when both API and npm confirm a newer version', async () => {
-    fetchMock
-      .when('api.openchamber.dev', {
-        ok: true,
-        json: async () => ({
-          latestVersion: '1.10.0',
-          updateAvailable: true,
-          releaseNotes: '## [1.10.0] - 2026-05-01\n\n- Great new feature',
-        }),
-      })
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.10.0' },
-        }),
-      })
-      .when('raw.githubusercontent.com', {
-        ok: true,
-        text: async () => '## [1.10.0] - 2026-05-01\n\n- Great new feature',
-      });
+  const forkReleaseUrl = 'api.github.com/repos/antonstamov/openchamber/releases/latest';
+  const webTgz = (version) => ({
+    name: `openchamber-web-${version}.tgz`,
+    browser_download_url: `https://github.com/antonstamov/openchamber/releases/download/v${version}/openchamber-web-${version}.tgz`,
+  });
+  const sdkTgz = (version) => ({
+    name: `openchamber-sdk-${version}.tgz`,
+    browser_download_url: `https://github.com/antonstamov/openchamber/releases/download/v${version}/openchamber-sdk-${version}.tgz`,
+  });
+  const serveForkRelease = (version, { body, assets } = {}) => {
+    fetchMock.when(forkReleaseUrl, {
+      ok: true,
+      json: async () => ({
+        tag_name: `v${version}`,
+        body: body ?? `## [${version}]\n\n- Fork build`,
+        html_url: `https://github.com/antonstamov/openchamber/releases/tag/v${version}`,
+        assets: assets ?? [webTgz(version), sdkTgz(version)],
+      }),
+    });
+  };
+  const fetchedUrls = () => fetchMock.mock.calls.map(([url]) => String(url));
+
+  it('returns available=true with tarballs when the fork release is newer', async () => {
+    serveForkRelease('1.10.0');
 
     const result = await checkForUpdates({ currentVersion: '1.9.10' });
 
-    expect(result.available).toBe(true);
-    expect(result.version).toBe('1.10.0');
-    expect(result.currentVersion).toBe('1.9.10');
+    expect(result).toMatchObject({
+      available: true,
+      version: '1.10.0',
+      currentVersion: '1.9.10',
+      downloadUrl: 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-web-1.10.0.tgz',
+      sdkDownloadUrl: 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-sdk-1.10.0.tgz',
+      releaseUrl: 'https://github.com/antonstamov/openchamber/releases/tag/v1.10.0',
+      updateCommand: 'openchamber update',
+    });
+    expect(result.body).toContain('[1.10.0]');
+    // No npm registry or upstream API call: the fork release is the only source.
+    expect(fetchedUrls().some((url) => url.includes('registry.npmjs.org'))).toBe(false);
+    expect(fetchedUrls().some((url) => url.includes('api.openchamber.dev'))).toBe(false);
   });
 
-  // --- Scenario: cross-verification uses the configured npm registry ---
+  it('returns available=false when the fork release matches the installed version', async () => {
+    serveForkRelease('1.9.10');
 
-  it('cross-verifies against the configured npm registry, not registry.npmjs.org', async () => {
-    const previousLower = process.env.npm_config_registry;
-    const previous = process.env.NPM_CONFIG_REGISTRY;
-    process.env.npm_config_registry = '';
-    process.env.NPM_CONFIG_REGISTRY = 'https://mirror.example.com/npm';
-    // Only the mirror is mocked. A stray call to registry.npmjs.org would reject,
-    // drop npm cross-verification, and flip available to false.
-    fetchMock
-      .when('api.openchamber.dev', {
-        ok: true,
-        json: async () => ({
-          latestVersion: '1.10.0',
-          updateAvailable: true,
-          releaseNotes: '## [1.10.0]\n\n- New',
-        }),
-      })
-      .when('mirror.example.com/npm/@openchamber%2Fweb', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.10.0' },
-        }),
-      })
-      .when('raw.githubusercontent.com', {
-        ok: true,
-        text: async () => '## [1.10.0]\n\n- New',
-      });
+    const result = await checkForUpdates({ currentVersion: '1.9.10' });
 
-    try {
-      const result = await checkForUpdates({ currentVersion: '1.9.10' });
-
-      expect(result.available).toBe(true);
-      expect(result.version).toBe('1.10.0');
-      expect(
-        fetchMock.mock.calls.some(([url]) => String(url) === 'https://mirror.example.com/npm/@openchamber%2Fweb'),
-      ).toBe(true);
-    } finally {
-      if (previousLower === undefined) delete process.env.npm_config_registry;
-      else process.env.npm_config_registry = previousLower;
-      if (previous === undefined) delete process.env.NPM_CONFIG_REGISTRY;
-      else process.env.NPM_CONFIG_REGISTRY = previous;
-    }
+    expect(result.available).toBe(false);
+    expect(result.downloadUrl).toBeUndefined();
   });
 
-  it('cross-verifies scoped metadata without exposing registry credentials', async () => {
-    const previousLower = process.env.npm_config_registry;
-    const previous = process.env.NPM_CONFIG_REGISTRY;
-    process.env.npm_config_registry = '';
-    process.env.NPM_CONFIG_REGISTRY = 'https://test-user:test-password@mirror.example.com/npm/';
-    fetchMock
-      .when('api.openchamber.dev', {
-        ok: true,
-        json: async () => ({ latestVersion: '1.10.0', updateAvailable: true }),
-      })
-      .when('mirror.example.com/npm/@openchamber%2Fweb', {
-        ok: true,
-        json: async () => ({ 'dist-tags': { latest: '1.10.0' } }),
-      });
-
-    try {
-      const result = await checkForUpdates({ currentVersion: '1.9.10' });
-      const npmCall = fetchMock.mock.calls.find(([url]) => String(url).includes('mirror.example.com'));
-
-      expect(result.available).toBe(true);
-      expect(npmCall[0]).toBe('https://mirror.example.com/npm/@openchamber%2Fweb');
-      expect(npmCall[0]).not.toContain('test-password');
-      expect(npmCall[1].headers.Authorization).toBe(`Basic ${Buffer.from('test-user:test-password').toString('base64')}`);
-    } finally {
-      if (previousLower === undefined) delete process.env.npm_config_registry;
-      else process.env.npm_config_registry = previousLower;
-      if (previous === undefined) delete process.env.NPM_CONFIG_REGISTRY;
-      else process.env.NPM_CONFIG_REGISTRY = previous;
-    }
-  });
-
-  // --- Scenario (THE FIX): API says update available, npm does NOT have it ---
-
-  it('returns available=false when API claims update but npm has same version', async () => {
-    fetchMock
-      .when('api.openchamber.dev', {
-        ok: true,
-        json: async () => ({
-          latestVersion: '1.10.0',
-          updateAvailable: true,
-          releaseNotes: '## [1.10.0] - 2026-05-01\n\n- Great new feature',
-        }),
-      })
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.9.10' },
-        }),
-      });
+  it('returns available=false when the fork release is older than installed', async () => {
+    serveForkRelease('1.9.9');
 
     const result = await checkForUpdates({ currentVersion: '1.9.10' });
 
     expect(result.available).toBe(false);
   });
 
-  it('returns available=false when npm only has a prerelease of the current version', async () => {
-    fetchMock
-      .when('api.openchamber.dev', Promise.reject(new Error('Network error')))
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.10.0-beta.1' },
-        }),
-      });
+  it('returns available=false with an error when the fork release has no web package', async () => {
+    serveForkRelease('1.10.0', { assets: [sdkTgz('1.10.0')] });
 
-    const result = await checkForUpdates({ currentVersion: '1.10.0' });
+    const result = await checkForUpdates({ currentVersion: '1.9.10' });
 
     expect(result.available).toBe(false);
+    expect(result.error).toBe('Release has no web package yet');
+  });
+
+  it('returns available=false without an error when the fork has no releases yet', async () => {
+    fetchMock.when(forkReleaseUrl, { ok: false, status: 404 });
+
+    const result = await checkForUpdates({ currentVersion: '1.9.10' });
+
+    expect(result.available).toBe(false);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('returns available=false with an error when the fork API is unreachable', async () => {
+    fetchMock.when(forkReleaseUrl, Promise.reject(new Error('Network error')));
+
+    const result = await checkForUpdates({ currentVersion: '1.9.10' });
+
+    expect(result.available).toBe(false);
+    expect(result.error).toBe('Unable to determine versions');
   });
 
   it('accepts electron desktop update claims without npm cross-checking', async () => {
@@ -262,13 +206,13 @@ describe('checkForUpdates', () => {
     }
   });
 
-  it('offers a Canary Android app the newest APK of the canary pre-release', async () => {
+  it('offers a Canary Android app the newest APK of the fork canary pre-release', async () => {
     fetchMock
       .when('api.openchamber.dev', {
         ok: true,
         json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
       })
-      .when('api.github.com/repos/openchamber/openchamber/releases/tags/canary', {
+      .when('api.github.com/repos/antonstamov/openchamber/releases/tags/canary', {
         ok: true,
         json: async () => ({
           assets: [
@@ -309,13 +253,13 @@ describe('checkForUpdates', () => {
     expect(upToDate.downloadUrl).toBeUndefined();
   });
 
-  it('reports an unreadable canary pre-release as an error for a Canary Android app', async () => {
+  it('reports an unreadable fork canary pre-release as an error for a Canary Android app', async () => {
     fetchMock
       .when('api.openchamber.dev', {
         ok: true,
         json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
       })
-      .when('api.github.com/repos/openchamber/openchamber/releases/tags/canary', { ok: false, status: 503 });
+      .when('api.github.com/repos/antonstamov/openchamber/releases/tags/canary', { ok: false, status: 503 });
 
     const result = await checkForUpdates({
       appType: 'mobile-capacitor',
@@ -327,112 +271,24 @@ describe('checkForUpdates', () => {
     expect(result.error).toBe('Unable to determine versions');
   });
 
-  it('returns available=false when API claims update but npm is behind', async () => {
-    fetchMock
-      .when('api.openchamber.dev', {
-        ok: true,
-        json: async () => ({
-          latestVersion: '1.10.0',
-          updateAvailable: true,
-          releaseNotes: '## [1.10.0] - 2026-05-01\n\n- Great new feature',
-        }),
-      })
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.9.9' },
-        }),
-      });
+  // --- Fork: the upstream API and npm are not consulted for web installs ---
 
-    const result = await checkForUpdates({ currentVersion: '1.9.10' });
-
-    expect(result.available).toBe(false);
-  });
-
-  // --- Scenario: API says no update, npm agrees ---
-
-  it('returns available=false when API says no update and versions match', async () => {
+  it('ignores the upstream API and follows only the fork release', async () => {
     fetchMock.when('api.openchamber.dev', {
       ok: true,
       json: async () => ({
-        latestVersion: '1.9.10',
-        updateAvailable: false,
+        latestVersion: '9.9.9',
+        updateAvailable: true,
+        releaseNotes: 'Upstream only',
       }),
     });
+    serveForkRelease('1.9.10');
 
     const result = await checkForUpdates({ currentVersion: '1.9.10' });
 
     expect(result.available).toBe(false);
-  });
-
-  // --- Scenario: API unreachable, npm fallback ---
-
-  it('returns available=true from npm fallback when API is unreachable and npm has newer version', async () => {
-    fetchMock
-      .when('api.openchamber.dev', Promise.reject(new Error('Network error')))
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.10.0' },
-        }),
-      })
-      .when('raw.githubusercontent.com', {
-        ok: true,
-        text: async () => '## [1.10.0] - 2026-05-01\n\n- Great new feature',
-      });
-
-    const result = await checkForUpdates({ currentVersion: '1.9.10' });
-
-    expect(result.available).toBe(true);
-    expect(result.version).toBe('1.10.0');
-  });
-
-  it('returns available=false from npm fallback when API is unreachable and versions match', async () => {
-    fetchMock
-      .when('api.openchamber.dev', Promise.reject(new Error('Network error')))
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.9.10' },
-        }),
-      });
-
-    const result = await checkForUpdates({ currentVersion: '1.9.10' });
-
-    expect(result.available).toBe(false);
-  });
-
-  // --- Scenario: API returns null (bad response), npm fallback ---
-
-  it('returns available=false when API returns non-ok status and versions match on npm', async () => {
-    fetchMock
-      .when('api.openchamber.dev', {
-        ok: false,
-        status: 500,
-        json: async () => ({}),
-      })
-      .when('registry.npmjs.org', {
-        ok: true,
-        json: async () => ({
-          'dist-tags': { latest: '1.9.10' },
-        }),
-      });
-
-    const result = await checkForUpdates({ currentVersion: '1.9.10' });
-
-    expect(result.available).toBe(false);
-  });
-
-  // --- Scenario: Both API and npm are unreachable ---
-
-  it('returns available=false when both sources are unreachable', async () => {
-    fetchMock
-      .when('api.openchamber.dev', Promise.reject(new Error('Network error')))
-      .when('registry.npmjs.org', Promise.reject(new Error('Registry unreachable')));
-
-    const result = await checkForUpdates({ currentVersion: '1.9.10' });
-
-    expect(result.available).toBe(false);
+    expect(fetchedUrls().some((url) => url.includes('api.openchamber.dev'))).toBe(false);
+    expect(fetchedUrls().some((url) => url.includes('registry.npmjs.org'))).toBe(false);
   });
 });
 
@@ -445,11 +301,48 @@ describe('checkForUpdates on the update channels', () => {
   const pickChannel = (channel) => {
     fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify({ serverUpdateChannel: channel }));
   };
-  const serveDistTags = (distTags) => {
-    fetchMock
-      .when('api.openchamber.dev', { ok: true, json: async () => ({ latestVersion: '2.5.3', updateAvailable: true }) })
-      .when('registry.npmjs.org', { ok: true, json: async () => ({ 'dist-tags': distTags }) });
+  const serveForkRelease = (version) => {
+    fetchMock.when('api.github.com/repos/antonstamov/openchamber/releases/latest', {
+      ok: true,
+      json: async () => ({
+        tag_name: `v${version}`,
+        body: `## [${version}]`,
+        html_url: `https://github.com/antonstamov/openchamber/releases/tag/v${version}`,
+        assets: [
+          { name: `openchamber-web-${version}.tgz`, browser_download_url: `https://example.invalid/web-${version}.tgz` },
+          { name: `openchamber-sdk-${version}.tgz`, browser_download_url: `https://example.invalid/sdk-${version}.tgz` },
+        ],
+      }),
+    });
   };
+
+  it('offers nothing on the Canary channel: the fork publishes no canary builds', async () => {
+    pickChannel('canary');
+    serveForkRelease('2.5.3');
+
+    const result = await checkForUpdates({ currentVersion: '2.5.3' });
+
+    expect(result.available).toBe(false);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('is up to date on Canary before the first Canary is published', async () => {
+    pickChannel('canary');
+
+    const result = await checkForUpdates({ currentVersion: '2.5.3' });
+
+    expect(result.available).toBe(false);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('offers the older release on Stable from a Canary build', async () => {
+    pickChannel('stable');
+    serveForkRelease('2.5.3');
+
+    const result = await checkForUpdates({ currentVersion: '2.5.4-canary.20261031.7' });
+
+    expect(result).toMatchObject({ available: true, version: '2.5.3' });
+  });
 
   beforeEach(() => {
     fetchMock = createFetchMock();
@@ -467,60 +360,7 @@ describe('checkForUpdates on the update channels', () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it('offers the Canary build once Canary is picked', async () => {
-    pickChannel('canary');
-    serveDistTags({ latest: '2.5.3', canary: '2.5.4-canary.20261031.7' });
-
-    const result = await checkForUpdates({ currentVersion: '2.5.3' });
-
-    expect(result).toMatchObject({ available: true, version: '2.5.4-canary.20261031.7', updateCommand: 'openchamber update' });
-    // The website still counts the check-in.
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('api.openchamber.dev'))).toBe(true);
-  });
-
-  it('offers the next night and not the same or an earlier one', async () => {
-    pickChannel('canary');
-    serveDistTags({ latest: '2.5.3', canary: '2.5.4-canary.20261031.7' });
-
-    expect((await checkForUpdates({ currentVersion: '2.5.4-canary.20261030.6' })).available).toBe(true);
-    expect((await checkForUpdates({ currentVersion: '2.5.4-canary.20261031.7' })).available).toBe(false);
-    expect((await checkForUpdates({ currentVersion: '2.5.4-canary.20261101.8' })).available).toBe(false);
-  });
-
-  it('is up to date on Canary before the first Canary is published', async () => {
-    pickChannel('canary');
-    serveDistTags({ latest: '2.5.3' });
-
-    const result = await checkForUpdates({ currentVersion: '2.5.3' });
-
-    expect(result.available).toBe(false);
-    expect(result.error).toBeUndefined();
-  });
-
-  it('reports an unreadable registry as a failed check, not as up to date', async () => {
-    pickChannel('canary');
-    fetchMock
-      .when('api.openchamber.dev', { ok: true, json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }) })
-      .when('registry.npmjs.org', Promise.reject(new Error('Registry unreachable')));
-
-    const result = await checkForUpdates({ currentVersion: '2.5.3' });
-
-    expect(result.available).toBe(false);
-    expect(result.error).toBe('Unable to determine versions');
-  });
-
-  it('offers the older release on Stable from a Canary build', async () => {
-    pickChannel('stable');
-    serveDistTags({ latest: '2.5.3', canary: '2.5.4-canary.20261031.7' });
-
-    const result = await checkForUpdates({ currentVersion: '2.5.4-canary.20261031.7' });
-
-    expect(result).toMatchObject({ available: true, version: '2.5.3' });
-  });
-
   it('keeps a Canary build installed from the terminal on Canary until a channel is picked', async () => {
-    serveDistTags({ latest: '2.5.3', canary: '2.5.4-canary.20261031.7' });
-
     expect(readUpdateChannel('2.5.4-canary.20261031.7')).toBe('canary');
     expect(readUpdateChannel('2.5.3')).toBe('stable');
     expect((await checkForUpdates({ currentVersion: '2.5.4-canary.20261031.7' })).available).toBe(false);
@@ -528,7 +368,10 @@ describe('checkForUpdates on the update channels', () => {
 
   it('leaves the desktop app, VS Code and phones on releases', async () => {
     pickChannel('canary');
-    serveDistTags({ latest: '2.5.3', canary: '2.5.4-canary.20261031.7' });
+    fetchMock.when('api.openchamber.dev', {
+      ok: true,
+      json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
+    });
 
     const result = await checkForUpdates({ currentVersion: '2.5.3', appType: 'vscode' });
 
@@ -586,6 +429,44 @@ describe('getUpdateCommand', () => {
 
   it('falls back to the latest dist-tag when no target version is given', () => {
     expect(getUpdateCommand('npm')).toBe('npm install -g @openchamber/web@latest');
+  });
+
+  it('installs the release tarballs and overlays the SDK when download URLs are given', () => {
+    const web = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-web-1.10.0.tgz';
+    const sdk = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-sdk-1.10.0.tgz';
+    const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, sdkDownloadUrl: sdk });
+    const overlay = `node ${quoteArg(joinOverlayPath())} ${quoteArg(sdk)} ${quoteArg(joinNestedSdkDir())} ${quoteArg('1.10.0')}`;
+    expect(command).toBe(`npm install -g ${quoteArg(web)} && ${overlay}`);
+    expect(command).not.toContain('@openchamber/web@');
+  });
+
+  it('quotes shell arguments per platform', () => {
+    expect(quoteArg('plain')).toBe('"plain"');
+    expect(quoteArg('C:\\Program Files\\app\\x.js', 'win32')).toBe('"C:\\Program Files\\app\\x.js"');
+    expect(quoteArg('a"b', 'win32')).toBe('"a""b"');
+    expect(quoteArg("a'b", 'linux')).toBe(`'a'\\''b'`);
+    expect(quoteArg('a b', 'darwin')).toBe(`'a b'`);
+  });
+
+  function joinOverlayPath() {
+    return path.join(path.dirname(fileURLToPath(import.meta.url)), 'fork-sdk-overlay.js');
+  }
+
+  function joinNestedSdkDir() {
+    return path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'node_modules', '@openchamber', 'sdk');
+  }
+
+  it('installs the release tarball per package manager', () => {
+    const web = 'https://example.invalid/openchamber-web-1.10.0.tgz';
+    expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web })).toBe(`npm install -g ${quoteArg(web)}`);
+    expect(getUpdateCommand('yarn', { targetVersion: '1.10.0', downloadUrl: web })).toBe(`yarn global add ${quoteArg(web)}`);
+    expect(getUpdateCommand('bun', { targetVersion: '1.10.0', downloadUrl: web })).toContain(`add -g ${quoteArg(web)}`);
+    expect(getUpdateCommand('pnpm', { targetVersion: '1.10.0', downloadUrl: web })).toContain(`add -g ${quoteArg(web)}`);
+  });
+
+  it('installs only the web tarball when the release has no SDK asset', () => {
+    const web = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-web-1.10.0.tgz';
+    expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web })).toBe(`npm install -g ${quoteArg(web)}`);
   });
 
   it('rejects a target version that is not a concrete version', () => {
@@ -647,6 +528,27 @@ describe('executeUpdate', () => {
     const result = executeUpdate('npm');
     expect(result.success).toBe(true);
     expect(result.installedVersion).toBeNull();
+  });
+
+  it('passes release tarball URLs through to the install command', () => {
+    let ran = '';
+    const web = 'https://example.invalid/openchamber-web-1.24.1.tgz';
+    const sdk = 'https://example.invalid/openchamber-sdk-1.24.1.tgz';
+    spawnSync.mockImplementation((command, args) => {
+      if (!Array.isArray(args)) {
+        ran = command;
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (args[0] === 'list' || args[0] === 'pm' || args[0] === 'global') {
+        return { status: 0, stdout: '└── @openchamber/web@1.24.1', stderr: '' };
+      }
+      return { status: 0, stdout: '', stderr: '' };
+    });
+    const result = executeUpdate('npm', { targetVersion: '1.24.1', downloadUrl: web, sdkDownloadUrl: sdk });
+    expect(result.success).toBe(true);
+    expect(ran).toContain(`npm install -g ${quoteArg(web)}`);
+    expect(ran).toContain('fork-sdk-overlay.js');
+    expect(ran).toContain(sdk);
   });
 });
 

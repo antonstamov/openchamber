@@ -1,0 +1,128 @@
+name: Fork sync and release
+
+# Fork: keeps main-ru on top of upstream main and releases the result.
+# Runs on schedule and on demand. If the merge is clean it is committed by
+# the script; on conflicts an OpenCode agent resolves them (needs the
+# OPENCODE_API_KEY secret), then the tree is verified, pushed, and tagged
+# when the version is new, which starts the release workflow.
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model for the merge agent (provider/model)'
+        required: false
+        default: 'opencode-go/deepseek-v4-flash'
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+      FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+      MODEL: ${{ github.event.inputs.model || 'opencode-go/deepseek-v4-flash' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main-ru
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Fetch upstream and roll main-upstream forward
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote set-url origin "https://x-access-token:${FORK_SYNC_TOKEN}@github.com/antonstamov/openchamber.git"
+          git remote add upstream https://github.com/openchamber/openchamber.git
+          git fetch upstream main
+          git push origin FETCH_HEAD:refs/heads/main-upstream
+
+      - name: Try a clean merge
+        id: merge
+        run: |
+          set -euo pipefail
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "status=up-to-date" >> "$GITHUB_OUTPUT"
+          elif git merge --no-commit upstream/main; then
+            echo "status=clean" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "status=conflicts" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install OpenCode for the merge agent
+        if: steps.merge.outputs.status == 'conflicts'
+        run: |
+          set -euo pipefail
+          installer="$(mktemp)"
+          trap 'rm -f "$installer"' EXIT
+          curl --retry 2 --retry-all-errors -fsSL --connect-timeout 15 \
+            https://opencode.ai/install -o "$installer"
+          bash "$installer" --no-modify-path
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
+      - name: Merge with the agent
+        if: steps.merge.outputs.status == 'conflicts'
+        env:
+          PROMPT_FILE: .github/fork-merge-prompt.md
+        run: |
+          set -euo pipefail
+          prompt="$(cat "$PROMPT_FILE")"
+          prompt="$prompt
+
+          Upstream head: $(git rev-parse upstream/main). Worktree is on main-ru with no merge in progress; start it yourself."
+          timeout --signal=TERM --kill-after=60s 45m \
+            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt"
+
+      - name: Verify the merged tree
+        run: |
+          set -euo pipefail
+          bun test packages/ui/src/lib/i18n/
+          bun check -b
+
+      - name: Commit a clean merge
+        if: steps.merge.outputs.status == 'clean'
+        run: |
+          set -euo pipefail
+          git commit --no-edit -m "Merge remote-tracking branch 'upstream/main' into main-ru"
+
+      - name: Push, tag a new version
+        # Quiet days still push the branch pointer but never mint a release:
+        # the script no-ops when HEAD already carries the latest release tag.
+        if: steps.merge.outputs.status != 'up-to-date' || github.event_name == 'workflow_dispatch'
+        id: tag
+        run: |
+          set -euo pipefail
+          node .github/fork-release-version.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          gh issue create --repo antonstamov/openchamber \
+            --title "Fork sync failed: ${{ github.run_id }}" \
+            --body "The scheduled merge of upstream/main into main-ru failed. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
