@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       model:
-        description: 'Model for the merge agent (provider/model). Empty = FORK_MERGE_MODEL repo variable, then the built-in default.'
+        description: 'Model for the merge agent (provider/model). Empty = FORK_MERGE_MODEL repo variable, which must be set for merges with conflicts.'
         required: false
 
 permissions:
@@ -31,9 +31,10 @@ jobs:
       GH_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
       FORK_SYNC_TOKEN: ${{ secrets.FORK_SYNC_TOKEN }}
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-      # The model lives in the FORK_MERGE_MODEL repo variable so it can change
-    # without a commit; the dispatch input overrides it for one-off runs.
-    MODEL: ${{ github.event.inputs.model || vars.FORK_MERGE_MODEL || 'opencode-go/muse-spark-1.3-contributor' }}
+      # The model lives only in the FORK_MERGE_MODEL repo variable (or the
+      # dispatch input for one-off runs); there is no built-in default, so a
+      # missing model fails loudly instead of spending on a surprise default.
+      MODEL: ${{ github.event.inputs.model || vars.FORK_MERGE_MODEL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,6 +93,10 @@ jobs:
           PROMPT_FILE: .github/fork-merge-prompt.md
         run: |
           set -euo pipefail
+          if [ -z "${MODEL:-}" ]; then
+            echo 'No model configured: set the FORK_MERGE_MODEL repo variable or pass the model input.' >&2
+            exit 1
+          fi
           prompt="$(cat "$PROMPT_FILE")"
           prompt="$prompt
 
