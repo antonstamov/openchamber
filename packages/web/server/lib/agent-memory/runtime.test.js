@@ -40,10 +40,10 @@ afterEach(async () => {
 
 describe('scope resolution', () => {
   test('the two scopes are separate files', async () => {
-    await runtime.create(GLOBAL, { title: 'Speaks Ukrainian', body: 'Replies should be in Ukrainian.' });
+    await runtime.create(GLOBAL, { title: 'Speaks Russian', body: 'Replies should be in Russian.' });
     await runtime.create(PROJECT, { title: 'Uses bun', body: 'Tests run with bun test.' });
 
-    expect((await runtime.read(GLOBAL)).entries.map((e) => e.title)).toEqual(['Speaks Ukrainian']);
+    expect((await runtime.read(GLOBAL)).entries.map((e) => e.title)).toEqual(['Speaks Russian']);
     expect((await runtime.read(PROJECT)).entries.map((e) => e.title)).toEqual(['Uses bun']);
     await fsPromises.access(globalPath());
     await fsPromises.access(projectPath());

@@ -608,7 +608,7 @@ describe('nameNotAllowedHere', () => {
 
   // The control: ordinary names, and names that only look like the refused ones.
   it.each([
-    'README.md', 'with spaces inside.txt', 'юнікод.txt', '.env', '..hidden', '[brackets] (and) {braces}.txt', 'a.b.c',
+    'README.md', 'with spaces inside.txt', 'юникод.txt', '.env', '..hidden', '[brackets] (and) {braces}.txt', 'a.b.c',
     'console.log', 'auxiliary.txt', 'nullable', 'com0', 'com10', 'lpt10', 'CONIN', 'src/components/Button.tsx',
   ])('lets %j through on every platform', (name) => {
     for (const platform of ['win32', 'darwin', 'linux']) expect(refused(name, platform)).toBeNull();

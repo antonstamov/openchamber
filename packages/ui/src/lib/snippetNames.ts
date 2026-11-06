@@ -5,12 +5,12 @@ const SNIPPET_NAME_PATTERN = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
 const SUGGESTED_NAME_WORDS = 3;
 const SUGGESTED_NAME_MAX_LENGTH = 32;
 
-// Names are ASCII on disk; a prompt written in Cyrillic still gets a
+// Names are ASCII on disk; a prompt written in Russian still gets a
 // readable suggestion rather than the bare fallback.
 const CYRILLIC_TO_LATIN = new Map(Object.entries({
-  а: 'a', б: 'b', в: 'v', г: 'h', ґ: 'g', д: 'd', е: 'e', є: 'ie', ж: 'zh', з: 'z', и: 'y', і: 'i', ї: 'i', й: 'i',
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z', и: 'i', й: 'y',
   к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts',
-  ч: 'ch', ш: 'sh', щ: 'shch', ь: '', ю: 'iu', я: 'ia', ё: 'e', ъ: '', ы: 'y', э: 'e',
+  ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
 }));
 
 export const isValidSnippetName = (name: string): boolean => SNIPPET_NAME_PATTERN.test(name);

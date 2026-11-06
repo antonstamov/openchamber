@@ -36,8 +36,8 @@ describe('workspace file search supplements', () => {
   test('respects ignored Unicode and whitespace names when hidden files are included', async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'oc-vscode-file-search-'));
     execFileSync('git', ['init', '-q'], { cwd: root });
-    await fs.writeFile(path.join(root, '.gitignore'), '.ігнор.ts\n*ignored.ts\n space.ts\\ \n');
-    for (const name of ['.ігнор.ts', '.line\nignored.ts', ' space.ts ', '.visible.ts']) {
+    await fs.writeFile(path.join(root, '.gitignore'), '.игнор.ts\n*ignored.ts\n space.ts\\ \n');
+    for (const name of ['.игнор.ts', '.line\nignored.ts', ' space.ts ', '.visible.ts']) {
       await fs.writeFile(path.join(root, name), '');
     }
     expect((await searchDirectory(root, 'ts', 60, true, true)).map((file) => file.name)).toEqual(['.visible.ts']);

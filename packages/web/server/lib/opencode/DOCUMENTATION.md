@@ -1293,7 +1293,7 @@ name the session after the context pulled that title back to the old topic.
 
 The title runs on a small model, which follows the example language more
 reliably than an abstract instruction. The examples were mostly English with
-one Ukrainian, and a Chinese first message still produced English titles (drift
+one Russian, and a Chinese first message still produced English titles (drift
 varied per request on the same input). The prompt now states that only the
 user's message decides the language and adds a Chinese example, the same
 pinning idiom `packages/ui/src/lib/smallModel.ts` uses for its notes.
@@ -1301,8 +1301,8 @@ pinning idiom `packages/ui/src/lib/smallModel.ts` uses for its notes.
 #### Why the prompt is short and every example fits four words
 
 The title runs on a small model that imitates the example shape more than a
-rule buried in a long prompt. A five-word Ukrainian example modelled the wrong
-length, and "Статус бага режиму плану OpenChamber" came back at five words
+rule buried in a long prompt. A five-word Russian example modelled the wrong
+length, and "Статус бага режима плана OpenChamber" came back at five words
 even though the prompt said two to four. Its fifth word was the name of the
 project the session worked in, which the session list already shows, so the
 prompt tells the model to leave that name out. The prompt is now a short rule

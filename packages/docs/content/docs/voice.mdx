@@ -27,13 +27,13 @@ Pick how your speech is transcribed:
 
 Local models:
 
-- **Parakeet v3** is the default. It knows 25 European languages, English and Ukrainian among them, and is the fastest. If you already dictated with Parakeet v2 before v3 became the default, you stay on v2 until you pick another model.
+- **Parakeet v3** is the default. It knows 25 European languages, English and Russian among them, and is the fastest. If you already dictated with Parakeet v2 before v3 became the default, you stay on v2 until you pick another model.
 - **Parakeet v2** knows English only.
 - **Whisper large-v3 turbo** knows 99 languages. It is about nine times slower than Parakeet, so long dictations take a few seconds to appear.
-- **Qwen3-ASR 0.6B** knows 30 languages, including Chinese, Japanese, Korean and Arabic. It has no Ukrainian.
+- **Qwen3-ASR 0.6B** knows 30 languages, including Chinese, Japanese, Korean and Arabic, as well as Russian.
 - **Whisper tiny** is the smallest download, for slow computers.
 
-The Whisper and Qwen3-ASR models detect the language on their own, and on a short phrase they can pick the wrong one. Enter your language code in **Language** below the model list, for example `uk` or `en`, and they stop guessing.
+The Whisper and Qwen3-ASR models detect the language on their own, and on a short phrase they can pick the wrong one. Enter your language code in **Language** below the model list, for example `ru` or `en`, and they stop guessing.
 
 Turn on **Fix misheard words** to have your Small Model (Settings → Sessions → Small Model) go over the text after you stop. It replaces words the speech model misheard and drops filler sounds such as "uh". The text then goes to the Small Model's provider and appears a second or two later. Without a Small Model the text is inserted as heard.
 

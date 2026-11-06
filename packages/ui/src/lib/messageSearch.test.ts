@@ -6,7 +6,7 @@ describe('message search helpers', () => {
   test('a query needs one word the index can look up', () => {
     expect(isSearchableQuery('ab')).toBe(false);
     expect(isSearchableQuery('ab cd')).toBe(false);
-    expect(isSearchableQuery('ab світ')).toBe(true);
+    expect(isSearchableQuery('ab мир')).toBe(true);
     expect(isSearchableQuery('   ')).toBe(false);
   });
 

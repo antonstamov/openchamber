@@ -166,34 +166,34 @@ const FIXTURE_CODE_DOCUMENT = [
   "",
 ].join("\n")
 
-// Prose a Ukrainian-speaking user actually receives: typographic punctuation
+// Prose a Russian-speaking user actually receives: typographic punctuation
 // mixed into English, and whole Cyrillic paragraphs.
-const UNICODE_PROSE = (index) => `## ${index}. Чому рядок «важить» удвічі більше — and why it matters
+const UNICODE_PROSE = (index) => `## ${index}. Почему строка «весит» вдвое больше — and why it matters
 
 The renderer receives every delta as a JavaScript string. A string that holds only Latin-1 characters is stored
 one byte per character; the moment a single “curly quote”, an em dash — like this one — or a Cyrillic letter
 arrives, the whole string becomes two bytes per character. Section ${index} says it again so the response is long.
 
-Коли модель відповідає українською, кожен фрагмент тексту містить кирилицю, тож усі операції над рядком —
-конкатенація, пошук, розбиття на блоки Markdown — працюють із дворазовим представленням. Це не помилка,
-а властивість рушія V8, і її варто вимірювати на реальному тексті, а не на ASCII.
+Когда модель отвечает по-русски, каждый фрагмент текста содержит кириллицу, и все операции над строкой —
+конкатенация, поиск, разбивка на блоки Markdown — работают с двойным представлением. Это не ошибка,
+а свойство движка V8, и его стоит измерять на реальном тексте, а не на ASCII.
 
 - “Smart quotes” and ‘single ones’ … ellipses, and non-breaking spaces between numbers and units: 42 ms.
-- Списки з тире — звичайна річ: «лапки-ялинки», апостроф у слові «пам’ять», і знак № ${index}.
+- Списки с тире — обычное дело: «кавычки-ёлочки», буква «ё» в слове «ещё», и знак № ${index}.
 - Mixed: the cache key «owner:${index}» is hashed — not compared — on every read.
 
 `
 
 const UNICODE_CODE_FUNCTION = (index) => [
-  `/** Повертає власника запису ${index} — і кешує відповідь. */`,
+  `/** Возвращает владельца записи ${index} — и кеширует ответ. */`,
   `export function ownerLabel${index}(entries: Map<string, Entry>, key: string): string {`,
   `  const cacheKey = key + "→${index}"`,
   "  const cached = labelCache.get(cacheKey)",
   "  if (cached !== undefined) return cached",
   "  const entry = entries.get(key)",
-  `  // Немає запису — повертаємо «невідомо», а не порожній рядок.`,
-  `  if (!entry) return "невідомо — ${index}"`,
-  `  const label = "Власник “" + entry.ownerId + "” (рівень ${index % 5})"`,
+  `  // Нет записи — возвращаем «неизвестно», а не пустую строку.`,
+  `  if (!entry) return "неизвестно — ${index}"`,
+  `  const label = "Владелец “" + entry.ownerId + "” (уровень ${index % 5})"`,
   "  labelCache.set(cacheKey, label)",
   "  return label",
   "}",
@@ -203,12 +203,12 @@ const UNICODE_CODE_FUNCTION = (index) => [
 const FIXTURE_UNICODE_DOCUMENT = [
   UNICODE_PROSE(1),
   UNICODE_PROSE(2),
-  "Нижче — індекс власників, який тримає підписи в кеші:",
+  "Ниже — индекс владельцев, который держит подписи в кеше:",
   "",
   `${FENCE}typescript`,
   "type Entry = { ownerId: string; revision: number }",
   "",
-  "// Кеш підписів: ключ — «запис→номер», значення — готовий рядок.",
+  "// Кеш подписей: ключ — «запись→номер», значение — готовая строка.",
   "const labelCache = new Map<string, string>()",
   "",
   Array.from({ length: 12 }, (_, index) => UNICODE_CODE_FUNCTION(index + 1)).join("\n") + FENCE,

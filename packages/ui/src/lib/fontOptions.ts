@@ -56,7 +56,7 @@ export const UI_FONT_OPTIONS: FontOptionDefinition<UiFontOption>[] = [
     {
         id: 'fixel',
         label: 'Fixel Text',
-        description: 'Humanist geometric sans-serif with full Ukrainian support.',
+        description: 'Humanist geometric sans-serif with full Cyrillic support.',
         stack: '"Fixel Text", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         source: {
             family: 'Fixel Text',

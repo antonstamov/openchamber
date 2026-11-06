@@ -99,14 +99,14 @@ describe('save', () => {
   test('reports a correction as replaced so the agent does not claim a second memory', async () => {
     await actions.execute('memory.save', {
       scope: 'global',
-      title: 'Prefers Ukrainian replies',
-      body: 'The user wants answers written in Ukrainian.',
+      title: 'Prefers Russian replies',
+      body: 'The user wants answers written in Russian.',
     }, DIRECTORY);
 
     const result = await actions.execute('memory.save', {
       scope: 'global',
-      title: 'Answers should be in Ukrainian',
-      body: 'The user wants replies written in Ukrainian.',
+      title: 'Answers should be in Russian',
+      body: 'The user wants replies written in Russian.',
     }, DIRECTORY);
 
     expect(result.replaced).toBe(true);

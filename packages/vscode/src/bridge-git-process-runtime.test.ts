@@ -84,7 +84,7 @@ test('drains verbose stderr and sends EOF to non-interactive command stdin', asy
 });
 
 test('sends NUL-delimited Unicode input and closes stdin', async () => {
-  const input = '.ігнор.ts\0.line\nignored.ts\0 space.ts \0';
+  const input = '.игнор.ts\0.line\nignored.ts\0 space.ts \0';
   const result = await execGit(['-e', 'process.stdin.pipe(process.stdout)'], os.tmpdir(), {
     binary: process.execPath, timeoutMs: 3000, input,
   });

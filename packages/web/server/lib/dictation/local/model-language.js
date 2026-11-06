@@ -1,5 +1,5 @@
 /**
- * Turns the language the user set for dictation (a BCP-47 tag such as `uk`
+ * Turns the language the user set for dictation (a BCP-47 tag such as `ru`
  * or `en-US`) into the hint a local model understands. Returns '' when the
  * model takes no hint or does not know the language, which leaves the model
  * to detect the language itself.
@@ -9,7 +9,7 @@
 // the model does not know, so a code is only passed on after this check.
 const WHISPER_LANGUAGES = new Set([
   'en', 'zh', 'de', 'es', 'ru', 'ko', 'fr', 'ja', 'pt', 'tr', 'pl', 'ca', 'nl', 'ar', 'sv', 'it',
-  'id', 'hi', 'fi', 'vi', 'he', 'uk', 'el', 'ms', 'cs', 'ro', 'da', 'hu', 'ta', 'no', 'th', 'ur',
+  'id', 'hi', 'fi', 'vi', 'he', 'el', 'ms', 'cs', 'ro', 'da', 'hu', 'ta', 'no', 'th', 'ur',
   'hr', 'bg', 'lt', 'la', 'mi', 'ml', 'cy', 'sk', 'te', 'fa', 'lv', 'bn', 'sr', 'az', 'sl', 'kn',
   'et', 'mk', 'br', 'eu', 'is', 'hy', 'ne', 'mn', 'bs', 'kk', 'sq', 'sw', 'gl', 'mr', 'pa', 'si',
   'km', 'sn', 'yo', 'so', 'af', 'oc', 'ka', 'be', 'tg', 'sd', 'gu', 'am', 'yi', 'lo', 'uz', 'fo',

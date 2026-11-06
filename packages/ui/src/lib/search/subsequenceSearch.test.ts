@@ -38,7 +38,7 @@ describe('matchSubsequence', () => {
   });
 
   test('offsets stay right in non-Latin text', () => {
-    expect(marked('Рефакторинг палітри', 'палітр')).toEqual(['палітр']);
+    expect(marked('Рефакторинг палитры', 'палитр')).toEqual(['палитр']);
   });
 
   test('scores the query at the start of the text highest', () => {

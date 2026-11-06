@@ -82,8 +82,8 @@ describe('matchesRankQuery', () => {
     expect(matchesRankQuery(['bugfix/fix-relay'], 'relay fix', SIDEBAR_SEARCH)).toBe(true);
     expect(matchesRankQuery(['Prefix cleanup'], 'fix', SIDEBAR_SEARCH)).toBe(false);
     expect(matchesRankQuery(['Prefix cleanup'], 'fix')).toBe(true);
-    expect(matchesRankQuery(['Розбір бенчу'], 'бенч', SIDEBAR_SEARCH)).toBe(true);
-    expect(matchesRankQuery(['Перебір'], 'бір', SIDEBAR_SEARCH)).toBe(false);
+    expect(matchesRankQuery(['Разбор бенча'], 'бенч', SIDEBAR_SEARCH)).toBe(true);
+    expect(matchesRankQuery(['Перебор'], 'бор', SIDEBAR_SEARCH)).toBe(false);
   });
 
   test('the sidebar still lets punctuation go from a word start on', () => {

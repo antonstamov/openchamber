@@ -11,7 +11,7 @@ import { getLocalSttModelSpec } from './model-catalog.js';
 // Real USTAR archives compressed with Python's bz2 module. Model files contain
 // short text fixtures; no encoder or system bzip2 is needed to run these tests.
 const STT_ARCHIVE = Buffer.from('QlpoOTFBWSZTWYnMogsAATrZgcqQRgv/wH9730AAAwgIMAEYAY00GgBk0BkaaGJowxpoNADJoDI00MTRgVRTSYmgg2o0emkANojTr0jPsKRJN0SInREIh29+iqhyMC8b1jYSWCEhPoSWxnUbDUbTI5FZ6F5pjjF8mBWZZKiGJtKhDHHFWQsjjv4LpTG/oVw0FK6S13HE4KThEVnMwKFRec+CevviWlx9OZaW20Vq5TyNJiZGp3RwORr1+pY0osM1IiiqI1xHQ5nRubI0m4k1F6JP0qL39nPXQZ7y0tiPAvMMLTb2HUsLoimBkQf4u5IpwoSETmUQWA==', 'base64');
-const TTS_ARCHIVE = Buffer.from('QlpoOTFBWSZTWVojbVMAAPH/gcqQEABAA++QIAACAOet38AAAYgIMADYBjRo0AyZDRiNNA0wMaNGgGTIaMRpoGmAkkFT9MSTTxCZNo1A9J+qPU2tXXcYRHDUGQk6SBIYyd9rIlUUd3BlK5MgQwLMcGtNOgfEFBdws90nr1KLrg5JRTCS455QSWLonMYkZ8CvldC5os8gOHHYO4Yh1CC9wz+g6OT+IaczxQYOWJq8LLUnYLFQxBnbye88YBpYNpq9TC8pRM965RmrsaKJe+qqfq/ttsA9JBKp7IQf4u5IpwoSC0RtqmA=', 'base64');
+const TTS_ARCHIVE = Buffer.from('QlpoOTFBWSZTWXaUTKEAAPl7gcqQEABAC//AEgDnq99AAAGICDAA2aDDQyGmTQDENNNGhowaKaNAAGgA0AAElEbVM9SGmgANAGI0xwy3ZzVIiQcghKORAkWWNN8WtZRba9sEzqCBEAVpELqY9+YdQ8smXqM8VwHEFKgJLjbbOiJTVxmcyp0pUSCfdTSTZG4DYWAsDoBBcAYWGW2iA3l+4OJEO+kdgnCgME4XHPA0AwYBCasq0F/bIGNCdUA5ILJJ3UGZX0OnpdSKrAmCo+r9+xrkxwQg/i7kinChIO0omUI=', 'base64');
 const TRUNCATED_TAR_ARCHIVE = Buffer.from('QlpoOTFBWSZTWVw6dJwAADvZgMqARAPfwH5r30AIACAAdBqnoTJo0NGmmgDJkGhTJkNNGgA0aA9pCAnHJ84W01gwDHbG4yVmyrIPmvMhByAhBCCskazdBCnwaDyacypBwRE/FPIxnjDlFRmD4XCcxYnMlrImUIywxNCOH/i7kinChILh06Tg', 'base64');
 const MISSING_FILES_ARCHIVE = Buffer.from('QlpoOTFBWSZTWX2dSkYAAI55gMqQEABEA9/Af2vfQAgIIACUhpMUanqBtQ2gCDTan6UGiTRtQAAGgGgPvZQogQDFkCBCc3UoGRG+ACBgNUID7SPFy2wpkO6XuIS5mCEjILauTW5q/HOIScUN8x4C1brT1sN9L2jhPSsksH4dAzCFfZ0IB1DY4pxHV+0qJULMSIgPxdyRThQkH2dSkYA=', 'base64');
 
@@ -143,15 +143,15 @@ describe('Windows model installation', () => {
   }
 
   it('installs TTS files and data directories through the same decoder', async () => {
-    const result = await runInstaller(TTS_ARCHIVE, 'piper-uk_UA-lada-x_low');
+    const result = await runInstaller(TTS_ARCHIVE, 'piper-ru_RU-irina-medium');
     expect(result.error).toBe(null);
     expect(result.installed).toBe(true);
     expect(result.files).toEqual({
-      'uk_UA-lada-x_low.onnx': 'piper fixture\n',
+      'ru_RU-irina-medium.onnx': 'piper fixture\n',
       'tokens.txt': 'tokens fixture\n',
       'espeak-ng-data': '<directory>',
     });
-    expect(result.entries).toEqual(['.downloads', 'vits-piper-uk_UA-lada-x_low']);
+    expect(result.entries).toEqual(['.downloads', 'vits-piper-ru_RU-irina-medium']);
     expect(result.downloads).toEqual([]);
   });
 

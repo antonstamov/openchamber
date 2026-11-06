@@ -11,7 +11,7 @@ const client = new StreamdownCodeWorker();
 afterAll(() => client.dispose());
 
 test('WASM worker transfers tokens matching source and theme', async () => {
-  const code = '// Немає запису — 中文\nconst value: string = "Власник";';
+  const code = '// Нет записи — 中文\nconst value: string = "Владелец";';
   const result = await client.highlight(code, 'typescript', false);
   expect(result).not.toBeNull();
   expect(result?.tokens.map((line) => line.map((token) => token.content).join('')).join('\n')).toBe(code);

@@ -40,22 +40,22 @@ describe('tts routes', () => {
       available: true,
       voices: [
         { name: 'Samantha', locale: 'en_US' },
-        { name: 'Lesya', locale: 'uk_UA' },
-        { name: 'Lesya (Enhanced)', locale: 'uk_UA' },
+        { name: 'Milena', locale: 'ru_RU' },
+        { name: 'Milena (Enhanced)', locale: 'ru_RU' },
       ],
     });
     const app = createApp(capability);
     const response = await request(app)
       .post('/api/tts/say/speak')
-      .send({ text: 'Привіт! Це відповідь українською мовою, і вона досить довга.', voice: 'Samantha', language: 'auto' });
+      .send({ text: 'Привет! Это достаточно длинный ответ на русском языке.', voice: 'Samantha', language: 'auto' });
 
     // On macOS the route synthesizes; elsewhere it refuses before running say.
-    // Either way the chosen voice must be the Ukrainian one when the platform
+    // Either way the chosen voice must be the Russian one when the platform
     // allows the request to proceed.
     if (process.platform === 'darwin') {
       expect(response.status).toBe(200);
-      expect(response.headers['x-speech-voice']).toBe('Lesya%20(Enhanced)');
-      expect(response.headers['x-speech-language']).toBe('uk');
+      expect(response.headers['x-speech-voice']).toBe('Milena%20(Enhanced)');
+      expect(response.headers['x-speech-language']).toBe('ru');
     } else {
       expect(response.status).toBe(503);
     }

@@ -11,7 +11,7 @@ test('large text starts in preview but an explicit edit choice remains available
 });
 
 test('large drafts preserve the tail and line endings through editing and saving', () => {
-  const raw = `header\r\n${'Рядок українською\r\n'.repeat(20_000)}TAIL\r\n`;
+  const raw = `header\r\n${'Строка по-русски\r\n'.repeat(20_000)}TAIL\r\n`;
   const prepared = prepareFileEditorContent(raw);
   expect(prepared.content.length).toBeGreaterThan(LARGE_FILE_CHAR_THRESHOLD);
   expect(prepared.content.endsWith('TAIL\n')).toBe(true);

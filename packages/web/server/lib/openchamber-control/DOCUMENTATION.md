@@ -318,7 +318,7 @@ other.
   the linking guidance (`WORK_NAME_GUIDANCE`). Both that guidance and the
   action's description ask for the name in the language of the user's latest
   message, the rule generated session titles follow; agents that work in
-  English otherwise named a Ukrainian user's tasks in English. Branch names
+  English otherwise named a Russian user's tasks in English. Branch names
   stay in English. While the worktree's branch is
   OpenChamber's unpushed placeholder (`readRenameableGeneratedBranch`), the
   call also requires `branch` and renames it (`renameGeneratedWorktreeBranch`),

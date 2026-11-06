@@ -16,11 +16,11 @@ const entry = (id: string, title: string, body: string, extra: Partial<AgentMemo
 describe('formatMemoryForTidy', () => {
   test('hands the agent every entry in full, with the id and scope a rewrite needs', () => {
     const text = formatMemoryForTidy({
-      global: [entry('g1', 'Replies in Ukrainian', 'The user wants replies in Ukrainian.', { type: 'preference' })],
+      global: [entry('g1', 'Replies in Russian', 'The user wants replies in Russian.', { type: 'preference' })],
       project: [entry('p1', 'Tests run with bun', 'Run the server suites with bun test.')],
     });
 
-    expect(text).toContain('#### Replies in Ukrainian\nmemoryId: g1 | scope: global | type: preference | created 2026-09-01 | updated 2026-10-02\n\nThe user wants replies in Ukrainian.');
+    expect(text).toContain('#### Replies in Russian\nmemoryId: g1 | scope: global | type: preference | created 2026-09-01 | updated 2026-10-02\n\nThe user wants replies in Russian.');
     expect(text).toContain('#### Tests run with bun\nmemoryId: p1 | scope: project | type: fact');
     expect(text.indexOf('scope: global')).toBeLessThan(text.indexOf('scope: project'));
   });

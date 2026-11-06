@@ -123,25 +123,6 @@ export const LOCAL_TTS_MODEL_CATALOG = {
     lexicon: ['lexiconEnglish', 'lexiconChinese'],
     description: 'Kokoro TTS (Chinese and English, 103 voices)',
   },
-  // The larger `ukrainian_tts-medium` build is a character-level model
-  // (`phoneme_type: text`); sherpa-onnx phonemizes every Piper model through
-  // espeak-ng, which turns that one into noise. `vits-coqui-uk-mai` sounds
-  // better but reads Cyrillic only and drops every Latin word (file names,
-  // product names), which is unusable in a coding chat. Lada is an espeak
-  // model: small, but it reads mixed text.
-  'piper-uk_UA-lada-x_low': {
-    type: 'vits',
-    languages: ['uk'],
-    archiveUrl:
-      'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-uk_UA-lada-x_low.tar.bz2',
-    extractedDir: 'vits-piper-uk_UA-lada-x_low',
-    files: {
-      model: 'uk_UA-lada-x_low.onnx',
-      tokens: 'tokens.txt',
-      espeakData: 'espeak-ng-data',
-    },
-    description: 'Piper TTS (Ukrainian)',
-  },
   'piper-de_DE-thorsten-medium': {
     type: 'vits',
     languages: ['de'],
@@ -296,7 +277,7 @@ export const PREVIOUS_DEFAULT_LOCAL_STT_MODEL = 'parakeet-tdt-0.6b-v2-int8';
  * Extracted directories of models the catalog no longer offers. Settings can
  * no longer show or delete them, so the service removes them from disk.
  */
-export const RETIRED_LOCAL_MODEL_DIRS = ['sherpa-onnx-whisper-base'];
+export const RETIRED_LOCAL_MODEL_DIRS = ['sherpa-onnx-whisper-base', 'vits-piper-uk_UA-lada-x_low'];
 
 export const DEFAULT_LOCAL_TTS_MODEL = 'kokoro-en-v0_19';
 
@@ -348,7 +329,7 @@ export function getLocalSttModelSpec(modelId) {
  * The local TTS model to use for a language, preferring the model the user
  * selected when it speaks that language. Returns null when no catalog model
  * covers the language, in which case callers keep the selected model.
- * @param {string} language BCP-47 primary subtag (`uk`, `zh`...)
+ * @param {string} language BCP-47 primary subtag (`ru`, `zh`...)
  * @param {string} [preferredModelId]
  * @returns {string | null}
  */

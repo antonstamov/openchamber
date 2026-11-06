@@ -37,7 +37,7 @@ The welcome heading and the composer heading render the same draft in two compon
 
 ### Why drawn holiday ornaments keep their own colours and not theme tokens
 
-Confetti, the New Year salute and Halloween candy take theme colours, because they are colour and nothing else. The holiday ornaments are drawings of real things: a flag, a tree, a cocktail. A theme whose `--status-info` is purple would fly a purple and yellow Ukrainian flag, so each ornament carries its own colours and looks the same in every theme. The only theme colour in them is the gap between clover leaves, which is the background.
+Confetti, the New Year salute and Halloween candy take theme colours, because they are colour and nothing else. The holiday ornaments are drawings of real things: a flag, a tree, a cocktail. A theme whose `--status-info` is purple would fly a purple and yellow flag, so each ornament carries its own colours and looks the same in every theme. The only theme colour in them is the gap between clover leaves, which is the background.
 
 ### Why the time zone decides the country and the hemisphere
 

@@ -18,7 +18,7 @@ import { runCommand } from './run-command.js';
 
 const WIN = process.platform === 'win32';
 // `*` cannot be in a file name on Windows; brackets, `!`, `#`, spaces and non-ASCII can.
-const ODD_NAME = WIN ? 'odd [!] #name ї' : 'odd [*] name';
+const ODD_NAME = WIN ? 'odd [!] #name ё' : 'odd [*] name';
 const SPACE_ID = 'a1b2c3d4e5f6';
 const OTHER_SPACE_ID = 'f6e5d4c3b2a1';
 
@@ -152,7 +152,7 @@ describe('takeSnapshot', () => {
     const start = readTree(g, snapshot.start);
     expect(start['run.sh'].mode).toBe('100755');
     expect(blob(g, snapshot.start, 'tracked-to-edit.txt')).toBe('one\ntwo staged\nthree unstaged\n');
-    expect(Object.keys(start)).toEqual(expect.arrayContaining(['staged-new.txt', 'untracked plain.txt', 'юнікод.txt', '.gitignore', 'README.md']));
+    expect(Object.keys(start)).toEqual(expect.arrayContaining(['staged-new.txt', 'untracked plain.txt', 'юникод.txt', '.gitignore', 'README.md']));
     expect(start['tracked-to-delete.txt']).toBeUndefined();
     if (!WIN) expect(start['link-to-readme'].mode).toBe('120000');
     // Ignored by the repository, and by the global ignore file only.

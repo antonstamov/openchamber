@@ -32,7 +32,7 @@ describe('text that talks to the model', () => {
 describe('ordinary memories are left alone', () => {
   const harmless = [
     'UI tests must run one file at a time because module mocks leak between files.',
-    'The user prefers Ukrainian.',
+    'The user prefers Russian.',
     'Deploy with bun run build, then restart the daemon.',
     'The system prompt lives in packages/web/server/lib/opencode.',
     'Prefer the existing helper over a new one.',

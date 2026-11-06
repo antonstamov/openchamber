@@ -82,7 +82,7 @@ describe('session title plugin', () => {
     await runTransform(new Map([['title', title]]));
 
     expect(title.system).toContain('Only the user\'s message decides the language');
-    // The examples are mostly English (one Ukrainian); a weak model imitates the
+    // The examples are mostly English (one Russian); a weak model imitates the
     // example language and drifts on a Chinese first message, so the prompt pins
     // the output language and carries an example in another language.
     expect(title.system).toContain('检查项目的 git 记录和未完成的计划 → 项目进度检查');

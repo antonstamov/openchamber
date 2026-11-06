@@ -339,7 +339,7 @@ describe('useSkillsStore directory resolution', () => {
   });
 
   test('a switch from a project with a non-Latin path reaches the server', async () => {
-    const directory = '/workspace/мій-проєкт';
+    const directory = '/workspace/мой-проект';
     expect(await useSkillsStore.getState().loadSkills(directory)).toBe(true);
     const [skill] = useSkillsStore.getState().skillsByDirectory[directory];
 

@@ -143,7 +143,7 @@ and switching would cost them a download and English accuracy.
 ### Why misheard words are fixed by the Small Model, after the speech model
 
 A speech model writes what a word sounded like; with unclear pronunciation it
-picks a real word that makes no sense ("таку з дибав" for "такий і здибав").
+picks a real word that makes no sense ("такую с дибав" for "такой и сшибал").
 A language model reading the whole sentence knows which word was meant, and
 no speech model, local or hosted, sees the sentence that way.
 `transcript-correction.js` sends the finished text to the Small Model once,
@@ -152,14 +152,14 @@ the text only when it is about as long as the input (0.6 to 1.5 times):
 anything else is a model that answered or summarized instead of fixing. Any
 failure, a missing Small Model or the 10 s cap returns the text as heard, so
 the pass never costs the user the dictation. The prompt names colloquial
-forms ("шо", "gonna") as speech to keep, because small models otherwise
+forms ("чо", "gonna") as speech to keep, because small models otherwise
 "correct" them into the literary form.
 
 ### Why the language hint is part of the engine key
 
 The client sends the user's dictation language with every session. Whisper
 and Qwen3-ASR take it as a hint (`local/model-language.js`), which stops
-Whisper from taking a short Ukrainian phrase for Russian; Parakeet ignores it.
+Whisper from taking a short Russian phrase for another language; Parakeet ignores it.
 Whisper reads the language from the recognizer config, not per stream, so the
 worker keeps one engine per model and language and frees the copy for the
 previous language unless a running dictation still uses it. A code Whisper
@@ -173,13 +173,12 @@ Asian languages. Both are slower than Parakeet (measured on an M-series Mac with
 2 threads: Parakeet decodes 1 s of audio in ~37 ms, Qwen3-ASR in ~120 ms,
 Whisper turbo in ~330 ms) and peak around 2 GB of memory, so they are options
 and never the default. Without a language hint Whisper detects the language
-per segment and can take a short Ukrainian phrase for Russian. Qwen3-ASR has
-no Ukrainian.
+per segment and can take a short phrase for the wrong language.
 
 ### Why Qwen3-ASR runs with `maxNewTokens: 512`
 
 sherpa's default of 128 generated tokens can cut off a 25 s segment of fast
-speech. With 512, 25 s segments of English and Ukrainian speech decoded in
+speech. With 512, 25 s segments of English and Russian speech decoded in
 full.
 
 ### Why retired models are deleted on startup

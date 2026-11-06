@@ -22,8 +22,8 @@ describe('filesystem search', () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'oc-fs-search-'));
     try {
       execFileSync('git', ['init', '-q'], { cwd: root });
-      await fs.writeFile(path.join(root, '.gitignore'), '.ігнор.ts\n*ignored.ts\n space.ts\\ \n');
-      for (const name of ['.ігнор.ts', '.line\nignored.ts', ' space.ts ', '.visible.ts']) {
+      await fs.writeFile(path.join(root, '.gitignore'), '.игнор.ts\n*ignored.ts\n space.ts\\ \n');
+      for (const name of ['.игнор.ts', '.line\nignored.ts', ' space.ts ', '.visible.ts']) {
         await fs.writeFile(path.join(root, name), '');
       }
       const search = createFsSearchRuntime({ fsPromises: fs, path, spawn, resolveGitBinaryForSpawn: () => 'git', workspaceSearch: true });

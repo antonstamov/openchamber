@@ -4,7 +4,7 @@
  * `messages` holds the searchable text of settled user messages and agent
  * replies; `messages_fts` is an external-content FTS5 index over it, kept by
  * triggers. The trigram tokenizer matches any three or more characters inside
- * a word, in any script, so "світ" finds "світу" and CJK text needs no word
+ * a word, in any script, so "мир" finds "мира" and CJK text needs no word
  * segmentation. `sessions` remembers where each session's reading stopped.
  *
  * The file is derived data. A schema change drops and rebuilds it.

@@ -9,7 +9,7 @@ describe('projectFolderName', () => {
     ['C:\\Users\\me\\Projects\\web_site.v2', 'web_site.v2'],
     ['/home/me/.dotfiles', 'dotfiles'],
     ['/home/me/-rf', 'rf'],
-    ['/home/me/bait repo ї', 'bait-repo-'],
+    ['/home/me/bait repo ё', 'bait-repo-'],
     ['/home/me/$(touch x);`id`', 'touch-x-id-'],
     [`/home/me/${'a'.repeat(100)}`, 'a'.repeat(64)],
   ])('names %s as %s', (directory, name) => {
@@ -17,7 +17,7 @@ describe('projectFolderName', () => {
   });
 
   // The plugin link lives at /spaces/<id>/node_modules, and a name with nothing readable left says nothing.
-  it.each(['/home/me/node_modules', '/home/me/NODE_MODULES', '/home/me/юнікод', '/home/me/...', '/', ''])('falls back to a fixed name for %j', (directory) => {
+  it.each(['/home/me/node_modules', '/home/me/NODE_MODULES', '/home/me/юникод', '/home/me/...', '/', ''])('falls back to a fixed name for %j', (directory) => {
     expect(projectFolderName(directory)).toBe('project');
   });
 

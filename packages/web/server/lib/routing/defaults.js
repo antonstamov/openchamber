@@ -75,8 +75,8 @@ export const JEV_TIMEOUT_MS = 4000;
 
 /**
  * The third line keeps a hard turn from dragging its follow-ups up. With a
- * plain "classify request only" wording, "дякую, все працює" after a hard fix
- * came back hard at ~40% and "запуш" trivial at ~50%, both under the threshold,
+ * plain "classify request only" wording, a thank-you note after a hard fix
+ * came back hard at ~40% and a short approval trivial at ~50%, both under the threshold,
  * so the fallback model took them. Saying that history only resolves what the
  * request refers to, and that finished work carries no weight, put them at
  * 97% and ~75% trivial while "ok, do it" after a plan stayed implement and a

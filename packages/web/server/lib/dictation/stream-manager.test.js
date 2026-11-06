@@ -353,14 +353,14 @@ describe('DictationStreamManager', () => {
 
   describe('correction pass', () => {
     const dictate = async ({ correct, correctTranscript }) => {
-      const session = new FakeSttSession({ transcriptBySegment: () => 'таку з дибав' });
+      const session = new FakeSttSession({ transcriptBySegment: () => 'такую с дибав' });
       const messages = [];
       const manager = new DictationStreamManager({
         emit: (msg) => messages.push(msg),
         createSttSession: async () => ({ session }),
         correctTranscript,
       });
-      await manager.handleStart('d1', FORMAT, { correct, language: 'uk' });
+      await manager.handleStart('d1', FORMAT, { correct, language: 'ru' });
       manager.handleChunk({ dictationId: 'd1', seq: 0, audioBase64: loudChunkBase64() });
       manager.handleFinish('d1', 0);
       return { manager, messages, session };
@@ -372,12 +372,12 @@ describe('DictationStreamManager', () => {
         correct: true,
         correctTranscript: async (text, options) => {
           calls.push({ text, options });
-          return 'такий і здибав';
+          return 'такой и сшибал';
         },
       });
       await waitFor(() => messages.some((m) => m.type === 'final'));
-      expect(messages.find((m) => m.type === 'final').payload.text).toBe('такий і здибав');
-      expect(calls).toEqual([{ text: 'таку з дибав', options: { language: 'uk' } }]);
+      expect(messages.find((m) => m.type === 'final').payload.text).toBe('такой и сшибал');
+      expect(calls).toEqual([{ text: 'такую с дибав', options: { language: 'ru' } }]);
       expect(session.closed).toBe(true);
     });
 
@@ -385,14 +385,14 @@ describe('DictationStreamManager', () => {
       let called = false;
       const { messages } = await dictate({ correct: false, correctTranscript: async () => { called = true; return 'x'; } });
       await waitFor(() => messages.some((m) => m.type === 'final'));
-      expect(messages.find((m) => m.type === 'final').payload.text).toBe('таку з дибав');
+      expect(messages.find((m) => m.type === 'final').payload.text).toBe('такую с дибав');
       expect(called).toBe(false);
     });
 
     it('keeps the dictation when the correction fails', async () => {
       const { messages } = await dictate({ correct: true, correctTranscript: async () => { throw new Error('boom'); } });
       await waitFor(() => messages.some((m) => m.type === 'final'));
-      expect(messages.find((m) => m.type === 'final').payload.text).toBe('таку з дибав');
+      expect(messages.find((m) => m.type === 'final').payload.text).toBe('такую с дибав');
     });
 
     it('gives the client time for the correction', async () => {

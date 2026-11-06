@@ -723,7 +723,7 @@ describe('applyHunk', () => {
     );
   });
 
-  it.each(['file name.txt', 'зміни.txt'])('accepts hunk patches for %s', async (filePath) => {
+  it.each(['file name.txt', 'изменения.txt'])('accepts hunk patches for %s', async (filePath) => {
     if (!canRunGit()) return;
     const { tmpDir, git } = await createTempRepo();
     await writeFile(tmpDir, filePath, ORIGINAL_FILE);

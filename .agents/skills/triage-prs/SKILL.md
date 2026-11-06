@@ -11,7 +11,7 @@ Two saved workflows run the heavy parts (`.openchamber/workflows/`): `pr-triage-
 
 **The timeline outranks the snapshot.** Before any verdict or comment on a PR, read its issue comments, reviews (`gh pr view --json comments,reviews` or `gh api repos/{owner}/{repo}/pulls/N/reviews`; a maintainer's *Changes requested* is a review and never appears in the comments list), and commits since the last human event. Never post the generic rebase-request on a PR that already carries a substantive review comment; the author already has their instructions.
 
-**Pickup mode.** PRs with human activity beyond the bot go into their own bucket ("Розмова триває"); each entry runs in pickup mode (`pr-review`, *Process* step 1).
+**Pickup mode.** PRs with human activity beyond the bot go into their own bucket ("Разговор продолжается"); each entry runs in pickup mode (`pr-review`, *Process* step 1).
 
 ## Phase 1 — Mechanical sweep (no judgment, no LLM verdicts)
 
@@ -26,7 +26,7 @@ Bucket every non-draft PR:
 |---|---|---|
 | Dead | merge conflict AND no author commit in >30 days | close with **stale-close** |
 | Conflicted-active | merge conflict, author committed within 30 days | phase 3 review pool; a PR worth taking we rebase and finish ourselves (see *Landing a PR ourselves*). **rebase-request** only when the author has something to decide, or `maintainerCanModify` is false |
-| Waiting on author | the last substantive event is a request for changes — a maintainer review with `CHANGES_REQUESTED`, a maintainer push-back comment, or a bot `review:blocked` / `review:needs-evidence` — and the author has neither pushed nor replied since | one line in the report ("чекає автора: <what was asked>"); no re-review, no new comment — the ball is theirs |
+| Waiting on author | the last substantive event is a request for changes — a maintainer review with `CHANGES_REQUESTED`, a maintainer push-back comment, or a bot `review:blocked` / `review:needs-evidence` — and the author has neither pushed nor replied since | one line in the report ("ждёт автора: <what was asked>"); no re-review, no new comment — the ball is theirs |
 | Clean | mergeable and not waiting on the author | phase 3 review pool |
 | Draft | `isDraft` | untouched while the author committed within 14 days, and always for the team's own drafts (`btriapitsyn`, `yulia-ivashko`, `deatheros`, `AlexKutas`); otherwise close with **stale-draft** |
 
@@ -66,7 +66,7 @@ A yes on any of them moves the verdict or lands on the action list; it never sta
 - One entry per PR, one or two plain sentences: what changes for the user, and the thing the decision turns on (the risk, the product question, why it closes). "Closes #N" links included.
 - A "needs your hands" line appears only when the check gates the merge (per the pr-review skill), and lives INSIDE the PR's own entry as its final line — never as a separate section repeating the numbers. A plain MERGE entry carries no checklist.
 - Thread-state line first for pickup-mode entries.
-- A genuinely trivial diff gets a few words ("точковий фікс").
+- A genuinely trivial diff gets a few words ("точечный фикс").
 
 Consolidate into a single report grouped by verdict — MERGE, MERGE-THEN-FIX, PUSH-BACK (with the drafted lists), DECLINE (with the drafted close comments), plus every "needs your hands" line — and stop for approval. **Each entry carries the subagent's Ready action verbatim** — the comment or follow-up list exactly as it will be posted or executed, in a quote block under the entry. The consolidation summarizes the reasoning, never the artifact: a paraphrased push-back item loses the file, the cause, and the "done means" the subagent already found, and the maintainer approves what they can read, not a description of it. After approval: post/merge per verdict, and queue MERGE-THEN-FIX follow-ups as in-house work the same day.
 

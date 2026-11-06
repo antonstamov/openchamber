@@ -4,7 +4,6 @@ import { detectTextLanguage, languageOfLocale, pickVoiceForLanguage } from './la
 describe('detectTextLanguage', () => {
   it.each([
     ['en', 'The build is green and the tests pass, so you can merge this now.'],
-    ['uk', 'Привіт! Це тестове повідомлення, і воно написане українською мовою.'],
     ['ru', 'Привет! Это тестовое сообщение, и оно написано на русском языке.'],
     ['de', 'Die Änderung ist fertig und die Tests laufen ohne Fehler durch.'],
     ['fr', 'La modification est prête et les tests passent sans erreur.'],
@@ -24,12 +23,10 @@ describe('detectTextLanguage', () => {
   });
 
   it.each([
-    ['uk', 'Готово. Запушено.'],
-    ['uk', 'Все ок'],
-    ['uk', 'Добре, давай так зробимо'],
-    ['ru', 'Хорошо, давай так и сделаем'],
-    ['ru', 'Готово, всё запушено.'],
-  ])('tells short %s phrases apart by letters', (language, text) => {
+    ['ru', 'Готово. Запушено.'],
+    ['ru', 'Все ок'],
+    ['ru', 'Хорошо, давай так сделаем'],
+  ])('reads short Cyrillic phrases as Russian', (language, text) => {
     expect(detectTextLanguage(text).language).toBe(language);
   });
 
@@ -48,14 +45,13 @@ describe('pickVoiceForLanguage', () => {
   const voices = [
     { name: 'Samantha', locale: 'en_US' },
     { name: 'Daniel', locale: 'en_GB' },
-    { name: 'Lesya', locale: 'uk_UA' },
-    { name: 'Lesya (Enhanced)', locale: 'uk_UA' },
     { name: 'Milena', locale: 'ru_RU' },
+    { name: 'Milena (Enhanced)', locale: 'ru_RU' },
     { name: 'Anna', locale: 'de_DE' },
   ];
 
   it('prefers the enhanced variant of a matching voice', () => {
-    expect(pickVoiceForLanguage('uk', voices)).toBe('Lesya (Enhanced)');
+    expect(pickVoiceForLanguage('ru', voices)).toBe('Milena (Enhanced)');
   });
 
   it('prefers the primary locale of a language', () => {
@@ -69,7 +65,7 @@ describe('pickVoiceForLanguage', () => {
 
 describe('languageOfLocale', () => {
   it('reads the language subtag', () => {
-    expect(languageOfLocale('uk_UA')).toBe('uk');
+    expect(languageOfLocale('ru_RU')).toBe('ru');
     expect(languageOfLocale('en-GB')).toBe('en');
     expect(languageOfLocale(null)).toBeNull();
   });

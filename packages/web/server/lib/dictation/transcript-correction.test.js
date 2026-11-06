@@ -8,12 +8,12 @@ describe('createTranscriptCorrector', () => {
     const correct = createTranscriptCorrector({
       generate: async (args) => {
         calls.push(args);
-        return { text: ' Який їхав, такий і здибав. ' };
+        return { text: ' Какой ехал, такой и сшибал. ' };
       },
     });
-    expect(await correct('Який їхав, таку з дибав', { language: 'uk' })).toBe('Який їхав, такий і здибав.');
-    expect(calls[0].prompt).toContain('"uk"');
-    expect(calls[0].prompt).toContain('таку з дибав');
+    expect(await correct('Какой ехал, такую с дибав', { language: 'ru' })).toBe('Какой ехал, такой и сшибал.');
+    expect(calls[0].prompt).toContain('"ru"');
+    expect(calls[0].prompt).toContain('такую с дибав');
     expect(calls[0].onOverflow).toBe('error');
   });
 

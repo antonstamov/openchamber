@@ -45,7 +45,7 @@ describe('local TTS catalog', () => {
   });
 
   it('picks a catalog model for a language the selected model lacks', () => {
-    expect(resolveLocalTtsModelForLanguage('uk', DEFAULT_LOCAL_TTS_MODEL)).toBe('piper-uk_UA-lada-x_low');
+    expect(resolveLocalTtsModelForLanguage('ru', DEFAULT_LOCAL_TTS_MODEL)).toBe('piper-ru_RU-irina-medium');
     expect(resolveLocalTtsModelForLanguage('zh', DEFAULT_LOCAL_TTS_MODEL)).toBe('kokoro-multi-lang-v1_1');
   });
 
@@ -56,7 +56,7 @@ describe('local TTS catalog', () => {
   it('gives Chinese a Chinese speaker on the multi-language Kokoro', () => {
     expect(getLocalTtsDefaultSpeaker('kokoro-multi-lang-v1_1', 'zh')).toBe(3);
     expect(getLocalTtsDefaultSpeaker('kokoro-multi-lang-v1_1', 'en')).toBe(0);
-    expect(getLocalTtsDefaultSpeaker('piper-uk_UA-lada-x_low', 'uk')).toBeUndefined();
+    expect(getLocalTtsDefaultSpeaker('piper-ru_RU-irina-medium', 'ru')).toBeUndefined();
   });
 
   it('every TTS entry declares its languages and installable files', () => {

@@ -187,12 +187,12 @@ describe.skipIf(!open)('message search index', () => {
 
   it('matches inside words in any script and ignores case', async () => {
     fake.session('a');
-    fake.user('a', 'u1', 'Привіт СВІТУ, 你好世界');
+    fake.user('a', 'u1', 'Привет МИРУ, 你好世界');
     await backfill();
-    expect(search('світ')).toHaveLength(1);
+    expect(search('мир')).toHaveLength(1);
     expect(search('好世界')).toHaveLength(1);
     expect(toMatchExpression('ab')).toBeNull();
-    expect(toMatchExpression('ab світ')).toBe('"світ"');
+    expect(toMatchExpression('ab мир')).toBe('"мир"');
   });
 
   it('reads only what came after the cursor on the next sync', async () => {

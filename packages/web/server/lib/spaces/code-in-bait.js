@@ -108,7 +108,7 @@ function buildBait(host, repo, objectFormat) {
   write('tracked-to-edit.txt', 'one\ntwo staged\nthree unstaged\n');
   fs.rmSync(path.join(repo, 'tracked-to-delete.txt'));
   write('untracked plain.txt', 'untracked travels\n');
-  write('юнікод.txt', 'unicode\n');
+  write('юникод.txt', 'unicode\n');
   if (!WIN) fs.symlinkSync('README.md', path.join(repo, 'link-to-readme'));
 }
 
@@ -116,7 +116,7 @@ function buildBait(host, repo, objectFormat) {
 // what a test here costs. A copy holds no path of the host it was built on.
 const baitTemplates = new Map();
 
-export function makeBait(host, { name = 'bait repo ї', objectFormat = 'sha1' } = {}) {
+export function makeBait(host, { name = 'bait repo ё', objectFormat = 'sha1' } = {}) {
   if (!baitTemplates.has(objectFormat)) {
     const builder = createTestHost();
     const template = path.join(builder.root, 'template');

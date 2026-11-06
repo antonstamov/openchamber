@@ -57,12 +57,11 @@ const STOPWORDS = {
   cs: ['a', 'je', 'se', 'na', 'to', 'že', 'jak', 'ale', 'pro', 'nebo', 'jsou', 'může', 'také', 'tento', 'když', 'jeho', 'které', 'být', 'aby', 'ještě'],
   tr: ['ve', 'bir', 'bu', 'için', 'ile', 'de', 'da', 'ama', 'gibi', 'daha', 'var', 'olarak', 'çok', 'ne', 'her', 'kadar', 'sonra', 'değil', 'olan', 'ise'],
   sv: ['och', 'att', 'det', 'är', 'en', 'som', 'för', 'inte', 'med', 'till', 'den', 'kan', 'har', 'ett', 'men', 'också', 'eller', 'från', 'när', 'vara'],
-  uk: ['і', 'та', 'що', 'це', 'не', 'як', 'для', 'він', 'вона', 'але', 'або', 'також', 'тільки', 'вже', 'якщо', 'його', 'цей', 'ця', 'бути', 'коли'],
   ru: ['и', 'что', 'это', 'не', 'как', 'для', 'он', 'она', 'но', 'или', 'также', 'только', 'уже', 'если', 'его', 'этот', 'эта', 'быть', 'когда', 'чтобы'],
 };
 
 const LATIN_LANGUAGES = ['en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'nl', 'cs', 'tr', 'sv'];
-const CYRILLIC_LANGUAGES = ['uk', 'ru'];
+const CYRILLIC_LANGUAGES = ['ru'];
 
 const countMatches = (text, pattern) => {
   const matches = text.match(pattern);
@@ -124,16 +123,9 @@ export function detectTextLanguage(text) {
   const words = source.toLowerCase().split(/[^\p{L}\p{M}']+/u).filter(Boolean);
 
   if (script === 'cyrillic') {
-    const scores = scoreStopwords(words, CYRILLIC_LANGUAGES);
-    const ukMarkers = countMatches(source, /[іїєґ]/gi);
-    const ruMarkers = countMatches(source, /[ыэъё]/gi);
-    // Letters decide: the two alphabets differ in letters that occur in
-    // nearly every sentence. Function words only settle a text that shows
-    // neither set, and a text with no Russian-only letters is far more
-    // likely Ukrainian than the reverse, so that tie goes to Ukrainian.
-    if (ukMarkers !== ruMarkers) return { language: ukMarkers > ruMarkers ? 'uk' : 'ru', script };
-    if (scores.uk !== scores.ru) return { language: scores.uk > scores.ru ? 'uk' : 'ru', script };
-    return { language: ruMarkers > 0 ? 'ru' : 'uk', script };
+    // Cyrillic text is read as Russian: the fork ships Russian voices and
+    // models only, so there is nothing else to match it against.
+    return { language: 'ru', script };
   }
 
   const scores = scoreStopwords(words, LATIN_LANGUAGES);
@@ -147,7 +139,7 @@ export function detectTextLanguage(text) {
 }
 
 /**
- * Map a detected language onto the locales a voice list uses (`uk_UA`,
+ * Map a detected language onto the locales a voice list uses (`ru_RU`,
  * `en_US`...). Returns the preferred locale prefixes in order.
  * @param {string} language
  * @returns {string[]}
@@ -155,7 +147,6 @@ export function detectTextLanguage(text) {
 function localePrefixesForLanguage(language) {
   const table = {
     en: ['en_US', 'en_GB', 'en'],
-    uk: ['uk_UA', 'uk'],
     ru: ['ru_RU', 'ru'],
     de: ['de_DE', 'de'],
     fr: ['fr_FR', 'fr_CA', 'fr'],
@@ -200,7 +191,7 @@ export function pickVoiceForLanguage(language, voices) {
 }
 
 /**
- * Language of a voice, from its locale (`uk_UA` → `uk`).
+ * Language of a voice, from its locale (`ru_RU` → `ru`).
  * @param {string | null | undefined} locale
  * @returns {string | null}
  */

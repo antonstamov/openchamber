@@ -1,5 +1,5 @@
 ---
-description: Pick an accepted feature and build it — "чим нині займемось?" starter
+description: Pick an accepted feature and build it — "чем сейчас займёмся?" starter
 ---
 
 Focus, if any: $ARGUMENTS
