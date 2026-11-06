@@ -58,6 +58,11 @@ const MAC_MINIMUM_DARWIN_VERSION = '22.0.0';
 
 const serialize = (data) => {
   const lines = [`version: ${data.version}`];
+  if (data.releaseNotes) {
+    // A JSON string is a valid YAML scalar, and JSON escaping keeps the notes
+    // verbatim: newlines, quotes and colon-heavy markdown all survive.
+    lines.push(`releaseNotes: ${JSON.stringify(data.releaseNotes)}`);
+  }
   if (data.minimumSystemVersion) {
     lines.push(`minimumSystemVersion: ${data.minimumSystemVersion}`);
   }
@@ -104,6 +109,23 @@ const manifestFromReleaseAsset = async (assets, name, token) => {
 
 const output = {};
 
+// Fork: the release body carries the notes the update dialog shows. Without
+// them the dialog falls back to the upstream changelog index, which has no
+// fork versions, and an install of an older build showed an empty dialog.
+const readReleaseNotes = async () => {
+  const releaseId = process.env.RELEASE_ID;
+  const token = process.env.GITHUB_TOKEN;
+  if (!releaseId || !token) return null;
+  const response = await fetch(`https://api.github.com/repos/${repo}/releases/${releaseId}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+  });
+  if (!response.ok) return null;
+  const { body } = await response.json();
+  return typeof body === 'string' && body.trim() ? body : null;
+};
+const releaseNotes = await readReleaseNotes();
+const withNotes = (data) => (releaseNotes ? { ...data, releaseNotes } : data);
+
 // A run that finishes a release rebuilds macOS only. Its Windows installers
 // are on the release from the first run, whose manifest artifacts may be
 // gone, so the manifests are built from the installers themselves.
@@ -119,16 +141,16 @@ if (windowsFromRelease) {
   });
   if (!response.ok) throw new Error(`Failed to read release ${releaseId}: ${response.status} ${await response.text()}`);
   const { assets } = await response.json();
-  output['latest.yml'] = serialize(await manifestFromReleaseAsset(assets, `OpenChamber-${version}-win-x64.exe`, token));
-  output['latest-arm64.yml'] = serialize(await manifestFromReleaseAsset(assets, `OpenChamber-${version}-win-arm64.exe`, token));
+  output['latest.yml'] = serialize(withNotes(await manifestFromReleaseAsset(assets, `OpenChamber-${version}-win-x64.exe`, token)));
+  output['latest-arm64.yml'] = serialize(withNotes(await manifestFromReleaseAsset(assets, `OpenChamber-${version}-win-arm64.exe`, token)));
 } else {
   const winX64 = await read('latest-yml-x86_64-pc-windows-msvc', 'latest.yml');
   const winArm64 = await read('latest-yml-aarch64-pc-windows-msvc', 'latest.yml');
   if (!winX64 || !winArm64) {
     throw new Error('Both x64 and arm64 Windows update manifests are required');
   }
-  output['latest.yml'] = serialize(winX64);
-  output['latest-arm64.yml'] = serialize(winArm64);
+  output['latest.yml'] = serialize(withNotes(winX64));
+  output['latest-arm64.yml'] = serialize(withNotes(winArm64));
 }
 
 // One manifest serves both Mac architectures. The updater falls back to x64
@@ -144,12 +166,12 @@ if ((macX64 || macArm64) && (!macX64 || !macArm64)) {
   throw new Error('Both x64 and arm64 macOS update manifests are required');
 }
 if (macX64 && macArm64) {
-  output['latest-mac.yml'] = serialize({
+  output['latest-mac.yml'] = serialize(withNotes({
     version: macArm64.version,
     minimumSystemVersion: MAC_MINIMUM_DARWIN_VERSION,
     files: [...macArm64.files, ...macX64.files],
     releaseDate: macArm64.releaseDate,
-  });
+  }));
 }
 
 const tag = `v${version}`;
