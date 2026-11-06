@@ -2028,7 +2028,7 @@ export const settingsDict = {
   'settings.openchamber.defaults.title': 'Параметры сессии по умолчанию',
   'settings.openchamber.defaults.field.defaultModel': 'Модель по умолчанию',
   'settings.openchamber.defaults.field.defaultThinking': 'Стандартное мышление',
-  'settings.openchamber.defaults.field.thinkingPlaceholder': 'мышление',
+  'settings.openchamber.defaults.field.thinkingPlaceholder': 'Мышление',
   'settings.openchamber.defaults.field.defaultAgent': 'Агент по умолчанию',
   'settings.openchamber.defaults.field.showDeletionDialogAria': 'Показать диалог удаления',
   'settings.openchamber.defaults.field.sessionWarming': 'Держать неактивные сессии «тёплыми»',
