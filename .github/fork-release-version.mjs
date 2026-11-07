@@ -63,7 +63,34 @@ if (headTags.includes(targetTag)) {
   console.log(`Tag ${targetTag} exists on HEAD without a release, recreating it below.`);
 }
 
-run('git push origin HEAD:refs/heads/main-ru');
+/**
+ * Push main-ru without losing to a concurrent push. A person or another job can
+ * land a commit while this job runs; the branch then rejects a fast-forward.
+ * Rebase is not used: it would rewrite the merge we just made. A plain merge of
+ * origin/main-ru keeps the history linear enough to fast-forward, and the whole
+ * thing retries a few times.
+ */
+const pushMainRu = () => {
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    run('git fetch origin main-ru');
+    try {
+      run('git merge --no-edit origin/main-ru');
+    } catch (error) {
+      try { run('git merge --abort'); } catch { /* nothing to abort */ }
+      throw new Error(`origin/main-ru cannot be merged automatically: ${error.message}`);
+    }
+    try {
+      run('git push origin HEAD:refs/heads/main-ru');
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      console.log(`push rejected (attempt ${attempt} of ${attempts}), retrying after origin/main-ru`);
+    }
+  }
+};
+
+pushMainRu();
 
 const remoteTag = run(`git ls-remote --tags origin refs/tags/v${targetText}`).trim();
 if (remoteTag) {
@@ -81,7 +108,7 @@ if (targetText !== pkg.version) {
   execFileSync('node', ['scripts/bump-version.mjs', targetText], { cwd: ROOT, stdio: 'inherit' });
   run('git add package.json packages/ui/package.json packages/web/package.json packages/sdk/package.json packages/electron/package.json packages/vscode/package.json bun.lock');
   run(`git commit -m "chore: bump version to ${targetText} for fork release"`);
-  run('git push origin HEAD:refs/heads/main-ru');
+  pushMainRu();
 }
 
 run(remoteTag ? `git tag --force v${targetText}` : `git tag v${targetText}`);
