@@ -1577,7 +1577,7 @@ export const extensionsSettingsI18n = {
     'settings.extensions.capability.prompt': 'Отправка сообщений в ваших сессиях',
     'settings.extensions.capability.prompt.detail': 'Расходует токены и может запускать инструменты.',
     'settings.extensions.capability.sessions': 'Доступ к проектам и сессиям',
-    'settings.extensions.capability.sessions.detail': 'Список проектов, рабочих копий и состояний сессий. Создание и открытие сессий в любом зарегистрированном проекте, включая новые рабочие копии. Содержимое переписки остаётся приватным.',
+    'settings.extensions.capability.sessions.detail': 'Список проектов, worktree и состояний сессий. Создание и открытие сессий в любом зарегистрированном проекте, включая новые worktree. Содержимое переписки остаётся приватным.',
     'settings.extensions.capability.service': 'Запуск локальной службы',
     'settings.extensions.capability.service.detail': 'Отдельная программа с полным доступом от вашего имени. Разрешайте, только если доверяете автору.',
     'settings.extensions.capability.service.runs': 'Запускает:',

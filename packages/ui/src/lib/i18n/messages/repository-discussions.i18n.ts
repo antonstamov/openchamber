@@ -246,7 +246,7 @@ export const repositoryDiscussionsI18n = {
     'references.picker.preview.upvotes': 'Голоса',
     'references.picker.preview.locked': 'Закрыто',
     'references.picker.preview.sends.discussion': 'Агент получит описание, все комментарии с ответами и укажет, какой из них является ответом.',
-    'references.picker.preview.worktree.discussion': 'Рабочая копия получит новую ветку с именем этого обсуждения.',
+    'references.picker.preview.worktree.discussion': 'Worktree получит новую ветку с именем этого обсуждения.',
     'sourceBoard.discussion.toast.answerFailed': 'Не удалось отметить ответ в {reference}',
     'sourceBoard.discussion.toast.unanswerFailed': 'Не удалось снять отметку ответа в {reference}',
     'sourceBoard.discussion.closeResolved': 'Закрыть как решённое',

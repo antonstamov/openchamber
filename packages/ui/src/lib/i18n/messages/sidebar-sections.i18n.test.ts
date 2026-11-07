@@ -11,7 +11,7 @@ const SHARED_WITH_ENGLISH = new Map(Object.entries({
   es: new Set(['sessions.sidebar.sections.link.plan', 'sessions.sidebar.sections.template.prs', 'sessions.sidebar.sections.kind.worktree', 'sessions.sidebar.sections.link.pr', 'sessions.sidebar.sections.link.issue']),
   ja: new Set(['sessions.sidebar.sections.link.issue']),
   'pt-BR': new Set(['sessions.sidebar.sections.template.prs', 'sessions.sidebar.sections.kind.worktree', 'sessions.sidebar.sections.link.pr', 'sessions.sidebar.sections.link.issue', 'sessions.sidebar.sections.matchWorksSingle']),
-  ru: new Set(['sessions.sidebar.sections.link.pr', 'sessions.sidebar.sections.link.issue']),
+  ru: new Set(['sessions.sidebar.sections.link.pr', 'sessions.sidebar.sections.link.issue', 'sessions.sidebar.sections.kind.worktree']),
   pl: new Set(['sessions.sidebar.sections.link.plan', 'sessions.sidebar.sections.kind.worktree', 'sessions.sidebar.sections.link.pr', 'sessions.sidebar.sections.category.folders']),
   tr: new Set(['sessions.sidebar.sections.link.plan', 'sessions.sidebar.sections.kind.worktree', 'sessions.sidebar.sections.link.pr', 'sessions.sidebar.sections.link.issue']),
   he: new Set(['sessions.sidebar.sections.kind.worktree', 'sessions.sidebar.sections.link.issue']),

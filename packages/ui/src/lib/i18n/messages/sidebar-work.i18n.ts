@@ -190,7 +190,7 @@ export const sidebarWorkI18n = {
     'sessions.sidebar.work.done.failed': 'Не удалось отметить задачу выполненной',
     'sessions.sidebar.work.track.failed': 'Не удалось добавить задачу в работу',
     'sessions.sidebar.work.openAria': 'Открыть {label}',
-    'sessions.sidebar.work.worktreeMark': 'Рабочая копия',
+    'sessions.sidebar.work.worktreeMark': 'Worktree',
     'sessions.sidebar.work.menu.label': 'Меню задачи {label}',
     'sessions.sidebar.work.menu.rename': 'Переименовать задачу',
     'sessions.sidebar.work.menu.pin': 'Закрепить задачу',

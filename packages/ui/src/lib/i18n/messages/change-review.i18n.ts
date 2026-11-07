@@ -864,7 +864,7 @@ export const changeReviewI18n = {
     'chat.generatedResult.change.title': 'Созданное изменение',
     'chat.chatInput.linked.change.openInBrowserAria': 'Открыть изменение в браузере',
     'chat.chatInput.linked.change.removeAria': 'Отвязать изменение',
-    'sessions.mergedCleanup.toast.change.archivedTitle': 'Рабочая копия архивирована: изменение #{number} отправлено',
+    'sessions.mergedCleanup.toast.change.archivedTitle': 'Worktree архивирован: изменение #{number} отправлено',
     'sessions.mergedCleanup.toast.change.failedTitle': 'Не удалось убрать {name} после отправки изменения #{number}',
     'sessions.sidebar.group.change.status.open': 'Изменение открыто',
     'sessions.sidebar.group.change.status.draft': 'Изменение в работе',
