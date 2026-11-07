@@ -140,7 +140,7 @@ for (const pointer of ['fine', 'coarse'] as const) {
   });
 }
 
-test('message timestamps setting pins user time on touch surfaces too', async () => {
+test('message timestamps setting leaves user time unpinned on touch surfaces', async () => {
   const { createRoot } = await import('react-dom/client');
   const { act } = await import('react');
   const host = document.createElement('div');
@@ -178,15 +178,14 @@ test('message timestamps setting pins user time on touch surfaces too', async ()
       );
     });
     const pinned = host.querySelector('[class~="group/user-actions"] > span');
-    expect(pinned).not.toBeNull();
-    expect(pinned?.textContent ?? '').toContain(':');
+    expect(pinned).toBeNull();
   } finally {
     await act(async () => { root.unmount(); });
     host.remove();
     useUIStore.setState({ showMessageTimestamps: false });
   }
 });
-test('message timestamps setting pins user time outside the hover row', async () => {
+test('message timestamps setting leaves user time unpinned outside the hover row', async () => {
   const { createRoot } = await import('react-dom/client');
   const { act } = await import('react');
   const host = document.createElement('div');
@@ -222,11 +221,11 @@ test('message timestamps setting pins user time outside the hover row', async ()
   try {
     useUIStore.setState({ showMessageTimestamps: true });
     await act(async () => { root.render(tree); });
-    const pinned = host.querySelector('[class~="group/user-actions"] > span');
-    expect(pinned).not.toBeNull();
-    expect(pinned?.textContent ?? '').toContain(':');
+    expect(host.querySelector('[class~="group/user-actions"] > span')).toBeNull();
+    expect(host.querySelector('[class~="group/user-actions"]')?.textContent ?? '').toContain(':');
     await act(async () => { useUIStore.setState({ showMessageTimestamps: false }); });
     expect(host.querySelector('[class~="group/user-actions"] > span')).toBeNull();
+    expect(host.querySelector('[class~="group/user-actions"]')?.textContent ?? '').toContain(':');
   } finally {
     await act(async () => { root.unmount(); });
     host.remove();

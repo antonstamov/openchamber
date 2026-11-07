@@ -102,7 +102,7 @@ describe('ChatSettings', () => {
     if (!row) throw new Error('Missing message timestamps setting');
     const checkbox = row.querySelector<HTMLElement>('[role="checkbox"]');
     if (!checkbox) throw new Error('Missing message timestamps checkbox');
-    expect(checkbox.getAttribute('aria-label')).toBe('Show message timestamps');
+    expect(checkbox.getAttribute('aria-label')).toBe('Show assistant message timestamps');
     await act(async () => checkbox.click());
     expect(useUIStore.getState().showMessageTimestamps).toBe(true);
     useUIStore.setState({ showMessageTimestamps: false });

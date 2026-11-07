@@ -125,7 +125,7 @@ describe('i18n dictionaries', () => {
   test('message timestamps setting copy is translated', () => {
     const labelKey = 'settings.openchamber.visual.field.showMessageTimestamps';
     const ariaKey = 'settings.openchamber.visual.field.showMessageTimestampsAria';
-    expect(enDict[labelKey]).toBe('Show message timestamps');
+    expect(enDict[labelKey]).toBe('Show assistant message timestamps');
     for (const [locale, dictionary] of Object.entries(localeDictionaries)) {
       expect(dictionary[labelKey]).toBeTruthy();
       expect(dictionary[ariaKey]).toBeTruthy();
