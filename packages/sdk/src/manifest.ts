@@ -340,10 +340,12 @@ export type PublicSocketBinding = {
  * to Linear, described by `contributes.tracker`; an extension is a Git host
  * or a tracker, never both. `quota` makes it a usage provider next to the
  * built-in ones on the Usage page, described by `contributes.quota`. The
- * contracts are in `service-providers.ts`. A service that provides a role
- * needs no panel or background entry: the host starts it on the first call.
+ * contracts are in `service-providers.ts`. `opencode` lets the service read
+ * from the OpenCode the host uses, requiring its own capability approval. A
+ * service that provides a role needs no panel or background entry: the host
+ * starts it on the first call.
  */
-export const GUEST_SERVICE_PROVIDES = ['browser', 'source-control', 'notifications', 'tracker', 'quota'] as const;
+export const GUEST_SERVICE_PROVIDES = ['browser', 'source-control', 'notifications', 'tracker', 'quota', 'opencode'] as const;
 export type GuestServiceProvides = (typeof GUEST_SERVICE_PROVIDES)[number];
 
 /**
@@ -820,8 +822,12 @@ export const serviceProvides = (
  * with no window open. `instructions` follows from `contributes.instructions`:
  * the service adds to what agents read. `skills` follows from
  * `contributes.skills`: the package's skills reach every agent.
+ * `opencodePlugin` follows from `contributes.opencodePlugin`: the package's
+ * plugin runs inside the user's OpenCode. `opencode` follows from the service
+ * role of the same name: the service reads sessions, messages, projects and
+ * live events from the OpenCode the host uses, and nothing else.
  */
-export const GUEST_CAPABILITIES = ['prompt', 'sessions', 'files', 'model', 'shells', 'conversation', 'service', 'network', 'filesystem', 'origins', 'transcript', 'sessionControl', 'instructions', 'skills'] as const;
+export const GUEST_CAPABILITIES = ['prompt', 'sessions', 'files', 'model', 'shells', 'conversation', 'service', 'network', 'filesystem', 'origins', 'transcript', 'sessionControl', 'instructions', 'skills', 'opencodePlugin', 'opencode'] as const;
 
 export type GuestCapability = (typeof GUEST_CAPABILITIES)[number];
 
@@ -951,6 +957,11 @@ export type OpenChamberContributes = {
   instructions?: true;
   /** A folder of `<name>/SKILL.md` skills inside the package. Grants `skills`. */
   skills?: string;
+  /**
+   * An OpenCode plugin folder inside the package: a directory with a
+   * `package.json` whose entry OpenCode loads. Grants `opencodePlugin`.
+   */
+  opencodePlugin?: string;
   /** Rows in the composer's `@` menu. Needs `service`. */
   mentions?: MentionsContribution;
   /** Components agents write in UI blocks, each drawn by its own frame. */
@@ -969,11 +980,12 @@ export type PublicGuestCapabilities = {
 };
 
 export const requestedGuestCapabilities = (
-  contributes: Pick<OpenChamberContributes, 'capabilities' | 'integration' | 'service' | 'filesystem' | 'actions' | 'origins' | 'sessionEvents' | 'sessionControl' | 'instructions' | 'skills'>,
+  contributes: Pick<OpenChamberContributes, 'capabilities' | 'integration' | 'service' | 'filesystem' | 'actions' | 'origins' | 'sessionEvents' | 'sessionControl' | 'instructions' | 'skills' | 'opencodePlugin'>,
 ): GuestCapability[] => {
   const declared = new Set<GuestCapability>(contributes.capabilities ?? []);
   if (guestActionsNeedConversation(contributes.actions)) declared.add('conversation');
   if (contributes.service) declared.add('service');
+  if (serviceProvides(contributes.service, 'opencode')) declared.add('opencode');
   if (contributes.integration) declared.add('network');
   if (contributes.filesystem && contributes.filesystem.length > 0) declared.add('filesystem');
   if (contributes.origins && contributes.origins.length > 0) declared.add('origins');
@@ -981,6 +993,7 @@ export const requestedGuestCapabilities = (
   if (contributes.sessionControl) declared.add('sessionControl');
   if (contributes.instructions) declared.add('instructions');
   if (contributes.skills) declared.add('skills');
+  if (contributes.opencodePlugin) declared.add('opencodePlugin');
   return GUEST_CAPABILITIES.filter((capability) => declared.has(capability));
 };
 
@@ -1100,6 +1113,7 @@ export type ParseManifestErrorCode =
   | 'invalid-session-control'
   | 'invalid-instructions'
   | 'invalid-skills'
+  | 'invalid-opencode-plugin'
   | 'invalid-mentions'
   | 'invalid-blocks'
   | 'invalid-capabilities'

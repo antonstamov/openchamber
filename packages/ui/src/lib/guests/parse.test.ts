@@ -36,6 +36,7 @@ describe('parseGuestCatalogJson', () => {
         { id: null, name: null, builtIn: true },
         { id: null, name: null, builtIn: false },
       ],
+      opencodePlugins: null,
     });
   });
 
@@ -297,7 +298,20 @@ describe('parseGuestCatalogJson', () => {
     expect(parseGuestCatalogJson('{"guests":[{"id":"Nope"}]}')).toEqual({
       guests: [],
       unreadable: [{ id: null, name: null, builtIn: false }],
+      opencodePlugins: null,
     });
+  });
+
+  test('reads how OpenCode plugins reach OpenCode, and drops a delivery state this build does not know', () => {
+    type Envelope = { delivery: string; globalConfigPath: string | null; inGlobalConfig: string[] };
+    const listing = (opencodePlugins?: Envelope) => parseGuestCatalogJson(JSON.stringify({ guests: [], opencodePlugins }))?.opencodePlugins;
+    expect(listing({ delivery: 'restart', globalConfigPath: '/home/me/.config/opencode/opencode.json', inGlobalConfig: ['teapot-tools'] }))
+      .toEqual({ delivery: 'restart', globalConfigPath: '/home/me/.config/opencode/opencode.json', inGlobalConfig: ['teapot-tools'] });
+    // No package ships a plugin, or the global config could not be read: no path, no ids.
+    expect(listing({ delivery: 'file', globalConfigPath: null, inGlobalConfig: [] })).toEqual({ delivery: 'file', globalConfigPath: null, inGlobalConfig: [] });
+    // A newer server's state would draw a button for a case this build cannot describe.
+    expect(listing({ delivery: 'teleport', globalConfigPath: null, inGlobalConfig: [] })).toBeNull();
+    expect(listing(undefined)).toBeNull();
   });
 });
 
@@ -400,5 +414,18 @@ describe('notification channels on a catalog row', () => {
     expect(guest?.notifications).toEqual(slice);
     expect(malformed?.id).toBe('other');
     expect(malformed?.notifications).toBeUndefined();
+  });
+});
+
+test('reads an OpenCode service role and its approval capability from the catalog', () => {
+  const row = {
+    id: 'api-provider', name: 'API provider', icon: 'plug',
+    service: { runtime: 'host', provides: ['opencode'], granted: false },
+    capabilities: { requested: ['service', 'opencode'], granted: ['service'] },
+  };
+  expect(parseGuestCatalogJson(JSON.stringify({ guests: [row] }))).toEqual({
+    guests: [row],
+    opencodePlugins: null,
+    unreadable: [],
   });
 });

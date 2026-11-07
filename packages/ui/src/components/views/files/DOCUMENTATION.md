@@ -73,8 +73,12 @@ there. The metadata poll treats a file deleted while open the same way: without
 unsaved edits it shows the error, with unsaved edits it keeps them. It keeps
 polling a failed file and loads it again once a missing file is back; a file
 that exists but fails to read is never reloaded by the poll
-(`openFilePollStep`). Pruning stale open paths (`removeUnselectedOpenPath`)
-never removes the path on screen.
+(`openFilePollStep`). The poll identifies its baseline by the path on screen,
+not by the path the server answers with: `/api/fs/stat` resolves symlinks, so a
+file opened through a symlinked folder or as a symlink itself would otherwise
+look like a new file on every poll and never reload after an external write
+(`fileStatSnapshotForRequestedPath`). Pruning stale open paths
+(`removeUnselectedOpenPath`) never removes the path on screen.
 
 A pending line jump (`pendingFileNavigationStep`) selects its file only until
 that file has been on screen. If the user then switches tabs while it loads,
@@ -219,8 +223,8 @@ through −/+ steps, Ctrl/⌘ + wheel or trackpad pinch, Safari gesture events,
 a two-finger touch pinch, and double-click between fit and 1:1, anchored at
 the pointer; a zoomed image larger than the viewer pans by mouse drag;
 `imageZoom.ts` holds the scale math; round arrows fixed to the viewer's
-edges, and the arrow keys while the viewer has focus and the image is at fit,
-show the previous and next image of the same folder, see below),
+edges, and the arrow keys while the image is at fit, show the previous and
+next image of the same folder, see below),
 `PdfArtifact` (a frame where the runtime has a PDF viewer; elsewhere pages
 drawn by pdf.js, see below), `MediaArtifact` (native audio/video
 element, duration and dimensions once metadata loads, a stated failure when
@@ -263,10 +267,20 @@ wrapping at the ends. SVG counts, since it opens in the image preview. A step
 opens the neighbour the way a single click in the tree does (`openContextFile`
 with `preview`): on desktop one preview tab follows the steps while the tab
 the user started from stays; on the phone the Files surface shows the
-neighbour in place and Back still leads to the folder being browsed. The
-viewer unmounts while the next image loads, so a step remembers its target and
-the viewer showing it within five seconds takes the focus back for the next
-key. A folder that cannot be read shows no arrows.
+neighbour in place and Back still leads to the folder being browsed. A folder
+that cannot be read shows no arrows.
+
+The arrow keys are heard on the document: while the focus is in the panel
+that holds the viewer, and not in a text field or a control that moves with
+the arrow keys (a tab strip, a menu, a list), or on the page itself after a
+click in that panel. With the focus on the page the browser scrolls whatever
+was clicked last, so a key after a click into a wide code block in the chat
+still scrolls that block. A click
+in the tree leaves the focus on the row, and the viewer unmounts while the
+next image loads, which drops the focus to the page; a listener on the viewer
+alone missed both. A viewer that is laid out nowhere, behind another tab of
+the panel, ignores the keys, and the first viewer to handle a key marks it
+handled, so the docked viewer behind the fullscreen one cannot step twice.
 
 Non-text artifacts the browser must own (PDF, audio, video, fonts) are loaded
 through `getRuntimeUrlResolver().authenticatedAsset('/api/fs/raw', …)` with
@@ -527,6 +541,11 @@ the page's folder. VS Code renders `srcDoc` in the same sandbox. The server
 side (read root, CORS, CSP) is described in
 `packages/web/server/lib/fs/DOCUMENTATION.md`.
 
+Adopting new content through `applyLoadedTextContent` bumps the file revision,
+which asks for a new grant and reloads the frame, so a page changed on disk
+shows up in an open preview. A save from the editor sets the content directly;
+the preview gets it when the user switches back from the code.
+
 On a relay connection the panel says the preview is unavailable and offers the
 code, asks for no grant, and the toolbar has no "Annotate page". The browser loads the page and its files itself,
 and a URL it loads never enters the tunnel. Reading the page through the tunnel
@@ -663,7 +682,10 @@ server; `FilesView` assembles them. What the syntax tree or git can answer
 is shown, nothing that needs type information.
 
 - **Git changes.** `gitChangeGutter` diffs the document against the file's git
-  baseline after typing pauses. A click on a bar opens that change in place:
+  baseline after typing pauses. For a file inside the repository selected in
+  Changes, the baseline and status come from that repository, even when the
+  project root is not a repository. The file tab remains keyed to the project.
+  A click on a bar opens that change in place:
   the changed lines are tinted, the baseline lines show under them, and
   Revert puts them back as an ordinary edit, so undo, autosave and the
   external-change guard treat it like typing. Escape or the close button
@@ -820,3 +842,14 @@ On mobile the header button uploads into the folder currently on screen. A singl
 names are never replaced silently: they collect into a replace-confirmation
 dialog, which is dropped when the workspace or runtime changes. The feature is
 present only when the runtime exposes `files.uploadFile`.
+
+A failed upload names itself and its cause instead of collapsing into one
+generic line: `uploadFailureOf` reads the `FilesystemError` the files API threw
+and keeps the file name beside the reason, so the toast says which file was too
+large (with the server's own `maxBytes` limit), which folder refused the write,
+which folder fell outside the project, or which folder is gone. The cause comes
+from the server's `reason`; a status alone is never read as one, so a 403 from
+anything else (a proxy, for one) reports the unnamed cause. A batch reports
+three rows and counts the rest. A file rejected before any request (an illegal
+name, or the runtime changing mid-upload) has no server reason and reports the
+unnamed cause.

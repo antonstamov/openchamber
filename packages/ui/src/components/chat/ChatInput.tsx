@@ -74,7 +74,7 @@ import { cn } from "@/lib/utils";
 import { ModelControls } from './ModelControls';
 import { parseAgentMentions } from '@/lib/messages/agentMentions';
 import { CONTEXT_METADATA_KEY, draftFromContextPayload } from '@/lib/messages/contextParts';
-import { shouldSubmitEnter } from './composer/keyboardPolicy';
+import { shouldPreserveDeferredEnterShift, shouldSubmitEnter } from './composer/keyboardPolicy';
 import { getDropdownNavigationKey } from '@/components/ui/dropdown-navigation';
 import { useChatColumnActions, useChatColumnExpandedInput, useChatColumnSession, type ChatColumnSession } from './chatColumnSession';
 import { usePinnedComposerSelection } from './pinnedComposerSelection';
@@ -215,6 +215,7 @@ import {
     appendWithLineBreaks,
     buildImagePasteInsertion,
     getMarkdownAutoPairEdit,
+    getOrderedListContinuationEdit,
     shouldWrapSelectionAsLink,
     withInlineInsertionBoundaries,
 } from './composer/text';
@@ -811,6 +812,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         const selections = useSelectionStore.getState();
         selections.saveSessionModelSelection(btwComposerSessionId, next.providerID, next.modelID);
         if (agent) selections.saveAgentModelForSession(btwComposerSessionId, agent, next.providerID, next.modelID);
+        selections.pickSessionModel(btwComposerSessionId, next.providerID, next.modelID);
     };
     const cycleBtwThinkingVariant = (event: KeyboardEvent): boolean | void => {
         if (!isBtwKey(event) || !btwComposerSessionId) return false;
@@ -1952,7 +1954,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             } else {
                 const draft = draftFromContextPayload(payload);
                 if (draft && inlineDraftTarget) {
-                    useInlineCommentDraftStore.getState().addDraft(inlineDraftTarget, draft);
+                    useInlineCommentDraftStore.getState().addDraft(inlineDraftTarget, draft, { written: true });
                 }
             }
         }
@@ -3040,6 +3042,21 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             const selEnd = ta?.getSelection().end ?? -1;
 
             if (ta && selStart >= 0) {
+                const listEdit = e.key === 'Enter' && e.shiftKey
+                    ? getOrderedListContinuationEdit(message, selStart, selEnd)
+                    : null;
+                if (listEdit) {
+                    e.preventDefault();
+                    ta.replaceRange(
+                        listEdit.from,
+                        listEdit.to,
+                        listEdit.insert,
+                        listEdit.selectionStart,
+                        listEdit.selectionEnd,
+                    );
+                    return;
+                }
+
                 const edit = getMarkdownAutoPairEdit(message, e.key, selStart, selEnd);
                 if (edit) {
                     e.preventDefault();
@@ -5252,14 +5269,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                                 editable={Boolean(currentSessionId || newSessionDraftOpen)}
                                 autoCorrect={composerAutoCorrect({ isMobile })}
                                 autoCapitalize={isMobile ? 'sentences' : 'none'}
-                                // Return-key send trusts the deferred Shift only from a
-                                // hardware keyboard: iOS autocapitalization arms a phantom
-                                // Shift at sentence starts that must send, not newline.
-                                preserveDeferredEnterShift={
-                                    isMobile && mobileReturnKeySends
-                                        ? hasHardwareKeyboard
-                                        : !enterToSendConfigured || !isMobile
-                                }
+                                preserveDeferredEnterShift={shouldPreserveDeferredEnterShift({ isMobile, hasHardwareKeyboard })}
                                 returnKeySends={isMobile && mobileReturnKeySends}
                                 spellCheck={isMobile || inputSpellcheckEnabled}
                                 fillContainer={isComposerExpanded}

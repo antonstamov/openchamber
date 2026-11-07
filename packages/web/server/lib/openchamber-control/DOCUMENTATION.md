@@ -19,8 +19,22 @@ other.
   (`../scheduled-tasks/DOCUMENTATION.md`, *Local approval*).
   `schedule.list` also returns scheduler status as `scheduler`.
   `schedule.update` patches a task in place: only the fields the call names
-  change, the id and run state stay, and a task driven by a loop file is
+  change, the id and run history stay, and a task driven by a loop file is
   refused (the file is its source).
+  A standalone `time` changes a once task's time while keeping its date, or a
+  single-time weekly task's time while keeping its weekdays. It must be a
+  nonempty `HH:mm` value. Daily, cron and multi-time weekly tasks require an
+  explicit schedule replacement; incompatible or ambiguous time patches fail
+  before upsert. Omitted timezone inherits the stored timezone through project
+  config normalization, including schedule replacements. An explicit nonempty
+  timezone replaces it. Timezone clearing and creation behavior are unchanged.
+  Rejected patches leave the requested fields, schedule and run history
+  unchanged by the patch. The preceding task list reconciles the scheduler
+  before validation and may persist legitimate state recalculations, including
+  `state.updatedAt`, even when the patch is rejected before upsert. A failed
+  atomic patch write preserves the prior valid snapshot at that write boundary.
+  Scheduler synchronization also follows the save; a failure there retains the
+  committed change on disk.
   `schedule.create` and `schedule.update` accept `targetSessionId`, validated
   by the scheduled-task service. An empty `targetSessionId` on update clears
   the target. Create
@@ -36,6 +50,15 @@ other.
   Only the model the call names is checked, so an update that names no model
   validates nothing. This server runs for web, Electron, hosted mobile and
   Capacitor clients; the VS Code extension does not run it.
+  `schedule.create` and `schedule.update` also accept the isolation fields
+  `runInWorktree`, `baseBranch` and `cleanupWorktree`, the same choices the
+  editor stores for a git project's task. All three are refused together with
+  an existing-session target, because that session's own directory wins and
+  the fields would otherwise be stored and ignored. `runInWorktree` and
+  `cleanupWorktree` must be booleans, and `baseBranch` a nonempty string, or
+  empty or null on update to clear the stored branch. Anything else is a 400
+  before upsert, because the CLI HTTP route forwards raw JSON and a wrong type
+  would turn isolation off or erase the branch.
 - `project-knowledge.js` runs the `knowledge.*` actions of the
   `openchamber_knowledge` agent tool (`list`, `save`, `delete`, `show`;
   `kind` names note, todo or plan) against
@@ -227,6 +250,41 @@ other.
   `session.move`. A failure after the worktree exists removes it again and
   puts the changes back; when restoring fails too, the error names the stash
   so nothing is lost. A 409 means the changes did not apply on the start ref.
+- A new worktree from `session.create` (`worktree` or `pullRequest`) or
+  `session.moveToWorktree` runs the project's setup commands, as one from the
+  New worktree dialog does. The server resolves them itself
+  (`../projects/worktree-setup.js`) from the registered project's merged setup
+  (`readProjectSetup`), because no client is there to show the trust prompt:
+  shared commands the user has not trusted are left out, the personal ones
+  still run, and the result names the skipped ones in
+  `untrustedSetupCommandsSkipped`. That is the dialog's answer when the user
+  skips them. The project is the one a move's start folder follows (below),
+  for a create too. A directory outside every registered project gets no
+  setup. The commands run inside the bootstrap, so the session is created or
+  moved only after they finished, whatever `setupWorktreeWait` says: an agent
+  works in the folder at once. The 60-second bootstrap deadline covers git's
+  part; once the bootstrap reports `git-ready`, the commands get three more
+  minutes, which keeps the call well inside the agent tool's request window
+  (Bun's fetch gives up after about six minutes). A command still running past
+  that gets a 503 and no work starts in the worktree, so a command that never
+  exits cannot hold every agent create and an agent never edits files a setup
+  is still writing. A create answers `partialAction: worktree-created` with no
+  session, as for any failed prerequisite below; the retry in that folder gets
+  the same answer until the setup finishes. A move answers
+  `partialAction: worktree-setup-running` with the worktree's `directory`, stops
+  before stashing anything and leaves the session and its files where they
+  were: a setup command could overwrite a carried file once the stash, the only
+  other copy, is dropped. The same move again, from the same session with the
+  same worktree input, moves into that worktree once its setup finished, while
+  the folder is still a worktree of the repository. The mover keeps the
+  worktrees it left this way in memory, so after a restart a retry makes a new
+  one, as the first call would. A failed retry leaves that worktree in place,
+  since another session may have entered it meanwhile. A move that goes ahead applies its `carry` files after
+  the setup, so a carried dependency change needs the install run again. A
+  failing command is logged and does not fail the bootstrap, as on every
+  creation path. A move that fails after the worktree exists stops the setup
+  commands (`cancelSetup` in `removeWorktree`), so a command that never exits
+  cannot strand the worktree; the changes go back without waiting for that.
 - A session created in a new worktree (`session.create` with `worktree` or
   `pullRequest`) or moved into one (`session.moveToWorktree`) starts in the same
   folder of that worktree as the project opens on in its repository: a project
@@ -270,7 +328,7 @@ other.
   Explicit model/agent pairs keep their existing validation,
   and send/fork reuse the session selection before requesting defaults.
 - Worktree-dependent operations await the tracked bootstrap promises, including
-  setup, with a 60-second deadline, then check the final status once. Git-ready
+  setup, with the deadlines above, then check the final status once. Git-ready
   alone is insufficient. Creating in an existing checkout subdirectory checks
   bootstrap at the checkout root while retaining the session's requested folder.
   If a create prerequisite fails after making a worktree,
@@ -392,6 +450,14 @@ other.
   forwards the action like the rest.
 
 ## Decisions
+
+### Why time-only patches require an unambiguous schedule
+
+A once task has one time and a single-time weekly task has one slot to replace.
+Daily and cron selectors already encode their time, and a multi-time weekly
+task does not identify which slot a standalone `time` should change. Rejecting
+those patches lets callers provide an explicit replacement without silently
+dropping slots or ignoring the requested time.
 
 ### Why a background message waits behind a page and does not end it
 

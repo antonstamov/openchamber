@@ -22,7 +22,8 @@ import { runGuestAction } from '@/lib/guests/run-action';
 export interface InlineCommentInputProps {
   initialText?: string;
   onTextChange?: (text: string) => void;
-  onSave: (text: string, range?: { start: number; end: number; side?: 'additions' | 'deletions' }) => void;
+  /** False keeps the field open with its text: the save did not land. */
+  onSave: (text: string, range?: { start: number; end: number; side?: 'additions' | 'deletions' }) => boolean | void;
   onCancel: () => void;
   fileLabel?: string;
   lineRange?: { start: number; end: number; side?: 'additions' | 'deletions' };
@@ -196,7 +197,7 @@ export function InlineCommentInput({
 
   const save = () => {
     if (text.trim() && !saving) {
-      onSave(text, normalizeRange(stableRangeRef.current));
+      if (onSave(text, normalizeRange(stableRangeRef.current)) === false) return;
       void imagePaste.attachCitedImages(text);
     }
   };
@@ -239,6 +240,9 @@ export function InlineCommentInput({
     e.stopPropagation();
     save();
   };
+
+  // Three worded actions do not fit one row on a phone; the paperclip reads without its word.
+  const compactAttach = isMobile && Boolean(suggestionCode) && !saveLabel;
 
   const commentContext = (
     <span className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground">
@@ -291,7 +295,7 @@ export function InlineCommentInput({
           spellCheck
           className={cn(
             'min-w-0 resize-none bg-transparent text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground',
-            floating ? 'flex-1 py-1.5' : cn('block w-full px-3 pb-1', isMobile ? 'pt-1' : 'pt-2'),
+            floating ? 'flex-1 py-1.5' : 'block w-full px-3 pb-1 pt-2',
             isMobile && 'text-base leading-6'
           )}
           style={{ minHeight: 0 }}
@@ -348,7 +352,7 @@ export function InlineCommentInput({
               </Tooltip>
             )) : null}
             {suggestionCode && isMobile ? (
-              <Button type="button" variant="ghost" size="sm" className="me-auto shrink-0 text-muted-foreground" onClick={insertSuggestion}>
+              <Button type="button" variant="ghost" size="sm" className="me-auto shrink-0 px-0 text-muted-foreground" onClick={insertSuggestion}>
                 {t('review.action.suggest')}
               </Button>
             ) : suggestionCode ? (
@@ -369,15 +373,16 @@ export function InlineCommentInput({
             ) : null}
             <Button
               type="button"
-              size={isMobile ? 'sm' : 'xs'}
+              size={compactAttach ? 'icon' : isMobile ? 'sm' : 'xs'}
               className="shrink-0"
+              aria-label={saveLabel ?? t('review.action.attach')}
               onClick={handleSaveClick}
               onPointerDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
               disabled={!text.trim() || saving}
             >
               {saving ? <Spinner className="size-3.5" /> : saveLabel ? null : <Icon name="attachment-2" className="size-3.5" />}
-              {saveLabel ?? t('review.action.attach')}
+              {compactAttach ? null : saveLabel ?? t('review.action.attach')}
               {isMobile ? null : <span className="text-[0.6875rem] opacity-70">{saveShortcut}</span>}
             </Button>
             </div>

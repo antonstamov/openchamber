@@ -24,6 +24,7 @@ const gpgconfCandidates = ['gpgconf', '/opt/homebrew/bin/gpgconf', '/usr/local/b
 let resolvedGitBinary = null;
 const worktreeBootstrapState = new Map();
 const activeWorktreeBootstrapTasks = new Map();
+const worktreeSetupCancellations = new Map();
 const remoteExistenceCache = new Map();
 const SIMPLE_GIT_SAFE_BINARY_PATTERN = /^([a-z]:)?([a-z0-9/.\\_~-]+)$/i;
 const SIMPLE_GIT_UNSAFE_BINARY_WARNING = 'Invalid value supplied for custom binary, restricted characters must be removed';
@@ -41,6 +42,7 @@ const WORKTREE_BOOTSTRAP_RECOVERY_ERROR = 'Worktree bootstrap completion is unkn
 const GIT_NULL_REF = '0'.repeat(40);
 const WORKTREE_INDEX_LOCK_RETRY_DELAY_MS = 250;
 const WORKTREE_INDEX_LOCK_STALE_DELAY_MS = 750;
+const WORKTREE_COMMAND_OUTPUT_MAX_CHARS = 20 * 1024 * 1024;
 
 const toBootstrapStateKey = (directory) => {
   const normalized = normalizeDirectoryPath(directory);
@@ -156,6 +158,15 @@ export const waitForActiveWorktreeBootstrap = async (directory) => {
       return;
     }
     await Promise.allSettled([...tasks]);
+  }
+};
+
+// Stops the setup commands of a bootstrap in progress, and any not started yet.
+// The bootstrap then settles by itself, whatever it had left to do.
+const cancelWorktreeSetup = async (directory) => {
+  const canonicalKey = await canonicalPath(toBootstrapStateKey(directory));
+  for (const [trackedKey, cancellation] of worktreeSetupCancellations) {
+    if (await canonicalPath(trackedKey) === canonicalKey) cancellation.abort();
   }
 };
 
@@ -1754,9 +1765,9 @@ export async function getIntegrateConflictDetails(tmpDir) {
   const [status, unmerged, diff, meta, patch] = await Promise.all([
     runGitCommand(target, ['status', '--porcelain']),
     runGitCommand(target, ['diff', '--name-only', '--diff-filter=U']),
-    runGitCommand(target, ['diff', '--no-ext-diff']),
+    runGitCommand(target, ['diff', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/']),
     runGitCommand(target, ['show', '--no-patch', '--pretty=fuller', 'CHERRY_PICK_HEAD']),
-    runGitCommand(target, ['show', '--no-ext-diff', 'CHERRY_PICK_HEAD']),
+    runGitCommand(target, ['show', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/', 'CHERRY_PICK_HEAD']),
   ]);
 
   return {
@@ -2140,31 +2151,78 @@ const isBranchKeptOnWorktreeRemoval = async (primaryWorktree, branchName) => {
   return Object.values(await getRemoteDefaultBranches(git)).includes(branchName);
 };
 
+const killWorktreeCommand = (child) => {
+  if (process.platform === 'win32') {
+    killProcessTree(child);
+    return;
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    // Nothing is left in the group.
+  }
+};
+
 // `timeoutMs` 0 means no limit. Stdin is closed: nobody can answer a prompt
-// from these commands, and an open pipe would keep one waiting forever.
-const runWorktreeStartCommand = async (directory, command, { timeoutMs = 0 } = {}) => {
+// from these commands, and an open pipe would keep one waiting forever. Off
+// Windows the command leads its own process group, so stopping it also stops
+// what it started; `execFile` cannot start one.
+const runWorktreeStartCommand = async (directory, command, { timeoutMs = 0, signal } = {}) => {
   const text = String(command || '').trim();
   if (!text) {
     return { success: true };
   }
+  const env = await buildGitEnv(directory);
+  if (signal?.aborted) {
+    return { success: false, message: `${text} was cancelled` };
+  }
 
   const windows = process.platform === 'win32';
-  const run = execFileAsync(windows ? 'cmd' : 'bash', windows ? ['/c', text] : ['-lc', text], {
-    cwd: directory,
-    env: await buildGitEnv(directory),
-    windowsHide: true,
-    maxBuffer: 20 * 1024 * 1024,
-    timeout: timeoutMs,
+  return new Promise((resolve) => {
+    const child = spawn(windows ? 'cmd' : 'bash', windows ? ['/c', text] : ['-lc', text], {
+      cwd: directory,
+      env,
+      windowsHide: true,
+      detached: !windows,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const output = { stdout: '', stderr: '' };
+    let stopReason = null;
+    const stop = (reason) => {
+      stopReason ??= reason;
+      killWorktreeCommand(child);
+      // A process that left the group must not hold the result open by its pipes.
+      child.stdout.destroy();
+      child.stderr.destroy();
+    };
+    const collect = (stream) => {
+      stream.setEncoding('utf8').on('data', (chunk) => {
+        output[stream === child.stdout ? 'stdout' : 'stderr'] += chunk;
+        if (output.stdout.length + output.stderr.length > WORKTREE_COMMAND_OUTPUT_MAX_CHARS) {
+          stop(`${text} wrote too much output`);
+        }
+      });
+    };
+    collect(child.stdout);
+    collect(child.stderr);
+
+    const cancel = () => stop(`${text} was cancelled`);
+    signal?.addEventListener('abort', cancel, { once: true });
+    const timeout = timeoutMs > 0
+      ? setTimeout(() => stop(`${text} did not finish within ${Math.round(timeoutMs / 1000)} seconds`), timeoutMs)
+      : null;
+    const finish = (result) => {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', cancel);
+      resolve({ ...result, ...output });
+    };
+    child.once('error', (error) => finish({ success: false, message: parseGitErrorText(error) }));
+    child.once('close', (code) => {
+      if (stopReason) finish({ success: false, message: stopReason });
+      else if (code === 0) finish({ success: true });
+      else finish({ success: false, message: parseGitErrorText({ ...output, message: `Command failed: ${text}\n${output.stderr}` }) });
+    });
   });
-  run.child.stdin?.end();
-  return run.then(({ stdout, stderr }) => ({ success: true, stdout, stderr })).catch((error) => ({
-    success: false,
-    stdout: error?.stdout,
-    stderr: error?.stderr,
-    message: timeoutMs > 0 && error?.killed && error?.code !== 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
-      ? `${text} did not finish within ${Math.round(timeoutMs / 1000)} seconds`
-      : parseGitErrorText(error),
-  }));
 };
 
 // OpenCode owns its own project/sandbox registry. It records a worktree as a
@@ -2208,10 +2266,10 @@ const cleanupFailedFastWorktreeCreate = async (context, candidate) => {
 
 // `projectDirectory` is the directory the worktree was requested from: the user
 // already works there, so OpenCode answers without starting another location.
-const runWorktreeStartScripts = async (directory, projectDirectory, startCommand) => {
+const runWorktreeStartScripts = async (directory, projectDirectory, startCommand, signal) => {
   const projectStart = await readProjectStartCommand(projectDirectory);
   if (projectStart) {
-    const projectResult = await runWorktreeStartCommand(directory, projectStart);
+    const projectResult = await runWorktreeStartCommand(directory, projectStart, { signal });
     if (!projectResult.success) {
       console.warn('Worktree project start command failed:', projectResult.message || projectResult.stderr || projectResult.stdout);
       return;
@@ -2222,7 +2280,7 @@ const runWorktreeStartScripts = async (directory, projectDirectory, startCommand
   if (!extraCommand) {
     return;
   }
-  const extraResult = await runWorktreeStartCommand(directory, extraCommand);
+  const extraResult = await runWorktreeStartCommand(directory, extraCommand, { signal });
   if (!extraResult.success) {
     console.warn('Worktree start command failed:', extraResult.message || extraResult.stderr || extraResult.stdout);
   }
@@ -2245,6 +2303,9 @@ const queueWorktreeBootstrap = (args) => {
     checkoutRemoteName,
     bootstrapStore,
   } = args;
+  const setupKey = toBootstrapStateKey(directory);
+  const setupCancellation = new AbortController();
+  worktreeSetupCancellations.set(setupKey, setupCancellation);
   const task = new Promise((resolve) => setTimeout(resolve, 0))
     .then(async () => {
       await populateWorktreeWithLockRecovery(directory);
@@ -2286,7 +2347,7 @@ const queueWorktreeBootstrap = (args) => {
         bootstrapStore,
       );
       if (!contributorFork) {
-        await runWorktreeStartScripts(directory, projectDirectory, startCommand).catch((error) => {
+        await runWorktreeStartScripts(directory, projectDirectory, startCommand, setupCancellation.signal).catch((error) => {
           console.warn('Worktree start script task failed:', error instanceof Error ? error.message : String(error));
         });
       }
@@ -2323,6 +2384,8 @@ const queueWorktreeBootstrap = (args) => {
       console.warn('Worktree bootstrap task failed:', error instanceof Error ? error.message : String(error));
     });
 
+  const forgetCancellation = () => worktreeSetupCancellations.delete(setupKey);
+  void task.then(forgetCancellation, forgetCancellation);
   trackWorktreeBootstrapTask(directory, task);
 };
 
@@ -3365,7 +3428,7 @@ async function readStatus(normalizedDirectory, lightMode) {
 }
 
 const getNoIndexDiff = async (repoRoot, repoPath, contextLines) => {
-  const args = ['diff', '--no-color', '--full-index', '--no-ext-diff'];
+  const args = ['diff', '--no-color', '--full-index', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/'];
   if (Number.isFinite(contextLines)) {
     args.push(`-U${Math.max(0, contextLines)}`);
   }
@@ -3439,7 +3502,7 @@ export async function getPathDiffs(directory, { paths: filePaths = [], staged = 
 
 async function readDiff({ repoRoot, git }, fileContext, { staged, contextLines }) {
   try {
-    const args = ['diff', '--no-color', '--full-index', '--no-ext-diff'];
+    const args = ['diff', '--no-color', '--full-index', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/'];
 
     if (typeof contextLines === 'number' && !Number.isNaN(contextLines)) {
       args.push(`-U${Math.max(0, contextLines)}`);
@@ -3637,7 +3700,7 @@ export async function getRangeDiff(directory, { base, head, path: filePath, cont
 
   await assertRangeRefsResolve(git, repoRoot, [baseRef, headRef]);
 
-  const args = ['diff', '--no-color', '--no-ext-diff'];
+  const args = ['diff', '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/'];
   if (typeof contextLines === 'number' && !Number.isNaN(contextLines)) {
     args.push(`-U${Math.max(0, contextLines)}`);
   }
@@ -5740,6 +5803,7 @@ export async function previewWorktreeCreate(directory, input = {}) {
   const mode = input?.mode === 'existing' ? 'existing' : 'new';
   const context = await resolveWorktreeProjectContext(directory);
   await fsp.mkdir(context.worktreeRoot, { recursive: true });
+  context.worktreeRoot = await fsp.realpath(context.worktreeRoot);
 
   const preferredName = String(input?.worktreeName || input?.name || '').trim();
   const preferredBranchName = cleanBranchName(String(input?.branchName || '').trim());
@@ -6199,6 +6263,7 @@ export async function createWorktree(directory, input = {}, serverOptions = {}) 
     : result);
 
   await fsp.mkdir(context.worktreeRoot, { recursive: true });
+  context.worktreeRoot = await fsp.realpath(context.worktreeRoot);
 
   const preferredName = String(preparedInput?.worktreeName || preparedInput?.name || '').trim();
   const preferredBranchName = cleanBranchName(String(preparedInput?.branchName || '').trim());
@@ -6767,6 +6832,9 @@ export async function removeWorktree(directory, input = {}, { bootstrapStore } =
   }
 
   const targetCanonical = await canonicalPath(targetDirectory);
+  // A caller throwing the worktree away stops its setup commands; one that
+  // never exits would hold the wait below forever.
+  if (input?.cancelSetup === true) await cancelWorktreeSetup(targetDirectory);
   await waitForActiveWorktreeBootstrap(targetDirectory);
   await waitForActiveWorktreeBootstrap(targetCanonical);
 
@@ -7600,7 +7668,7 @@ export async function getCommitDiff(directory, { hash, path: filePath, previousP
   const commit = await resolveCommitHash(git, hash);
   const paths = [filePath, previousPath].filter(Boolean).map((value) => `:(literal)${value}`);
   return git.raw([
-    ...commitShowArgs(commit), '--no-color', '--no-ext-diff', `-U${Math.max(0, contextLines)}`,
+    ...commitShowArgs(commit), '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/', `-U${Math.max(0, contextLines)}`,
     '--', ...paths,
   ]);
 }
@@ -7962,7 +8030,7 @@ export async function getConflictDetails(directory) {
       .filter(Boolean);
 
     // Get current diff
-    const diff = await git.raw(['diff', '--no-ext-diff']).catch(() => '');
+    const diff = await git.raw(['diff', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/']).catch(() => '');
 
     // simple-git resolves a quiet `rev-parse --verify` miss with empty output instead of rejecting.
     let operation = 'merge';

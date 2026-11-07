@@ -39,7 +39,7 @@ import { GitignoredToggleButton } from '@/components/layout/GitignoredToggleButt
 import { useZoneInteractive } from '@/components/layout/zoneInteractiveContext';
 import { MarkdownPreviewSearch } from './MarkdownPreviewSearch';
 import { createFileContentPoller } from './fileContentPoller';
-import { hasFileStatChanged, openFilePollStep } from './fileStatChange';
+import { fileStatSnapshotForRequestedPath, hasFileStatChanged, openFilePollStep, type FileStatSnapshot } from './fileStatChange';
 import { pendingFileNavigationStep } from './pendingFileNavigation';
 import { JsonTreeView } from '@/components/ui/JsonTreeView';
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
@@ -81,7 +81,7 @@ import { GUEST_FILE_EDITOR_CONTENT_MAX } from '@openchamber/sdk';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
-import { highlightSelectionMatches } from '@codemirror/search';
+import { getSearchQuery, highlightSelectionMatches, SearchQuery, setSearchQuery as setEditorSearchQuery } from '@codemirror/search';
 import { codeFolding } from '@/lib/codemirror/codeFolding';
 import { bracketAids, multipleCursors } from '@/lib/codemirror/editingAids';
 import { gitChangeGutter, setGitChangeBaseline } from '@/lib/codemirror/gitChangeGutter';
@@ -92,8 +92,9 @@ import { stickyScope } from '@/lib/codemirror/stickyScope';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { normalizeContextPanelDirectoryKey, useUIStore } from '@/stores/useUIStore';
 import { useFilesViewTabsStore } from '@/stores/useFilesViewTabsStore';
-import { useGitStatus, useGitStore } from '@/stores/useGitStore';
+import { useEffectiveGitDirectory, useGitStatus, useGitStore } from '@/stores/useGitStore';
 import { DirectoryRequests } from './files/directoryRequests';
+import { gitBaselineTarget } from './files/gitBaselineTarget';
 import { useFileTreeUpload } from './files/useFileTreeUpload';
 import { moveWorkspacePath } from './files/moveWorkspacePath';
 import { areDirectoryNodesEqual, buildFileTreeStatusIndex } from './files/fileTreeStatus';
@@ -164,12 +165,6 @@ type FileNode = {
   type: 'file' | 'directory';
   extension?: string;
   relativePath?: string;
-};
-
-type FileStatSnapshot = {
-  path: string;
-  size: number;
-  mtimeMs?: number;
 };
 
 type SelectedLineRange = {
@@ -1316,8 +1311,9 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (range) {
       setLineSelection(range);
     }
-    saveComment(text, finalRange);
-    setLineSelection(null);
+    const saved = saveComment(text, finalRange);
+    if (saved) setLineSelection(null);
+    return saved;
   }, [lineSelection, saveComment]);
 
   const mapDirectoryEntries = React.useCallback((dirPath: string, entries: Array<{ name: string; path: string; isDirectory: boolean }>): FileNode[] => {
@@ -1755,11 +1751,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     if (files.statFile) {
       const options = resolveFileReadOptions(path);
       const result = await files.statFile(path, { ...options, directory: root || undefined });
-      return {
-        path: result.path,
-        size: result.size,
-        mtimeMs: result.mtimeMs,
-      };
+      return fileStatSnapshotForRequestedPath(normalizePath(path), result);
     }
     return null;
   }, [files, resolveFileReadOptions, root]);
@@ -1801,6 +1793,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
     lastLoadedFileContentRef.current = content;
     lastLoadedFileRevisionRef.current += 1;
+    setFileContentRevision((revision) => revision + 1);
     setLoadedFileLineEnding(lineEnding);
     setFileContent(editorContent);
     diagramXmlRef.current = editorContent;
@@ -2866,6 +2859,16 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     || (!isMarkdown && !isHtml && !isJson && !hasCanvas && !isSelectedSvg && !isMermaid && !isTableView && textViewMode === 'edit');
   // The CodeMirror source is on screen. A draw.io file shows it whenever its diagram is not;
   // a read-only file in its source mode shows the code preview instead.
+  // The phone's find bar has no match options: one set on a wider layout must
+  // not keep narrowing the search with no way to clear it.
+  React.useEffect(() => {
+    const view = editorViewRef.current;
+    if (!isMobile || !isSearchOpen || !view) return;
+    const query = getSearchQuery(view.state);
+    if (!query.caseSensitive && !query.regexp && !query.wholeWord) return;
+    view.dispatch({ effects: setEditorSearchQuery.of(new SearchQuery({ search: query.search, replace: query.replace })) });
+  }, [isMobile, isSearchOpen]);
+
   const sourceEditorShown = (isDrawio ? drawioViewMode !== 'preview' : isEditingFile)
     && !(canUseShikiFileView && textViewMode === 'view');
   // Go to line and symbols drive that editor: they close when a preview replaces it.
@@ -3594,19 +3597,23 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const selectedRelativePath = selectedFile?.path && root && selectedFile.path.startsWith(`${root}/`)
     ? selectedFile.path.slice(root.length + 1)
     : null;
+  const selectedGitDirectory = useEffectiveGitDirectory(currentDirectory || null);
+  const gitTarget = gitBaselineTarget(selectedFile?.path, currentDirectory, selectedGitDirectory);
+  const gitDirectory = gitTarget?.directory ?? null;
+  const gitRelativePath = gitTarget?.relativePath ?? null;
   // Refetch when the file's own status or the branch changes (a commit,
   // checkout or stash moves its HEAD version), not on every status refresh:
   // the selector returns a string, so unrelated refreshes do not re-render.
   const gitBaselineKey = useGitStore((state) => {
-    if (!selectedRelativePath || !root) return null;
+    if (!gitRelativePath || !gitDirectory) return null;
     // Keyed like the tree's own git status lookup.
-    const status = state.directories.get(currentDirectory)?.status;
-    const entry = status?.files.find((file) => file.path === selectedRelativePath) ?? null;
-    return JSON.stringify([selectedRelativePath, status?.current ?? null, entry]);
+    const status = state.directories.get(gitDirectory)?.status;
+    const entry = status?.files.find((file) => file.path === gitRelativePath) ?? null;
+    return JSON.stringify([gitDirectory, gitRelativePath, status?.current ?? null, entry]);
   });
-  const [gitBaseline, setGitBaseline] = React.useState<{ path: string; text: string | null } | null>(null);
+  const [gitBaseline, setGitBaseline] = React.useState<{ path: string; directory: string; text: string | null } | null>(null);
   React.useEffect(() => {
-    if (!selectedRelativePath || !root || !gitBaselineKey) {
+    if (!selectedRelativePath || !gitRelativePath || !gitDirectory || !gitBaselineKey) {
       setGitBaseline(null);
       return;
     }
@@ -3615,32 +3622,31 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       setGitBaseline(null);
       return;
     }
-    git.getGitFileDiff(root, { path: selectedRelativePath })
+    git.getGitFileDiff(gitDirectory, { path: gitRelativePath })
       .then((diff) => {
         if (cancelled) return;
-        const entry = useGitStore.getState().directories.get(currentDirectory)?.status?.files
-          .find((file) => file.path === selectedRelativePath);
+        const entry = useGitStore.getState().directories.get(gitDirectory)?.status?.files
+          .find((file) => file.path === gitRelativePath);
         const isNewInGit = entry !== undefined
           && (entry.index === '?' || entry.index === 'A' || entry.working_dir === '?');
         const usable = !diff.isBinary && !diff.submodule && (diff.original !== '' || isNewInGit);
-        setGitBaseline({ path: selectedRelativePath, text: usable ? diff.original : null });
+        setGitBaseline({ path: selectedRelativePath, directory: gitDirectory, text: usable ? diff.original : null });
       })
       .catch(() => {
-        if (!cancelled) setGitBaseline({ path: selectedRelativePath, text: null });
+        if (!cancelled) setGitBaseline({ path: selectedRelativePath, directory: gitDirectory, text: null });
       });
     return () => {
       cancelled = true;
     };
     // gitBaselineKey carries the status fields that decide a refetch.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDirectory, git, gitBaselineKey, root]);
+  }, [git, gitBaselineKey, gitDirectory, gitRelativePath, selectedRelativePath]);
   const gitBaselineRef = React.useRef(gitBaseline);
   gitBaselineRef.current = gitBaseline;
   const applyGitBaseline = React.useCallback((view: EditorView | null) => {
     if (!view) return;
     const baseline = gitBaselineRef.current;
-    setGitChangeBaseline(view, baseline && baseline.path === selectedRelativePath ? baseline.text : null);
-  }, [selectedRelativePath]);
+    setGitChangeBaseline(view, baseline && baseline.path === selectedRelativePath && baseline.directory === gitDirectory ? baseline.text : null);
+  }, [gitDirectory, selectedRelativePath]);
   React.useEffect(() => {
     applyGitBaseline(editorViewRef.current);
   }, [applyGitBaseline, gitBaseline]);
@@ -5180,7 +5186,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                   readOnly={!canEdit}
                   vimMode={fileEditorKeymap === 'vim'}
                   extensions={editorExtensions}
-                  className="h-full"
+                  className={cn('h-full', isMobile && 'oc-compact-search')}
                   blockWidgets={blockWidgets}
                   onViewReady={(view) => {
                     editorViewRef.current = view;
@@ -5447,7 +5453,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
                 readOnly={!canEdit}
                 vimMode={fileEditorKeymap === 'vim'}
                 extensions={editorExtensions}
-                className="h-full"
+                className={cn('h-full', isMobile && 'oc-compact-search')}
                 onViewReady={(view) => {
                   editorViewRef.current = view;
                   applyGitBaseline(view);

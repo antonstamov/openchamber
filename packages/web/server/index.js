@@ -28,7 +28,7 @@ import {
   isUnsafeUnauthenticatedLanAllowed,
   readAdvertisedLanUrl,
 } from './lib/security/bind-host.js';
-import { isEnterpriseMode, isNetworkAccessBlocked, NETWORK_ACCESS_BLOCKED_ERROR, readEnterprisePolicy } from './lib/enterprise-mode.js';
+import { isEnterpriseMode, isNetworkAccessBlocked, NETWORK_ACCESS_BLOCKED_ERROR, readEnterprisePolicy, watchEnterprisePolicy } from './lib/enterprise-mode.js';
 import {
   TUNNEL_MODE_MANAGED_LOCAL,
   TUNNEL_MODE_MANAGED_REMOTE,
@@ -68,6 +68,7 @@ import { createSettingsNormalizationRuntime } from './lib/opencode/settings-norm
 import { createSettingsHelpers } from './lib/opencode/settings-helpers.js';
 import { createThemeRuntime } from './lib/opencode/theme-runtime.js';
 import { createFeatureRoutesRuntime } from './lib/opencode/feature-routes-runtime.js';
+import { createPluginSwitchStore } from './lib/opencode/plugin-switches.js';
 import { parseServeCliOptions } from './lib/opencode/cli-options.js';
 import {
   isRequestAuthorized,
@@ -77,6 +78,8 @@ import {
 } from './lib/opencode/core-routes.js';
 import { registerOpenChamberRoutes } from './lib/opencode/openchamber-routes.js';
 import { createServerUtilsRuntime } from './lib/opencode/server-utils-runtime.js';
+import { createMcpOAuthSignIn } from './lib/opencode/mcp-oauth.js';
+import { getMcpConfig, listMcpConfigs, updateMcpConfig } from './lib/opencode/mcp.js';
 import { createOpenCodeTrust } from './lib/opencode-trust/index.js';
 import { registerSessionProjectRoutes } from './lib/projects/session-directory.js';
 import { guardOpenCodeFetch } from './lib/opencode-trust/fetch-guard.js';
@@ -180,6 +183,7 @@ import { createDevServerScanner } from './lib/dev-servers/routes.js';
 import { createDevTunnelRuntime } from './lib/dev-tunnel/runtime.js';
 import { registerBrowserControlRoutes } from './lib/browser-control/routes.js';
 import { createManagedConfigRuntime } from './lib/opencode/managed-config-file.js';
+import { openCodePluginDelivery } from './lib/guests/opencode-plugin.js';
 import { createLimitFailoverRuntime } from './lib/limit-failover/runtime.js';
 import { prepareInstanceDir } from './lib/opencode/instance-dir.js';
 import { createOpenChamberSessionService } from './lib/openchamber-sessions/routes.js';
@@ -385,6 +389,7 @@ let notificationTemplateRuntime = null;
 let agentToolRuntime = null;
 let limitFailoverRuntime = null;
 let managedConfigRuntime = null;
+let stopEnterprisePolicyWatch = () => {};
 
 const createTimeoutSignal = (...args) => notificationTemplateRuntime.createTimeoutSignal(...args);
 const formatProjectLabel = (...args) => notificationTemplateRuntime.formatProjectLabel(...args);
@@ -400,6 +405,9 @@ const getCachedZenModels = (...args) => notificationTemplateRuntime.getCachedZen
 
 const OPENCHAMBER_DATA_DIR = OPENCHAMBER_USER_CONFIG_ROOT;
 const SETTINGS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'settings.json');
+// OpenChamber's own plugin switches. They never touch the user's OpenCode
+// config: the managed child reads them from the config layer OpenChamber owns.
+const pluginSwitchStore = createPluginSwitchStore({ filePath: path.join(OPENCHAMBER_DATA_DIR, 'plugin-switches.json') });
 const PUSH_SUBSCRIPTIONS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'push-subscriptions.json');
 const APNS_TOKENS_FILE_PATH = path.join(OPENCHAMBER_DATA_DIR, 'apns-tokens.json');
 const openCodeTrust = createOpenCodeTrust({
@@ -1564,6 +1572,16 @@ const processForwardedServerEvent = (payload, emitSyntheticEvent, spaceId = null
 };
 
 
+const mcpOAuthSignIn = createMcpOAuthSignIn({
+  storePath: path.join(OPENCHAMBER_DATA_DIR, 'mcp-oauth-assignments.json'),
+  buildOpenCodeUrl,
+  getOpenCodeAuthHeaders,
+  resolveProjectDirectory,
+  getMcpConfig,
+  listMcpConfigs,
+  updateMcpConfig,
+});
+
 const serverUtilsRuntime = createServerUtilsRuntime({
   // Read lazily: the archive store is created with the session service further
   // down, while the proxy is registered later still.
@@ -1575,6 +1593,7 @@ const serverUtilsRuntime = createServerUtilsRuntime({
   getMergeSpaceSessionList: () => (spacesHost ? (payload) => spacesHost.mergeSessionList(payload) : null),
   getSpaceEventHub: () => (spacesHost ? globalMessageStreamHub : null),
   openCodeTrust,
+  mcpOAuthSignIn,
   // The checkout gate loads a folder's saved setup state on its first request,
   // so a worktree that failed before a restart stays closed from the start.
   readWorktreeBootstrapStatus: (directory) => getWorktreeBootstrapGateStatus(directory, { bootstrapStore: worktreeBootstrapStore }),
@@ -1681,6 +1700,15 @@ const featureRoutesRuntime = createFeatureRoutesRuntime({
   clientReloadDelayMs: CLIENT_RELOAD_DELAY_MS,
   trackers: trackerRegistry,
   trackerSessionStatus,
+  pluginSwitchStore,
+  isPluginSwitchAvailable: () => !isExternalOpenCode && !ENV_SKIP_OPENCODE_START,
+  // Declared below. A user who sets OPENCODE_CONFIG owns that file, so the
+  // managed runtime answers `updated: false` and the switch needs a restart.
+  refreshPluginSwitches: async () => (
+    managedConfigRuntime
+      ? managedConfigRuntime.refreshManagedConfigFile()
+      : { updated: false, reason: 'no-managed-opencode' }
+  ),
 });
 const bootstrapRuntime = createBootstrapRuntime({
   createUiAuth,
@@ -2042,6 +2070,7 @@ const openChamberSessionService = createOpenChamberSessionService({
   broadcastGlobalUiEvent: broadcastOpenChamberUiEvent,
   resolveAutoSelection: (input) => routingRuntime.resolveAutoSelection(input),
   isAutoReady: async () => (await routingRuntime.describe()).autoReady,
+  readProjectSetup: (projectID) => projectConfigRuntime.readProjectSetup(projectID),
 });
 // Browser actions are published to whichever OpenChamber clients are connected;
 // the one owning the browser panel answers. `emitRequest` returns the number of
@@ -2373,7 +2402,10 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   getRelayService: () => relayServiceInstance,
   getRelayReconcileTimer: () => relayReconcileTimer,
   getSpacesHost: () => spacesHost,
-  stopFolderWatches: featureRoutesRuntime.stopFolderWatches,
+  stopFolderWatches: () => {
+    stopEnterprisePolicyWatch();
+    featureRoutesRuntime.stopFolderWatches();
+  },
 });
 
 const gracefulShutdown = (...args) => gracefulShutdownRuntime.gracefulShutdown(...args);
@@ -2423,7 +2455,19 @@ async function main(options = {}) {
     limitFailoverRuntime,
     readSettings: () => readSettingsFromDiskMigrated(),
     listExtensionSkillDirectories: guestAgentContext.skillDirectories,
+    listExtensionPluginDirectories: guestAgentContext.pluginDirectories,
     openchamberVersion: OPENCHAMBER_VERSION,
+    readPluginDenials: () => pluginSwitchStore.denials(),
+  });
+  // A policy that changes while the app runs: the managed file lists what the
+  // catalog now refuses until it is rewritten, and every card re-reads the catalog.
+  stopEnterprisePolicyWatch = watchEnterprisePolicy({
+    onChange: () => {
+      managedConfigRuntime.refreshManagedConfigFile().catch((error) => {
+        console.warn('Failed to rewrite the managed OpenCode config after a policy change:', error?.message ?? error);
+      });
+      broadcastOpenChamberUiEvent({ type: 'openchamber:guests-changed' });
+    },
   });
   await ensureChatsDir({ fsPromises, chatsDir: OPENCHAMBER_CHATS_DIR, warn: (message) => console.warn(`[data-dir] ${message}`) });
 
@@ -2993,6 +3037,12 @@ async function main(options = {}) {
         managedConfigRuntime?.refreshManagedConfigFile(),
       ]);
     },
+    // Lifecycle state that exists before OpenCode is up: the mode is the server's environment, not a probe.
+    getOpenCodePluginDelivery: () => openCodePluginDelivery({
+      external: isExternalOpenCode || ENV_SKIP_OPENCODE_START,
+      origin: ENV_CONFIGURED_OPENCODE_HOST?.origin || openCodeBaseUrl || null,
+      ownsConfigFile: managedConfigRuntime?.ownsConfigFile() ?? true,
+    }),
     extensionNotificationChannels,
     surfaceViewerHeaders: (guestId, viewerId) => guestSurfaceRuntime?.viewerHeaders(guestId, viewerId) ?? null,
     builtInExtensionsDir: options.builtInExtensionsDir,
