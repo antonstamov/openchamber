@@ -597,9 +597,11 @@ settings; an empty list enables everything. Complete settings
 snapshots own this preference; unrelated partial save echoes leave it unchanged.
 
 `workStatusPanelVisible` is separate and transient: the switch can be on while
-layout still refuses the panel. The header's project/branch line and the git
-rail read it to drop the readouts the panel already carries, and it is deliberately not persisted — it
-describes the current frame, not a preference.
+layout still refuses the panel. The git rail reads it to drop the readout the
+panel already carries, and it is deliberately not persisted — it describes the
+current frame, not a preference. The header keeps its project/branch line
+while the panel is visible: the reading should not jump between two places as
+the panel opens and closes.
 
 ## Appearing and disappearing
 

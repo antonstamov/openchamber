@@ -208,13 +208,11 @@ export const Header: React.FC = () => {
   }, []);
 
   const isVSCode = React.useMemo(() => isVSCodeRuntime(), []);
-  // While the work-status panel is on screen it already reports the project
-  // and the branch — three paces away in the same window. The meta row under
-  // the title yields to it rather than saying the same thing twice, and
-  // returns the moment the panel is switched off or squeezed out.
+  // The project and the branch stay under the title while the work-status
+  // panel is on screen: it reports the same two, and the reading should not
+  // jump between two places as the panel opens and closes.
   const shortcutOverrides = useUIStore((state) => state.shortcutOverrides);
   const renameShortcut = formatShortcutForDisplay(getEffectiveShortcutCombo('rename_current_session', shortcutOverrides), '');
-  const workStatusPanelVisible = useUIStore((state) => state.workStatusPanelVisible);
   const workStatusPanelEnabled = useUIStore((state) => state.workStatusPanelEnabled);
   const setWorkStatusPanelEnabled = useUIStore((state) => state.setWorkStatusPanelEnabled);
   const workStatusPanelFits = useUIStore((state) => state.workStatusPanelFits);
@@ -394,7 +392,7 @@ export const Header: React.FC = () => {
 
   // Whether the title carries a second line under it. Hoisted because the
   // session menu's vertical alignment depends on the same answer.
-  const showHeaderMetaRow = !isChatContext && !workStatusPanelVisible
+  const showHeaderMetaRow = !isChatContext
     && Boolean(activeProjectLabel || currentBranchLabel || (!isNewSessionDraftOpen && worktreeBadgeKind));
 
 
