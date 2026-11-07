@@ -8,7 +8,8 @@ name: Fork sync and release
 
 on:
   schedule:
-    - cron: '23 3 * * *'
+    # 08:00 UTC is 11:00 in Moscow.
+    - cron: '0 8 * * *'
   workflow_dispatch:
     inputs:
       model:
