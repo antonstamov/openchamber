@@ -256,7 +256,7 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
   // and its chevron takes the place of the second line's first icon (the
   // project's in a zone, else the worktree mark) while the row is hovered.
   const leadIcon = mixed && project
-    ? <TimelineProjectIcon project={project} label={projectLabel} />
+    ? <TimelineProjectIcon project={project} label={null} />
     : workMark('h-3 w-3');
   const lead = expandable ? (
     <span className="relative inline-flex size-3 flex-shrink-0 items-center justify-center">
@@ -547,10 +547,14 @@ export function WorktreeWorkRow(props: Props): React.ReactNode {
         </div>
         {detailed ? (
           // Fixed 16px, always rendered, like a detailed session row's second
-          // line: the lead icon (or the chevron), then the name the title is
-          // not (the branch or the space's name, or the task's by branch).
+          // line: the lead icon (or the chevron), the project's name where
+          // projects mix, then the name the title is not (the branch or the
+          // space's name, or the task's by branch).
           <div className="flex h-4 w-full min-w-0 items-center gap-1">
             {lead}
+            {mixed && project && projectLabel ? (
+              <span dir="auto" title={projectLabel} className="min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{projectLabel}</span>
+            ) : null}
             {mixed && project && space ? workMark('h-3 w-3') : null}
             {mixed && project && secondName && secondName === branch ? (
               <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />

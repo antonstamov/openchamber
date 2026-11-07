@@ -154,8 +154,15 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
     : <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />;
   const branchText = <span className="min-w-0 truncate typography-micro text-muted-foreground">{branchLabel}</span>;
   const branchLine = metaLineLead ?? (branchLabel ? <>{branchIcon}{branchText}</> : null);
+  // In zones that mix projects the icon alone does not say which project the
+  // row belongs to, so the second line names it before the branch. The icon
+  // then stays decorative: the name carries the label.
+  const trimmedProjectLabel = projectLabel?.trim() || null;
+  const projectText = project && trimmedProjectLabel ? (
+    <span dir="auto" title={trimmedProjectLabel} className="min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{trimmedProjectLabel}</span>
+  ) : null;
   const leadIcon = project
-    ? <TimelineProjectIcon project={project} label={projectLabel} />
+    ? <TimelineProjectIcon project={project} label={projectText ? null : projectLabel} />
     : leadIconOverride ?? (!metaLineLead && branchLabel ? branchIcon : null);
   const titleLine = (
     <div dir="auto" className={cn('oc-ui-start-align min-w-0 flex-1 truncate typography-ui-label font-normal', actionsMaskClass, titleClassName)}>{title}</div>
@@ -180,7 +187,7 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
           {leadToggle}
         </span>
       ) : leadIcon}
-      {project ? branchLine : metaLineLead ?? (branchLabel ? branchText : null)}
+      {project ? <>{projectText}{branchLine}</> : metaLineLead ?? (branchLabel ? branchText : null)}
       <span className="ms-auto flex flex-shrink-0 items-center gap-1">
         {goal}
         {zombieIndicator ?? prBadge}

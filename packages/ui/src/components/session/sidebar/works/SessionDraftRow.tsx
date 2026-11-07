@@ -43,6 +43,7 @@ export function SessionDraftRow({ draft, depth, detailed: detailedRequested, mix
   ));
   const branch = useGitBranchLabel(detailedRequested ? draft.directory : null);
   const detailed = detailedRequested && Boolean(project || branch || (firstLine && attachmentCount > 0));
+  const projectName = project ? formatProjectLabel(project.label?.trim() || project.path) : null;
   const discard = (event: React.MouseEvent): void => {
     event.stopPropagation();
     discardDraft();
@@ -104,9 +105,12 @@ export function SessionDraftRow({ draft, depth, detailed: detailedRequested, mix
       </div>
       {detailed ? (
         // Fixed 16px, as a detailed session row's second line: the project
-        // where projects mix, the pen, then the branch it will go to.
+        // where projects mix, its name, the pen, then the branch it will go to.
         <div className="flex h-4 w-full min-w-0 items-center gap-1">
-          {project ? <TimelineProjectIcon project={project} label={formatProjectLabel(project.label?.trim() || project.path)} /> : null}
+          {project ? <TimelineProjectIcon project={project} label={null} /> : null}
+          {projectName ? (
+            <span dir="auto" title={projectName} className="min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{projectName}</span>
+          ) : null}
           <Icon name="edit" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
           {branch ? <span className="min-w-0 truncate typography-micro text-muted-foreground">{branch}</span> : null}
           {firstLine && attachmentCount > 0 ? <Icon name="attachment-2" className="ms-auto h-3 w-3 flex-shrink-0 text-muted-foreground" /> : null}
