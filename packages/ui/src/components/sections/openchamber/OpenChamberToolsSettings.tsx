@@ -5,6 +5,7 @@ import type { IconName } from '@/components/icon/icons';
 import {
   SettingsSection,
   SettingsCheckboxRow,
+  SettingsNewBadge,
 } from '@/components/sections/shared/SettingsSection';
 import { SettingsInfoHint } from '@/components/sections/shared/SettingsInfoHint';
 import { Switch } from '@/components/ui/switch';
@@ -48,6 +49,7 @@ const ToolRow: React.FC<ToolRowProps> = ({ icon, title, summary, info, ariaLabel
     <div className="min-w-0 flex-1">
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="truncate typography-ui-label font-medium text-foreground">{title}</span>
+        <SettingsNewBadge settingsItem={settingsItem} />
         <SettingsInfoHint>{info}</SettingsInfoHint>
       </div>
       <p className="typography-meta text-muted-foreground">{summary}</p>

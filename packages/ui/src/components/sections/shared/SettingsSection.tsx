@@ -5,6 +5,8 @@ import { Radio } from '@/components/ui/radio';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dropdownTriggerVariants } from '@/components/ui/dropdown-trigger';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
+import { useIsNewSetting } from '@/lib/settings/newSettings';
 import { SettingsInfoHint } from './SettingsInfoHint';
 
 /**
@@ -102,6 +104,19 @@ export const SettingsBadge: React.FC<{ children: React.ReactNode }> = ({ childre
   </span>
 );
 
+/**
+ * Automatic "new" badge for a rendered setting. The anchor is the static
+ * search id (`settingsItem`); shared rows and sections render it themselves,
+ * and custom `data-settings-item` rows render this beside their label. Manual
+ * accessories stay and render beside it.
+ */
+export const SettingsNewBadge: React.FC<{ settingsItem?: string }> = ({ settingsItem }) => {
+  const { t } = useI18n();
+  const isNew = useIsNewSetting(settingsItem);
+  if (!isNew) return null;
+  return <SettingsBadge>{t('settings.view.badge.new')}</SettingsBadge>;
+};
+
 interface SettingsSectionProps {
   /** Section title. Strings render as the shared h2 style. */
   title?: React.ReactNode;
@@ -162,6 +177,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   title
                 )}
                 {titleAccessory}
+                <SettingsNewBadge settingsItem={settingsItem} />
                 {info != null ? <SettingsInfoHint>{info}</SettingsInfoHint> : null}
               </div>
             ) : null}
@@ -241,6 +257,7 @@ export const SettingsControlGroup: React.FC<SettingsControlGroupProps> = ({
           {title != null ? (
             <div className="flex items-center gap-1.5">
               <SettingsGroupTitle>{title}</SettingsGroupTitle>
+              <SettingsNewBadge settingsItem={settingsItem} />
               {info != null ? <SettingsInfoHint>{info}</SettingsInfoHint> : null}
             </div>
           ) : null}
@@ -291,6 +308,7 @@ export const SettingsStackedField: React.FC<SettingsStackedFieldProps> = ({
       <div className="space-y-0.5">
         <div className="flex items-center gap-1.5">
           <div className={SETTINGS_FIELD_LABEL_CLASS}>{label}</div>
+          <SettingsNewBadge settingsItem={settingsItem} />
           {info != null ? <SettingsInfoHint>{info}</SettingsInfoHint> : null}
         </div>
         {descriptionPlacement === 'before' ? descriptionNode : null}
@@ -310,7 +328,7 @@ interface SettingsFieldRowProps {
   settingsItem?: string;
   className?: string;
   controlClassName?: string;
-  /** Extra node next to the label, before the info hint (e.g. a "new" badge). */
+  /** Extra node next to the label, before the info hint and the automatic "new" badge. */
   labelAccessory?: React.ReactNode;
   /** Align control to the trailing edge on desktop. @default true */
   alignEnd?: boolean;
@@ -347,6 +365,7 @@ export const SettingsFieldRow: React.FC<SettingsFieldRowProps> = ({
         <div className="flex min-w-0 items-center gap-1.5">
           <div className={cn('min-w-0 truncate', SETTINGS_FIELD_LABEL_CLASS)}>{label}</div>
           {labelAccessory}
+          <SettingsNewBadge settingsItem={settingsItem} />
           {info != null ? <SettingsInfoHint>{info}</SettingsInfoHint> : null}
         </div>
         {description != null ? (
@@ -462,6 +481,7 @@ export const SettingsCheckboxRow: React.FC<SettingsCheckboxRowProps> = ({
         <div className="flex min-w-0 items-center gap-1.5">
           <span className={cn(SETTINGS_FIELD_LABEL_CLASS, disabled && 'opacity-60')}>{label}</span>
           {labelAccessory}
+          <SettingsNewBadge settingsItem={settingsItem} />
           {info != null ? <SettingsInfoHint>{info}</SettingsInfoHint> : null}
         </div>
         {/* A description stays at full strength on a disabled row: it is

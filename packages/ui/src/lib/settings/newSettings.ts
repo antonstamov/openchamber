@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { z } from 'zod';
 
 import type { SettingsPageSlug } from './metadata';
@@ -45,7 +46,7 @@ const loadOrSeedBaseline = (): Set<string> => {
 };
 
 type NewSettingsBadgeState = {
-  /** The anchors that were new when this client loaded the badge. */
+  /** The anchors on the open page that still show a row badge. */
   readonly newAnchors: ReadonlySet<string>;
   readonly pendingAnchors: ReadonlySet<string>;
 };
@@ -72,13 +73,44 @@ const buildState = (): NewSettingsBadgeState => {
  */
 let state: NewSettingsBadgeState | null = null;
 
+let badgeVersion = 0;
+const badgeListeners = new Set<() => void>();
+
+const emitNewSettingsBadgeChange = (): void => {
+  badgeVersion += 1;
+  for (const listener of [...badgeListeners]) {
+    try {
+      listener();
+    } catch {
+      // A throwing listener must not block the rest.
+    }
+  }
+};
+
+/** React subscription for row and nav badges. */
+const subscribeNewSettingsBadge = (listener: () => void): (() => void) => {
+  badgeListeners.add(listener);
+  return () => {
+    badgeListeners.delete(listener);
+  };
+};
+
+const getNewSettingsBadgeVersion = (): number => badgeVersion;
+
 const resolveState = (): NewSettingsBadgeState => {
   if (!state) state = buildState();
   return state;
 };
 
-/** Whether the control at `anchorId` is new to this client. Unknown anchors never are. */
+/** Whether the control at `anchorId` still shows a row badge. Unknown anchors never do. */
 export const isNewSetting = (anchorId: string): boolean => resolveState().newAnchors.has(anchorId);
+
+/** Reactive row-badge answer for one anchor. Re-renders when the page is acknowledged. */
+export const useIsNewSetting = (anchorId?: string): boolean => {
+  useSyncExternalStore(subscribeNewSettingsBadge, getNewSettingsBadgeVersion, getNewSettingsBadgeVersion);
+  if (!anchorId) return false;
+  return isNewSetting(anchorId);
+};
 
 /** The pages whose nav item still carries the badge, in search-table order. */
 export const getNewSettingPages = (ctx: SettingsSearchAvailabilityContext): SettingsPageSlug[] => {
@@ -88,13 +120,17 @@ export const getNewSettingPages = (ctx: SettingsSearchAvailabilityContext): Sett
     .map(([, page]) => page))];
 };
 
+/** Reactive nav-badge answer. Re-renders when a page is acknowledged. */
+export const useNewSettingPages = (ctx: SettingsSearchAvailabilityContext): SettingsPageSlug[] => {
+  useSyncExternalStore(subscribeNewSettingsBadge, getNewSettingsBadgeVersion, getNewSettingsBadgeVersion);
+  return getNewSettingPages(ctx);
+};
+
 /**
- * Acknowledge one page: the baseline moves past that page's anchors, and the
- * pages the user has not opened keep their badge.
- *
- * `newAnchors` keeps the answer resolved at load, so the page the user just
- * opened still shows which of its controls are new; the next load reads the
- * moved baseline and shows none of them.
+ * Acknowledge one page: the baseline moves past that page's available anchors,
+ * and the row badges on that page clear at once. The Settings view calls it
+ * when the user leaves the page or closes Settings, so the badges stay visible
+ * while the page is open. Pages the user has not left keep their badge.
  */
 export const acknowledgeNewSettingPage = (page: SettingsPageSlug, ctx: SettingsSearchAvailabilityContext): void => {
   const current = resolveState();
@@ -102,20 +138,24 @@ export const acknowledgeNewSettingPage = (page: SettingsPageSlug, ctx: SettingsS
 
   const seen = loadOrSeedBaseline();
   const pendingAnchors = new Set(current.pendingAnchors);
+  const newAnchors = new Set(current.newAnchors);
   for (const [anchorId, anchorPage] of getAvailableSettingsAnchorPages(ctx)) {
     if (anchorPage !== page) continue;
     seen.add(anchorId);
     pendingAnchors.delete(anchorId);
+    newAnchors.delete(anchorId);
   }
   saveSeenAnchors([...seen]);
 
   state = {
-    newAnchors: current.newAnchors,
+    newAnchors,
     pendingAnchors,
   };
+  emitNewSettingsBadgeChange();
 };
 
 /** Drop the resolved answer so the next read rebuilds it. Tests use it after writing storage directly. */
 export const resetNewSettingsBadgeCacheForTests = (): void => {
   state = null;
+  emitNewSettingsBadgeChange();
 };

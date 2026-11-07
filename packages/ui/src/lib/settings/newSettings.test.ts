@@ -132,13 +132,15 @@ describe('new settings badge', () => {
     expect(isNewSetting('voice.playback')).toBe(true);
   });
 
-  test('a page keeps its row badges until the next load', () => {
+  test('leaving a page clears its row badges at once', () => {
     startFromBaseline(baselineWithout('voice.playback'));
+
+    expect(isNewSetting('voice.playback')).toBe(true);
 
     acknowledgeNewSettingPage('voice');
 
     expect(getNewSettingPages()).toEqual([]);
-    expect(isNewSetting('voice.playback')).toBe(true);
+    expect(isNewSetting('voice.playback')).toBe(false);
 
     resetNewSettingsBadgeCacheForTests();
     expect(isNewSetting('voice.playback')).toBe(false);

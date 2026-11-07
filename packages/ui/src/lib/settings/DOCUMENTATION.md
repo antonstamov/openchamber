@@ -11,7 +11,7 @@
 - `registry-snapshot.ts` — renders the plain-JSON snapshot for the two consumers that cannot import the UI's TypeScript: the OpenChamber server (`packages/web/server/lib/opencode/settings-registry.json`) and the VS Code extension host (`packages/vscode/src/settings-registry.json`). Regenerate with `bun run settings-registry:generate`; `registry.test.ts` fails when a checked-in copy is stale.
 - `metadata.ts`, `search.ts` — Settings page metadata and the search index (unchanged by the registry; see `.agents/skills/settings-ui-patterns`). Entries for what the connected server serves are generated, not listed: each source-control provider adds `integrations.source-control.<id>` (titled by its literal label) and `.connect`, each tracker with words of its own adds `integrations.<id>` and, by capability, `.add-workspace` and `.mapping`. `SettingsView` passes both registries' descriptors to `buildSettingsSearchResults`, so a provider the server adds is searchable with no entry here. A title is a key with optional params, or a literal for a product name.
 - `vscodeNavigation.ts` defines and parses navigation intent crossing the extension-host bridge. It carries a page, optional item and Settings directory, plus provider-connect and new-snippet entry intent. It carries no saved settings, credentials or conversation content. `apps/vscodeSettingsNavigation.ts` connects chat-side Settings requests to the native tab and applies delivered intent there; settings persistence keeps its existing owner.
-- `newSettings.ts` owns the "new" badge and its best-effort browser-storage baseline (`openchamber.settings.newBadgeSeen.v1`). It compares static search anchors with that baseline once per load, then filters pending anchors by current device availability. `getNewSettingPages` returns pending pages and `acknowledgeNewSettingPage` acknowledges available anchors on one page. `isNewSetting` retains the load-time answer for row badges; rendered rows opt in through `labelAccessory`.
+- `newSettings.ts` owns the "new" badge and its best-effort browser-storage baseline (`openchamber.settings.newBadgeSeen.v1`). It compares static search anchors with that baseline once per load, then filters pending anchors by current device availability. `getNewSettingPages` returns pending pages and `acknowledgeNewSettingPage` acknowledges available anchors on one page. `isNewSetting` answers for one anchor; `useIsNewSetting` and `useNewSettingPages` are the reactive answers row and nav badges render with. Shared rows and sections badge their own `settingsItem` automatically.
 
 ## Invariants
 
@@ -35,7 +35,7 @@
 2. Run `bun run settings-registry:generate` and commit both JSON snapshots.
 3. If the server must validate the value beyond the registry gate, add its branch to `sanitizeSettingsUpdate` in `packages/web/server/lib/opencode/settings-helpers.js`; the drift test in `settings-helpers.test.js` needs a valid sample value for the new key.
 4. Add the Settings control and search entry per `.agents/skills/settings-ui-patterns`.
-5. Optionally mark a rendered control's row with `labelAccessory={isNewSetting('<anchorId>') ? <SettingsBadge>{t('settings.view.badge.new')}</SettingsBadge> : undefined}`. Page badges are automatic and count only available controls. Opening a visible page acknowledges its available anchors; hidden anchors remain pending. Row badges stay for the rest of the load. On mobile the title badge appears only on the navigation stage and counts visible pages. A fresh install seeds every build anchor and starts without badges.
+5. Row badges are automatic: every shared row and section with a `settingsItem` anchor shows the "new" badge while its anchor is pending, beside any manual `labelAccessory`. Page badges are automatic and count only available controls. Leaving a visible page or closing Settings acknowledges its available anchors and clears its row badges at once; hidden anchors remain pending. On mobile the title badge appears only on the navigation stage and counts visible pages, and going back to that stage acknowledges the page left behind. A fresh install seeds every build anchor and starts without badges.
 
 `DesktopSettings`, `SettingsPayload`, the client sanitizer, the mirror, the apply step and the auto-save all follow from step 1; no second list has to stay in step for persistence.
 
@@ -50,6 +50,14 @@ Search and new-setting badges receive the voice fields the view subscribes to, s
 ### Why badges use item-level availability
 
 Badges and acknowledgment use the search registry's page and item availability predicates with the current device context. Hidden controls remain pending until opened on a device that can show them. Filtering only whole pages would announce and acknowledge controls the user cannot see. The initial baseline still seeds every build anchor so a fresh install starts without announcements.
+
+### Why row badges clear when the page is left and not when it is opened
+
+The badge has to stay visible while the page is open, or the user never sees which control is new. Acknowledging on open clears the nav badge at once but leaves the row with nothing to point at. The view therefore acknowledges the left page: switching slugs, stepping back to the mobile nav list, closing the dialog, and unmounting all run the same path. Moving between a split page's list and its content keeps the badges. The cost is that the nav badge stays selected while its page is open.
+
+### Why shared rows badge their own anchor
+
+New controls were marked by hand through `labelAccessory`, so a control got its badge only where someone remembered to add it. The search registry already lists every stable anchor with its page, so the shared primitives read that answer for their own `settingsItem` and render the same badge beside any manual accessory. A hand-added badge is now duplication, not coverage.
 
 ### Why the first baseline comes from the build and not from a list of announcements
 
