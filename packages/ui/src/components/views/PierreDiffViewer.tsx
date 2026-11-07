@@ -27,6 +27,7 @@ import {
   isWholeFileComment,
   toPierreAnnotationId,
   useInlineCommentController,
+  type InlineCommentSaveOptions,
 } from '@/components/comments';
 import { useChangeRequestReviewContext } from '@/components/review/useChangeRequestReview';
 
@@ -1289,8 +1290,8 @@ const PierreDiffViewerBody: React.FC<
     });
   }, [hunkAnchors]);
 
-  const handleSaveComment = useCallback((textToSave: string, rangeOverride?: SelectedLineRange) => {
-    return saveComment(textToSave, rangeOverride ?? selection ?? undefined);
+  const handleSaveComment = useCallback((textToSave: string, rangeOverride?: SelectedLineRange, saveOptions?: InlineCommentSaveOptions) => {
+    return saveComment(textToSave, rangeOverride ?? selection ?? undefined, saveOptions);
   }, [saveComment, selection]);
 
 

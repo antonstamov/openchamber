@@ -9,7 +9,7 @@ import { useInlineCommentDraftStore } from '@/stores/useInlineCommentDraftStore'
 import { focusChatInput } from '@/components/chat/composer/editor/dom';
 import { collectSelectionOverlayRects } from '@/lib/selectionOverlayRects';
 import { getTypeToCommentText } from '@/lib/typeToComment';
-import { InlineCommentInput } from './InlineCommentInput';
+import { InlineCommentInput, type InlineCommentSaveOptions } from './InlineCommentInput';
 import { SelectionCommentPopup } from './SelectionCommentPopup';
 
 interface FilePreviewCommentMenuProps {
@@ -186,8 +186,11 @@ export function FilePreviewCommentMenu({ containerRef, filePath, fileContent }: 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [anchor, commentMode, isMobile, openComment]);
 
-  const saveComment = React.useCallback((text: string) => {
+  const saveComment = React.useCallback((text: string, _range?: { start: number; end: number }, options?: InlineCommentSaveOptions) => {
     if (!selectedText || !target) {
+      // A busy attach has a transcript on its way: keep the field open
+      // instead of closing into a cancelled stream.
+      if (options?.allowEmptyPlaceholder) return false;
       hide();
       return true;
     }
@@ -209,7 +212,7 @@ export function FilePreviewCommentMenu({ containerRef, filePath, fileContent }: 
     queueMicrotask(() => {
       focusChatInput();
     });
-    return true;
+    return { draftId, target };
   }, [addDraft, filePath, hide, resolveLineRange, selectedText, t, target]);
 
   if (!anchor) return null;

@@ -24,6 +24,13 @@ import { useCommentImagePaste } from '@/components/comments/useCommentImagePaste
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { toast } from '@/components/ui';
+import { InlineDictationButton, type InlineDictationController } from '@/components/dictation/InlineDictationButton';
+import {
+    mergeExternalDraftAppend,
+    routeTranscriptToDraft,
+} from '@/components/dictation/commentDictationHandoff';
+import { useCommentDictationPendingStore } from '@/stores/useCommentDictationPendingStore';
+import type { DictationCompletionHandoff, DictationStatus } from '@/hooks/useDictation';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/lib/i18n';
 import { changeRequestCopy } from '@/lib/source-control/changeRequestCopy';
@@ -100,6 +107,7 @@ const ENTRY_LABEL_CLASS = 'text-[0.625rem] font-medium uppercase tracking-wide t
 
 const DraftPreviewEntry: React.FC<{
     draft: InlineCommentDraft;
+    target: InlineCommentDraftTarget;
     index: number;
     title: string;
     editing: boolean;
@@ -112,30 +120,99 @@ const DraftPreviewEntry: React.FC<{
     onRevealQuote: (() => void) | null;
     /** Composer attachment names: images pasted into the comment render as file chips. */
     attachmentFilenames: readonly string[];
-}> = ({ draft, index, title, editing, onStartEdit, onEndEdit, onRemove, onSaveComment, onFocusQuote, onRevealQuote, attachmentFilenames }) => {
+}> = ({ draft, target, index, title, editing, onStartEdit, onEndEdit, onRemove, onSaveComment, onFocusQuote, onRevealQuote, attachmentFilenames }) => {
     const { t } = useI18n();
     const [editText, setEditText] = React.useState(draft.text);
+    // The draft text the edit started from: a late transcript landing in the
+    // store meanwhile is merged into the save, not overwritten by it.
+    const editBaseRef = React.useRef(draft.text);
     // Images pasted while editing join the composer's attachments on save.
     const imagePaste = useCommentImagePaste();
+    // A late transcript from an attach-while-busy outlives the field that
+    // recorded it; the chips preview stays mounted and shows it pending.
+    const dictationPending = useCommentDictationPendingStore((state) => Boolean(state.pending[draft.id]));
 
     React.useEffect(() => {
         if (!editing) return;
         setEditText(draft.text);
+        editBaseRef.current = draft.text;
         // The draft text at edit start is the baseline; later store updates are
         // our own saves.
         // oxlint-disable-next-line react-hooks/exhaustive-deps
     }, [editing]);
 
+    // Dictation inside the edit: the draft store is the truth while editing,
+    // so the transcript routes there and the save merges it (see editBaseRef).
+    // Arming keeps the stream alive if the preview closes mid-transcription.
+    const editDictationRef = React.useRef<InlineDictationController | null>(null);
+    const editHandoffMarkerRef = React.useRef<DictationCompletionHandoff | null>(null);
+    const editPartialRef = React.useRef('');
+    const editSettledRef = React.useRef(false);
+    const mountedRef = React.useRef(true);
+    React.useEffect(() => () => {
+        mountedRef.current = false;
+    }, []);
+
+    const disarmEditHandoff = React.useCallback(() => {
+        editHandoffMarkerRef.current = null;
+        useCommentDictationPendingStore.getState().clearPending(draft.id);
+    }, [draft.id]);
+
+    const armEditHandoff = React.useCallback(() => {
+        useCommentDictationPendingStore.getState().markPending(draft.id);
+        editHandoffMarkerRef.current = {
+            draftId: draft.id,
+            onEmpty: () => disarmEditHandoff(),
+        };
+    }, [disarmEditHandoff, draft.id]);
+
+    const handleEditDictationStatus = React.useCallback((status: DictationStatus) => {
+        if (status === 'recording' || status === 'uploading') {
+            editSettledRef.current = false;
+            armEditHandoff();
+        } else if (editHandoffMarkerRef.current && !editSettledRef.current) {
+            // Discarded with no completion: nothing is coming.
+            disarmEditHandoff();
+        }
+    }, [armEditHandoff, disarmEditHandoff]);
+
+    const handleEditTranscript = React.useCallback((spoken: string) => {
+        editSettledRef.current = true;
+        if (routeTranscriptToDraft({ target, draftId: draft.id }, spoken) === 'refused') {
+            toast.error(t('inlineComment.toast.noRoom'));
+        }
+        disarmEditHandoff();
+    }, [disarmEditHandoff, draft.id, t, target]);
+
+    const handleEditDictationError = React.useCallback((error: Error) => {
+        // While mounted the button's own failed view salvages and says it
+        // failed; only an unmounted field routes here.
+        if (mountedRef.current) return;
+        editSettledRef.current = true;
+        disarmEditHandoff();
+        if (editPartialRef.current.trim()) {
+            if (routeTranscriptToDraft({ target, draftId: draft.id }, editPartialRef.current) === 'refused') {
+                toast.error(t('inlineComment.toast.noRoom'));
+            }
+        }
+        toast.error(t('chat.dictation.failed'), { description: error.message });
+    }, [disarmEditHandoff, draft.id, t, target]);
+
     const commitEdit = () => {
-        if (onSaveComment && editText !== draft.text && !onSaveComment(editText)) {
+        const merged = mergeExternalDraftAppend(editBaseRef.current, draft.text, editText);
+        if (onSaveComment && merged !== draft.text && !onSaveComment(merged)) {
             toast.error(t('inlineComment.toast.noRoom'));
             return;
         }
-        void imagePaste.attachCitedImages(editText);
+        void imagePaste.attachCitedImages(merged);
         onEndEdit();
     };
 
     const cancelEdit = () => {
+        // An explicit cancel discards the edit: stop the session so no late
+        // transcript lands on the draft the user just declined to edit.
+        editDictationRef.current?.cancel();
+        disarmEditHandoff();
         imagePaste.discardPastedImages();
         setEditText(draft.text);
         onEndEdit();
@@ -219,19 +296,44 @@ const DraftPreviewEntry: React.FC<{
                 ) : null}
                 {onSaveComment && (editing || draft.text.trim()) ? (
                     <div>
-                        <div className={ENTRY_LABEL_CLASS}>{t('chat.chatInput.contextPreview.commentLabel')}</div>
+                        <div className="flex items-center gap-1.5">
+                            <div className={ENTRY_LABEL_CLASS}>{t('chat.chatInput.contextPreview.commentLabel')}</div>
+                            {dictationPending ? (
+                                <span className="inline-flex min-w-0 items-center gap-1 text-muted-foreground" role="status">
+                                    <Icon name="loader-4" className="h-3 w-3 shrink-0 animate-spin" />
+                                    <span className="truncate text-[0.625rem] font-medium uppercase tracking-wide opacity-60">{t('chat.dictation.processing')}</span>
+                                </span>
+                            ) : null}
+                        </div>
                         {editing ? (
-                            <CommentTextEditor
-                                value={editText}
-                                onChange={setEditText}
-                                onSubmit={commitEdit}
-                                onCancel={cancelEdit}
-                                onBlur={commitEdit}
-                                enterSubmits
-                                imagePaste={imagePaste}
-                                placeholder={t('chat.textSelection.comment.placeholder')}
-                                className="oc-surface-elevated oc-raised oc-field mt-0.5 w-full rounded-md bg-surface-elevated px-2 py-1 text-sm leading-5 text-foreground"
-                            />
+                            <div className="mt-0.5 flex items-end gap-1">
+                                <CommentTextEditor
+                                    value={editText}
+                                    onChange={setEditText}
+                                    onSubmit={commitEdit}
+                                    onCancel={cancelEdit}
+                                    onBlur={commitEdit}
+                                    enterSubmits
+                                    imagePaste={imagePaste}
+                                    placeholder={t('chat.textSelection.comment.placeholder')}
+                                    className="oc-surface-elevated oc-raised oc-field rounded-md bg-surface-elevated px-2 py-1 text-sm leading-5 text-foreground"
+                                />
+                                {/* preventDefault keeps the editor focused so
+                                    the blur commit does not close the edit
+                                    under the mic press. */}
+                                <span onPointerDown={(event) => event.preventDefault()} className="inline-flex shrink-0">
+                                    <InlineDictationButton
+                                        onTranscript={handleEditTranscript}
+                                        onError={handleEditDictationError}
+                                        onStatusChange={handleEditDictationStatus}
+                                        onPartialTranscript={(text) => { editPartialRef.current = text; }}
+                                        controllerRef={editDictationRef}
+                                        handoffRef={editHandoffMarkerRef}
+                                        buttonClassName={ENTRY_ACTION_CLASS}
+                                        iconClassName="h-3 w-3"
+                                    />
+                                </span>
+                            </div>
                         ) : (
                             <div className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">
                                 {withAttachmentChips(draft.text, attachmentFilenames, `draft-${draft.id}`)}
@@ -479,6 +581,7 @@ function ComposerContextChipsView({ draftTarget, colors, previewHost, isMobile }
                             <DraftPreviewEntry
                                 key={draft.id}
                                 draft={draft}
+                                target={draftTarget}
                                 index={index}
                                 title={titleFor(draft)}
                                 editing={editingDraftId === draft.id}

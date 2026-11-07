@@ -24,6 +24,7 @@ import { getTypeToCommentText } from '@/lib/typeToComment';
 import { useCommentImagePaste } from '@/components/comments/useCommentImagePaste';
 import { CommentTextEditor } from '@/components/comments/CommentTextEditor';
 import { InlineDictationButton } from '@/components/dictation/InlineDictationButton';
+import { useCommentDictationHandoff } from '@/components/dictation/useCommentDictationHandoff';
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import {
     useMobileCommentComposerController,
@@ -719,6 +720,17 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
 
   const handleOpenComment = React.useCallback(() => openComment(''), [openComment]);
 
+  // Dictation handoff for the floating comment input: attaching while the
+  // session is busy closes the menu at once; the late transcript lands in the
+  // attached draft instead of being lost with the unmount.
+  const {
+    confirmIfBusy: confirmCommentDictationIfBusy,
+    armHandoff: armCommentHandoff,
+    dictationProps: commentDictationProps,
+  } = useCommentDictationHandoff({
+    onLocalTranscript: (spoken) => setCommentText((current) => (current.trim() ? `${current.trimEnd()} ${spoken}` : spoken)),
+  });
+
   // Desktop: typing while the bubble is up starts the comment with that
   // keystroke, so a quick note needs no click on Comment first.
   React.useEffect(() => {
@@ -772,6 +784,9 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
       hideMenu();
       return;
     }
+    // Attaching never waits for dictation: a busy session is finalized in the
+    // background and its late transcript is appended to the draft below.
+    const dictationBusy = confirmCommentDictationIfBusy();
     const draftId = addContextDraft(
       { directory: composerTarget.directory, sessionKey: composerTarget.sessionKey },
       {
@@ -789,6 +804,9 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
       toast.error(t('inlineComment.toast.noRoom'));
       return;
     }
+    if (dictationBusy) {
+      armCommentHandoff({ target: { directory: composerTarget.directory, sessionKey: composerTarget.sessionKey }, draftId });
+    }
     hideMenu();
     queueMicrotask(() => {
       // Focus first: it hands the attachment slot to this column's composer,
@@ -798,7 +816,7 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
         composerTarget.runtimeKey, composerTarget.directory, composerTarget.sessionKey,
       ));
     });
-  }, [addContextDraft, attachCitedImages, commentText, focusColumnInput, hideMenu, mobileCommentController, selectedAnchor, selectedMessageId, selectedTextMarkdown, t]);
+  }, [addContextDraft, armCommentHandoff, attachCitedImages, commentText, confirmCommentDictationIfBusy, focusColumnInput, hideMenu, mobileCommentController, selectedAnchor, selectedMessageId, selectedTextMarkdown, t]);
 
   const getApprovalSelection = React.useCallback(() => {
     if (!pendingSelectionRef.current || !selectedTextMarkdown) return null;
@@ -916,7 +934,7 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
         className="w-64 max-w-[70vw] py-1.5 text-sm leading-5 text-foreground"
       />
       <InlineDictationButton
-        onTranscript={(spoken) => setCommentText((current) => (current.trim() ? `${current.trimEnd()} ${spoken}` : spoken))}
+        {...commentDictationProps}
         buttonClassName="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none"
         iconClassName="h-4 w-4"
       />

@@ -23,12 +23,33 @@ export interface UseDictationOptions {
     onTranscript?: (text: string) => void;
     onError?: (error: Error) => void;
     canStart?: () => boolean;
+    /**
+     * Armed by a host that attached (and unmounts) while the session is busy:
+     * the stream is not cancelled on unmount, a recording is finalized in the
+     * background, and completion routes through the handoff instead of this
+     * field. Keyed by the host (one handoff per field instance), so parallel
+     * sessions into different comments stay separate.
+     */
+    handoffRef?: React.RefObject<DictationCompletionHandoff | null>;
+}
+
+/**
+ * Completion routing for a dictation whose field closed before the transcript
+ * arrived. `onEmpty` fires when the stream completes with no text (silence):
+ * unlike `onTranscript` it is also called for an empty result, so the host can
+ * clear the pending mark instead of leaving the draft flagged forever.
+ */
+export interface DictationCompletionHandoff {
+    draftId: string;
+    onEmpty?: () => void;
 }
 
 export interface UseDictationResult {
     status: DictationStatus;
     isRecording: boolean;
     isProcessing: boolean;
+    /** Current status without waiting for a render; for attach-time checks. */
+    getStatus: () => DictationStatus;
     /** Server-side transcript so far; recovery only, never shown while recording. */
     partialTranscript: string;
     /** Subscribe to the normalized (0..1) mic level for the waveform. */
@@ -74,7 +95,7 @@ export const getDictationStartOptions = (): DictationStartOptions => {
 };
 
 export function useDictation(options: UseDictationOptions = {}): UseDictationResult {
-    const { onTranscript, onError, canStart } = options;
+    const { onTranscript, onError, canStart, handoffRef } = options;
 
     const [status, setStatus] = useState<DictationStatus>('idle');
     const [partialTranscript, setPartialTranscript] = useState('');
@@ -182,19 +203,23 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
         audioStopRef.current = audio.stop;
     }, [audio.stop]);
 
+    const getStatus = useCallback((): DictationStatus => statusRef.current, []);
+
     const handleSuccess = useCallback(
         (text: string): string | null => {
             setDuration(0);
             setStatus('idle');
+            statusRef.current = 'idle';
             const transcriptText = text.trim().length > 0 ? text.trim() : latestPartialRef.current.trim();
             clearStreamingState();
             if (!transcriptText) {
+                handoffRef?.current?.onEmpty?.();
                 return null;
             }
             onTranscriptRef.current?.(transcriptText);
             return transcriptText;
         },
-        [clearStreamingState],
+        [clearStreamingState, handoffRef],
     );
 
     const handleFailure = useCallback(
@@ -393,14 +418,28 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
 
     useEffect(() => {
         return () => {
+            const handoff = handoffRef?.current;
+            const busy = statusRef.current === 'recording' || statusRef.current === 'uploading';
+            if (handoff && busy) {
+                // The field attached (and unmounts) while its transcript was
+                // still on its way: keep the stream, finalize a recording in
+                // the background, and let the in-flight finish resolve into
+                // the handoff's draft instead of cancelling it.
+                stopDurationTracking();
+                if (statusRef.current === 'recording') {
+                    void confirmDictation();
+                }
+                return;
+            }
             stopDurationTracking();
             void audioStopRef.current().catch(() => undefined);
             senderRef.current?.cancel();
         };
-    }, [stopDurationTracking]);
+    }, [confirmDictation, handoffRef, stopDurationTracking]);
 
     return {
         status,
+        getStatus,
         isRecording: status === 'recording',
         isProcessing: status === 'uploading',
         partialTranscript,

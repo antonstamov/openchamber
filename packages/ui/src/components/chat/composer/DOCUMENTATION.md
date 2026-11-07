@@ -1547,6 +1547,21 @@ the comment engine takes the form's addressed dictation events, and a
 transcript meant for one editor must not reach the other. A
 recording in flight when comment mode opens is discarded by that swap.
 
+### Why an attach never waits for dictation
+
+Attaching a comment while its dictation is still recording or transcribing
+closes the field at once: the session is finalized in the background and the
+late transcript is appended to the attached draft
+(`components/dictation/commentDictationHandoff`, pending marks in
+`useCommentDictationPendingStore`, one slot per draft so parallel dictations
+stay separate). A late write that lands nowhere (empty transcript, removed
+draft) only clears the mark; a bounds refusal toasts once. Blocking the send
+until transcription finished kept the field open on every slow network and
+still lost the text when the user closed it first. Editing a comment that is
+still expecting a transcript shows the same pending mark, and saving merges the
+late text instead of overwriting it (`mergeExternalDraftAppend`). Review-server
+comments are outside this path: they have no draft to append to.
+
 The comment editor reuses `ComposerEditor` with `dataChatInput="comment"` so
 the `data-chat-input="true"` helpers (`focusChatInput`, shortcut guards) keep
 meaning "the prompt editor".

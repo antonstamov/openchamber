@@ -6,7 +6,7 @@ import { OverlayScrollbar } from '@/components/ui/OverlayScrollbar';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { ActionToolbar } from '@/components/ui/action-toolbar';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection } from '@/components/comments';
+import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection, type InlineCommentSaveOptions } from '@/components/comments';
 
 import { useDeviceInfo } from '@/lib/device';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
@@ -314,11 +314,11 @@ export const PlanView: React.FC<PlanViewProps> = ({ visible = true, savedProject
     cancel();
   }, [cancel]);
 
-  const handleSaveComment = React.useCallback((textToSave: string, rangeOverride?: { start: number; end: number }) => {
+  const handleSaveComment = React.useCallback((textToSave: string, rangeOverride?: { start: number; end: number }, saveOptions?: InlineCommentSaveOptions) => {
     if (rangeOverride) {
       setLineSelection(rangeOverride);
     }
-    const saved = saveComment(textToSave, rangeOverride ?? lineSelection ?? undefined);
+    const saved = saveComment(textToSave, rangeOverride ?? lineSelection ?? undefined, saveOptions);
     if (saved) setLineSelection(null);
     return saved;
   }, [lineSelection, saveComment]);

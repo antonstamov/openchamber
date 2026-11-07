@@ -1,6 +1,6 @@
 import React from 'react';
 import { InlineCommentCard } from './InlineCommentCard';
-import { InlineCommentInput } from './InlineCommentInput';
+import { InlineCommentInput, type InlineCommentInputProps } from './InlineCommentInput';
 import type { InlineCommentDraft } from '@/stores/useInlineCommentDraftStore';
 import type { BlockWidgetDef } from '@/components/ui/CodeMirrorEditor';
 
@@ -20,7 +20,7 @@ interface CodeMirrorCommentWidgetsOptions {
   fileLabel: string;
   newWidgetId: string;
   mapDraftToRange: (draft: InlineCommentDraft) => LineRange;
-  onSave: (text: string, range?: LineRange) => boolean;
+  onSave: InlineCommentInputProps['onSave'];
   onCancel: () => void;
   onEdit: (draft: InlineCommentDraft) => void;
   onDelete: (draft: InlineCommentDraft) => void;

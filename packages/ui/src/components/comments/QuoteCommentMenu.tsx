@@ -6,7 +6,7 @@ import { useComposerDraftTarget } from '@/hooks/useComposerAddress';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useI18n } from '@/lib/i18n';
 import { useInlineCommentDraftStore } from '@/stores/useInlineCommentDraftStore';
-import { InlineCommentInput } from './InlineCommentInput';
+import { InlineCommentInput, type InlineCommentSaveOptions } from './InlineCommentInput';
 import { SelectionCommentPopup } from './SelectionCommentPopup';
 
 /**
@@ -40,16 +40,22 @@ export function QuoteCommentMenu({ anchor, quote, fileLabel, onOpen, onClose }: 
     return () => document.removeEventListener('pointerdown', closeOutside);
   }, [onClose]);
 
-  const save = (text: string) => {
-    if (target) {
-      if (!addDraft(target, { source: 'file-quote', fileLabel, startLine: 0, endLine: 0, code: quote, language: '', text: text.trim() })) {
-        toast.error(t('inlineComment.toast.noRoom'));
-        return false;
-      }
-      queueMicrotask(() => focusChatInput());
+  const save = (text: string, _range?: { start: number; end: number }, options?: InlineCommentSaveOptions) => {
+    if (!target) {
+      // A busy attach has a transcript on its way: keep the field open
+      // instead of closing into a cancelled stream.
+      if (options?.allowEmptyPlaceholder) return false;
+      onClose();
+      return true;
     }
+    const draftId = addDraft(target, { source: 'file-quote', fileLabel, startLine: 0, endLine: 0, code: quote, language: '', text: text.trim() });
+    if (!draftId) {
+      toast.error(t('inlineComment.toast.noRoom'));
+      return false;
+    }
+    queueMicrotask(() => focusChatInput());
     onClose();
-    return true;
+    return { draftId, target };
   };
 
   return (
