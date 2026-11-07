@@ -102,7 +102,11 @@ jobs:
 
           Upstream head: $(git rev-parse upstream/main). Worktree is on main-ru with no merge in progress; start it yourself."
           timeout --signal=TERM --kill-after=60s 45m \
-            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt"
+            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
+            | tee "$RUNNER_TEMP/fork-merge.jsonl" \
+            | jq -r 'if .type == "text" then (.part.text // empty)
+                     elif .type == "tool_use" then ("-> " + (.part.tool // "tool") + ": " + ((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))
+                     else empty end'
 
       - name: Verify the merged tree
         id: verify1
@@ -128,7 +132,11 @@ jobs:
 
           FIX MODE, not a fresh merge: upstream/main is already merged into the worktree (check git status), the tests above it are red. Do not start a new merge. Run the i18n suite and bun check, fix what is red following the same rules, stage the fixes with explicit git add paths, and commit. If everything is already green without changes from you (flaky check), just commit the merge. Do not push, do not tag."
           timeout --signal=TERM --kill-after=60s 45m \
-            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt"
+            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
+            | tee "$RUNNER_TEMP/fork-merge-fix.jsonl" \
+            | jq -r 'if .type == "text" then (.part.text // empty)
+                     elif .type == "tool_use" then ("-> " + (.part.tool // "tool") + ": " + ((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))
+                     else empty end'
 
       - name: Verify the final tree
         if: steps.merge.outputs.status != 'up-to-date'
