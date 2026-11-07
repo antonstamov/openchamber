@@ -14,6 +14,8 @@ import { useCommentImagePaste } from './useCommentImagePaste';
 import { useCommentFieldPicker } from './useCommentFieldPicker';
 import { useCommentEnterSubmit } from './useCommentEnterSubmit';
 import { InlineDictationButton } from '@/components/dictation/InlineDictationButton';
+import { useCommentDictationHandoff } from '@/components/dictation/useCommentDictationHandoff';
+import type { InlineCommentDraftTarget } from '@/stores/useInlineCommentDraftStore';
 import { withInlineInsertionBoundaries } from '@/components/chat/composer/text';
 import { resolveEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { GuestIcon } from '@/components/layout/GuestRailIcon';
@@ -21,11 +23,29 @@ import { useGuestActions } from '@/hooks/useGuestSurfaces';
 import { guestActionsWhere } from '@/lib/guests/actions';
 import { runGuestAction } from '@/lib/guests/run-action';
 
+export interface InlineCommentSaveOptions {
+  /**
+   * The field attached while dictation was busy: an empty text is a
+   * placeholder for the late transcript, not a refusal reason.
+   */
+  allowEmptyPlaceholder?: boolean;
+}
+
+/** Where an attached comment landed: the handoff target for a late transcript. */
+export interface InlineCommentSaveTarget {
+  draftId: string;
+  target: InlineCommentDraftTarget;
+}
+
 export interface InlineCommentInputProps {
   initialText?: string;
   onTextChange?: (text: string) => void;
-  /** False keeps the field open with its text: the save did not land. */
-  onSave: (text: string, range?: { start: number; end: number; side?: 'additions' | 'deletions' }) => boolean | void;
+  /**
+   * False keeps the field open with its text: the save did not land. A save
+   * target lets an attach-while-busy route the late transcript into the draft
+   * after this field unmounts.
+   */
+  onSave: (text: string, range?: { start: number; end: number; side?: 'additions' | 'deletions' }, options?: InlineCommentSaveOptions) => InlineCommentSaveTarget | boolean | void;
   onCancel: () => void;
   fileLabel?: string;
   lineRange?: { start: number; end: number; side?: 'additions' | 'deletions' };
@@ -109,6 +129,27 @@ export function InlineCommentInput({
   const saveShortcut = formatShortcutForDisplay('enter');
   void isEditing;
 
+  const appendTranscript = (spoken: string) => {
+    const trimmed = spoken.trim();
+    if (!trimmed) return;
+    const field = textareaRef.current;
+    const base = field?.value ?? text;
+    const from = field?.selectionStart ?? base.length;
+    const to = field?.selectionEnd ?? from;
+    const insert = withInlineInsertionBoundaries(trimmed, base.slice(0, from), base.slice(to));
+    replaceRange(from, to, insert);
+  };
+
+  // Dictation handoff: attaching while the session is busy closes the field at
+  // once; the late transcript lands in the attached draft (see onSave's save
+  // target) instead of being lost with the unmount.
+  const {
+    busy: dictationBusy,
+    confirmIfBusy: confirmDictationIfBusy,
+    armHandoff,
+    dictationProps,
+  } = useCommentDictationHandoff({ onLocalTranscript: appendTranscript });
+
   const resizeTextarea = () => {
     const element = textareaRef.current;
     if (!element) return;
@@ -119,17 +160,6 @@ export function InlineCommentInput({
   const handleTextChange = (value: string) => {
     setText(value);
     onTextChange?.(value);
-  };
-
-  const appendTranscript = (spoken: string) => {
-    const trimmed = spoken.trim();
-    if (!trimmed) return;
-    const field = textareaRef.current;
-    const base = field?.value ?? text;
-    const from = field?.selectionStart ?? base.length;
-    const to = field?.selectionEnd ?? from;
-    const insert = withInlineInsertionBoundaries(trimmed, base.slice(0, from), base.slice(to));
-    replaceRange(from, to, insert);
   };
 
   React.useLayoutEffect(resizeTextarea, [text]);
@@ -209,10 +239,23 @@ export function InlineCommentInput({
   };
 
   const save = () => {
-    if (text.trim() && !saving) {
-      if (onSave(text, normalizeRange(stableRangeRef.current)) === false) return;
-      void imagePaste.attachCitedImages(text);
+    // Attaching never waits for dictation: a busy session is finalized in the
+    // background and its late transcript is appended to the draft below.
+    const busy = confirmDictationIfBusy();
+    if (!busy && !text.trim()) return;
+    if (saving) return;
+    const result = onSave(text, normalizeRange(stableRangeRef.current), busy ? { allowEmptyPlaceholder: true } : undefined);
+    if (result === false) return;
+    if (busy) {
+      if (result && typeof result === 'object') {
+        armHandoff(result);
+      } else {
+        // A host that reports no draft leaves the late transcript nowhere to
+        // land: keep the field open instead of losing it.
+        return;
+      }
     }
+    void imagePaste.attachCitedImages(text);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -316,7 +359,7 @@ export function InlineCommentInput({
         {floating ? (
           <>
           <InlineDictationButton
-            onTranscript={appendTranscript}
+            {...dictationProps}
             disabled={saving || addingToReview}
             buttonClassName={cn(
               'mb-0.5 flex shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none',
@@ -331,7 +374,7 @@ export function InlineCommentInput({
                 onClick={handleSaveClick}
                 onPointerDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
-                disabled={!text.trim()}
+                disabled={!text.trim() && !dictationBusy}
                 className={cn(
                   'mb-0.5 flex shrink-0 items-center justify-center rounded-full bg-[var(--primary-base)] text-[var(--primary-foreground)] transition-opacity duration-150 hover:opacity-90 disabled:opacity-40',
                   isMobile ? 'h-9 w-9' : 'h-8 w-8'
@@ -396,7 +439,7 @@ export function InlineCommentInput({
               </Button>
             ) : null}
             <InlineDictationButton
-              onTranscript={appendTranscript}
+              {...dictationProps}
               disabled={saving || addingToReview}
               buttonClassName="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none disabled:opacity-40"
               iconClassName="size-4"
@@ -409,7 +452,7 @@ export function InlineCommentInput({
               onClick={handleSaveClick}
               onPointerDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
-              disabled={!text.trim() || saving}
+              disabled={(!text.trim() && !dictationBusy) || saving}
             >
               {saving ? <Spinner className="size-3.5" /> : saveLabel ? null : <Icon name="attachment-2" className="size-3.5" />}
               {compactAttach ? null : saveLabel ?? t('review.action.attach')}

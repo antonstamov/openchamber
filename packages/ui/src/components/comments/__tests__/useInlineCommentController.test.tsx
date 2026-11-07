@@ -10,6 +10,7 @@ import { useInputStore } from '@/sync/input-store';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useInlineCommentDraftStore } from '@/stores/useInlineCommentDraftStore';
 import { useInlineCommentController } from '../useInlineCommentController';
+import type { InlineCommentSaveTarget } from '../InlineCommentInput';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 
 const directory = '/repo';
@@ -93,7 +94,7 @@ describe('inline comment target', () => {
         controller.setCommentText('why this value?');
       });
 
-      let saved: boolean | undefined;
+      let saved: InlineCommentSaveTarget | boolean | undefined;
       await act(async () => { saved = saveComment('why this value?'); });
 
       expect(saved).toBe(false);
@@ -128,5 +129,83 @@ describe('inline comment target', () => {
 
     expect(draftsAt('ses_parent')).toHaveLength(1);
     expect(draftsAt('ses_fork')).toEqual([]);
+  });
+
+  test('a save reports where the comment landed', async () => {
+    await act(async () => { controller.setSelection({ start: 3, end: 3 }); });
+
+    let saved: InlineCommentSaveTarget | boolean | undefined;
+    await act(async () => { saved = controller.saveComment('why this value?'); });
+
+    expect(typeof saved).toBe('object');
+    const binding = saved as InlineCommentSaveTarget;
+    expect(typeof binding.draftId).toBe('string');
+    expect(useInlineCommentDraftStore.getState().getDrafts(binding.target).map((draft) => draft.text)).toEqual(['why this value?']);
+  });
+
+  test('an empty attach without a pending transcript stays in the editor', async () => {
+    await act(async () => { controller.setSelection({ start: 3, end: 3 }); });
+
+    let saved: InlineCommentSaveTarget | boolean | undefined;
+    await act(async () => { saved = controller.saveComment('   '); });
+
+    expect(saved).toBe(false);
+    expect(draftsAt('ses_parent')).toEqual([]);
+  });
+
+  test('an empty attach with a pending transcript keeps a placeholder draft', async () => {
+    await act(async () => { controller.setSelection({ start: 3, end: 3 }); });
+
+    let saved: InlineCommentSaveTarget | boolean | undefined;
+    await act(async () => { saved = controller.saveComment('   ', undefined, { allowEmptyPlaceholder: true }); });
+
+    expect(typeof saved).toBe('object');
+    const binding = saved as InlineCommentSaveTarget;
+    expect(useInlineCommentDraftStore.getState().getDrafts(binding.target).map((draft) => draft.text)).toEqual(['']);
+  });
+
+  test('saving an edit keeps a transcript that landed meanwhile', async () => {
+    await act(async () => { controller.setSelection({ start: 3, end: 3 }); });
+    let created: InlineCommentSaveTarget | boolean | undefined;
+    await act(async () => { created = controller.saveComment('base text'); });
+    const binding = created as InlineCommentSaveTarget;
+
+    await act(async () => {
+      const draft = useInlineCommentDraftStore.getState().getDrafts(binding.target).find((entry) => entry.id === binding.draftId);
+      controller.startEdit(draft!);
+    });
+    // A late transcript from an attach-while-busy lands in the store while
+    // the draft is open in the editor.
+    await act(async () => {
+      useInlineCommentDraftStore.getState().updateDraft(binding.target, binding.draftId, { text: 'base text late ' });
+    });
+
+    await act(async () => { controller.saveComment('my edit'); });
+
+    expect(useInlineCommentDraftStore.getState().getDrafts(binding.target).map((draft) => draft.text)).toEqual(['my edit late']);
+  });
+
+  test('a busy save of an edit whose draft is gone starts a new comment', async () => {
+    await act(async () => { controller.setSelection({ start: 3, end: 3 }); });
+    let created: InlineCommentSaveTarget | boolean | undefined;
+    await act(async () => { created = controller.saveComment('base text'); });
+    const binding = created as InlineCommentSaveTarget;
+
+    await act(async () => {
+      const draft = useInlineCommentDraftStore.getState().getDrafts(binding.target).find((entry) => entry.id === binding.draftId);
+      controller.startEdit(draft!);
+    });
+    // The draft was sent or removed while the edit — and a dictation — was open.
+    await act(async () => {
+      useInlineCommentDraftStore.getState().removeDraft(binding.target, binding.draftId);
+    });
+
+    let saved: InlineCommentSaveTarget | boolean | undefined;
+    await act(async () => { saved = controller.saveComment('', undefined, { allowEmptyPlaceholder: true }); });
+
+    expect(typeof saved).toBe('object');
+    const fresh = saved as InlineCommentSaveTarget;
+    expect(fresh.draftId).not.toBe(binding.draftId);
+    expect(useInlineCommentDraftStore.getState().getDrafts(fresh.target).map((draft) => draft.text)).toEqual(['']);
   });
 });

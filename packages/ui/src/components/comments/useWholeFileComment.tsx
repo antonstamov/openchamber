@@ -86,7 +86,7 @@ export function useWholeFileComment({
       <InlineCommentInput
         initialText={commentText}
         onTextChange={setCommentText}
-        onSave={(text) => saveComment(text, WHOLE_FILE_RANGE)}
+        onSave={(text, _range, options) => saveComment(text, WHOLE_FILE_RANGE, options)}
         onCancel={cancel}
         fileLabel={fileLabel}
         isEditing={editingDraftId !== null}

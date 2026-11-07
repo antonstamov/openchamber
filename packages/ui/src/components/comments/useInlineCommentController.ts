@@ -14,6 +14,8 @@ import { useComposerDraftTarget } from '@/hooks/useComposerAddress';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { focusChatInput } from '@/components/chat/composer/editor/dom';
 import { diffCommentOriginKey, type DiffCommentOrigin } from '@/lib/diffCommentOrigin';
+import { mergeExternalDraftAppend } from '@/components/dictation/commentDictationHandoff';
+import type { InlineCommentSaveOptions, InlineCommentSaveTarget } from './InlineCommentInput';
 
 type LineRangeBase = {
   start: number;
@@ -82,6 +84,9 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
   const [selection, setSelection] = React.useState<TRange | null>(null);
   const [commentText, setCommentText] = React.useState('');
   const [editingDraftId, setEditingDraftId] = React.useState<string | null>(null);
+  // The draft text the current edit started from: a late transcript landing
+  // in the store meanwhile is merged into the save, not overwritten by it.
+  const editBaseRef = React.useRef('');
 
   const target = useComposerDraftTarget(sessionDirectory ?? effectiveDirectory);
   const targetKey = target
@@ -105,6 +110,7 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
     setSelection(null);
     setCommentText('');
     setEditingDraftId(null);
+    editBaseRef.current = '';
   }, []);
 
   const cancel = React.useCallback(() => {
@@ -116,6 +122,7 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
     setSelection(draftRange);
     setCommentText(draft.text);
     setEditingDraftId(draft.id);
+    editBaseRef.current = draft.text;
   }, [fromDraftRange]);
 
   const deleteDraft = React.useCallback((draft: InlineCommentDraft) => {
@@ -127,11 +134,14 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
   }, [editingDraftId, removeDraft, reset, target]);
 
   // True when the editor is done with the text. False keeps it open: a refused
-  // comment exists nowhere but in the field.
-  const saveComment = React.useCallback((textToSave: string, rangeOverride?: TRange): boolean => {
+  // comment exists nowhere but in the field. On success returns where the
+  // comment landed, so an attach-while-busy can route the late transcript
+  // into the draft after the field unmounts.
+  const saveComment = React.useCallback((textToSave: string, rangeOverride?: TRange, options?: InlineCommentSaveOptions): InlineCommentSaveTarget | boolean => {
     const targetRange = rangeOverride ?? selection;
     const trimmedText = textToSave.trim();
-    if (!targetRange || !trimmedText || !fileLabel) return false;
+    if (!targetRange || !fileLabel) return false;
+    if (!trimmedText && !options?.allowEmptyPlaceholder) return false;
 
     if (!target) {
       toast.error(t('inlineComment.toast.selectSessionToSave'));
@@ -139,48 +149,69 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
     }
 
     // The edited comment was sent or removed meanwhile: nothing left to save to.
-    if (editingDraftId && !useInlineCommentDraftStore.getState().getDrafts(target).some((draft) => draft.id === editingDraftId)) {
-      reset();
-      return true;
+    // A busy attach converts into a new comment instead, so the late
+    // transcript still gets a draft.
+    let editId = editingDraftId;
+    if (editId && !useInlineCommentDraftStore.getState().getDrafts(target).some((draft) => draft.id === editId)) {
+      if (!options?.allowEmptyPlaceholder) {
+        reset();
+        return true;
+      }
+      setEditingDraftId(null);
+      editBaseRef.current = '';
+      editId = null;
     }
 
     const normalizedRange = normalizeLineRange(targetRange);
     const normalizedStoreRange = normalizeStoreRange(toStoreRange(normalizedRange));
     const code = getCodeForRange(normalizedRange);
 
-    const isNewComment = !editingDraftId;
-    const saved = editingDraftId
-      ? updateDraft(target, editingDraftId, {
+    const isNewComment = !editId;
+    if (editId) {
+      // A late transcript may have landed in the draft while it was open in
+      // the editor: merge it into the edited text instead of overwriting it.
+      const stored = useInlineCommentDraftStore.getState().getDrafts(target).find((draft) => draft.id === editId);
+      const mergedText = mergeExternalDraftAppend(editBaseRef.current ?? '', stored?.text ?? '', trimmedText);
+      const updated = updateDraft(target, editId, {
         fileLabel,
         startLine: normalizedStoreRange.startLine,
         endLine: normalizedStoreRange.endLine,
         side: normalizedStoreRange.side,
         code,
         language,
-        text: trimmedText,
+        text: mergedText,
         origin,
-      })
-      : addDraft(target, {
-        source,
-        fileLabel,
-        startLine: normalizedStoreRange.startLine,
-        endLine: normalizedStoreRange.endLine,
-        side: normalizedStoreRange.side,
-        code,
-        language,
-        text: trimmedText,
-        origin,
-      }) !== null;
-    if (!saved) {
+      });
+      if (!updated) {
+        toast.error(t('inlineComment.toast.noRoom'));
+        return false;
+      }
+      const binding = { draftId: editId, target };
+      reset();
+      return binding;
+    }
+    const draftId = addDraft(target, {
+      source,
+      fileLabel,
+      startLine: normalizedStoreRange.startLine,
+      endLine: normalizedStoreRange.endLine,
+      side: normalizedStoreRange.side,
+      code,
+      language,
+      text: trimmedText,
+      origin,
+    });
+    if (!draftId) {
       toast.error(t('inlineComment.toast.noRoom'));
       return false;
     }
 
+    const binding = { draftId, target };
     reset();
     if (isNewComment) {
       requestAnimationFrame(focusChatInput);
     }
-    return true;
+    return binding;
   }, [addDraft, editingDraftId, fileLabel, getCodeForRange, language, origin, reset, selection, source, t, target, toStoreRange, updateDraft]);
 
   return {

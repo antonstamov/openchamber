@@ -116,7 +116,7 @@ import { useRawAssetUrl } from './files/useRawAssetUrl';
 import { useHtmlPreviewAnnotation } from './files/useHtmlPreviewAnnotation';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useEnterpriseMode } from '@/stores/useEnterprisePolicyStore';
-import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, isWholeFileComment, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection, useWholeFileComment } from '@/components/comments';
+import { buildCodeMirrorCommentWidgets, FilePreviewCommentMenu, isWholeFileComment, normalizeLineRange, useInlineCommentController, useLineNumberDragSelection, useWholeFileComment, type InlineCommentSaveOptions } from '@/components/comments';
 import { opencodeClient } from '@/lib/opencode/client';
 import { useDirectoryShowHidden } from '@/lib/directoryShowHidden';
 import { useFilesViewShowGitignored } from '@/lib/filesViewShowGitignored';
@@ -1306,12 +1306,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     }
   }, [isMobile, lineSelection]);
 
-  const handleSaveComment = React.useCallback((text: string, range?: { start: number; end: number }) => {
+  const handleSaveComment = React.useCallback((text: string, range?: { start: number; end: number }, saveOptions?: InlineCommentSaveOptions) => {
     const finalRange = range ?? lineSelection ?? undefined;
     if (range) {
       setLineSelection(range);
     }
-    const saved = saveComment(text, finalRange);
+    const saved = saveComment(text, finalRange, saveOptions);
     if (saved) setLineSelection(null);
     return saved;
   }, [lineSelection, saveComment]);

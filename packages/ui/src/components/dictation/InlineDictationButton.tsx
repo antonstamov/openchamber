@@ -15,7 +15,7 @@ import { toast } from '@/components/ui';
 import { Icon } from '@/components/icon/Icon';
 import { DictationWaveform } from '@/components/dictation/DictationWaveform';
 import { ButtonTooltip } from '@/components/ui/action-toolbar';
-import { useDictation } from '@/hooks/useDictation';
+import { useDictation, type DictationCompletionHandoff, type DictationStatus } from '@/hooks/useDictation';
 import { useWaitingBlink } from '@/hooks/useDurationTicker';
 import { isDictationCaptureSupported } from '@/lib/dictation/use-dictation-audio-source';
 import { isVSCodeRuntime } from '@/lib/desktop';
@@ -29,12 +29,40 @@ interface InlineDictationButtonProps {
   /** Classes for each icon button, so the controls match the host's own. */
   buttonClassName: string;
   iconClassName?: string;
+  /** Reports failures, so a host can salvage a transcript after its field closed. */
+  onError?: (error: Error) => void;
+  /**
+   * Reports every status change, so a host attaching while busy can finalize
+   * the session and arm a handoff into the attached draft instead of losing
+   * the transcript.
+   */
+  onStatusChange?: (status: DictationStatus) => void;
+  /** Latest partial transcript; salvage for a failure after the field closed. */
+  onPartialTranscript?: (text: string) => void;
+  /**
+   * Imperative handle for attach-while-busy: `confirm` finalizes a recording
+   * in the background, `getStatus` reads the live status without a render.
+   */
+  controllerRef?: React.RefObject<InlineDictationController | null>;
+  /** Armed at attach-while-busy; keeps the stream past this button's unmount. */
+  handoffRef?: React.RefObject<DictationCompletionHandoff | null>;
+}
+
+export interface InlineDictationController {
+  confirm: () => void;
+  cancel: () => void;
+  getStatus: () => DictationStatus;
 }
 
 export const InlineDictationButton: React.FC<InlineDictationButtonProps> = ({
   onTranscript,
   disabled,
   buttonClassName,
+  onError,
+  onStatusChange,
+  onPartialTranscript,
+  controllerRef,
+  handoffRef,
   iconClassName = 'h-4 w-4',
 }) => {
   const { t } = useI18n();
@@ -48,6 +76,11 @@ export const InlineDictationButton: React.FC<InlineDictationButtonProps> = ({
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
 
+  const onErrorRef = React.useRef(onError);
+  React.useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
   const {
     status,
     error,
@@ -59,10 +92,38 @@ export const InlineDictationButton: React.FC<InlineDictationButtonProps> = ({
     confirmDictation,
     cancelDictation,
     discardFailedDictation,
+    getStatus,
   } = useDictation({
     onTranscript: (text) => {
       if (text.trim()) onTranscriptRef.current(text.trim());
     },
+    onError: (error) => onErrorRef.current?.(error),
+    handoffRef,
+  });
+
+  const onStatusChangeRef = React.useRef(onStatusChange);
+  React.useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
+  React.useEffect(() => {
+    onStatusChangeRef.current?.(status);
+  }, [status]);
+
+  const onPartialTranscriptRef = React.useRef(onPartialTranscript);
+  React.useEffect(() => {
+    onPartialTranscriptRef.current = onPartialTranscript;
+  }, [onPartialTranscript]);
+  React.useEffect(() => {
+    onPartialTranscriptRef.current?.(partialTranscript);
+  }, [partialTranscript]);
+
+  React.useEffect(() => {
+    if (!controllerRef) return;
+    controllerRef.current = {
+      confirm: () => void confirmDictation(),
+      cancel: () => void cancelDictation(),
+      getStatus,
+    };
   });
 
   // No room here for the composer's salvage view: keep whatever was
