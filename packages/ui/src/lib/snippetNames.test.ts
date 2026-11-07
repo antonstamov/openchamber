@@ -28,7 +28,7 @@ describe('snippet names', () => {
 
   test('a suggestion takes the first words, in Latin letters', () => {
     expect(suggestSnippetName('Fix the failing CI checks, then push', [])).toBe('fix-the-failing');
-    expect(suggestSnippetName('Добренько, я це змерджив вже', [])).toBe('dobrenko-ia-tse');
+    expect(suggestSnippetName('Хорошо, я это уже смёржил', [])).toBe('khorosho-ya-eto');
     expect(suggestSnippetName('!!!', [snippet('snippet')])).toBe('snippet-2');
   });
 
