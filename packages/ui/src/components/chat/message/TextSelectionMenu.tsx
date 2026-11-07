@@ -23,6 +23,7 @@ import { useI18n } from '@/lib/i18n';
 import { getTypeToCommentText } from '@/lib/typeToComment';
 import { useCommentImagePaste } from '@/components/comments/useCommentImagePaste';
 import { CommentTextEditor } from '@/components/comments/CommentTextEditor';
+import { InlineDictationButton } from '@/components/dictation/InlineDictationButton';
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import {
     useMobileCommentComposerController,
@@ -913,6 +914,11 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
         imagePaste={commentImagePaste}
         placeholder={t('chat.textSelection.comment.placeholder')}
         className="w-64 max-w-[70vw] py-1.5 text-sm leading-5 text-foreground"
+      />
+      <InlineDictationButton
+        onTranscript={(spoken) => setCommentText((current) => (current.trim() ? `${current.trimEnd()} ${spoken}` : spoken))}
+        buttonClassName="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none"
+        iconClassName="h-4 w-4"
       />
       <HoverTooltip label={t('chat.textSelection.comment.attach')}>
         <button
