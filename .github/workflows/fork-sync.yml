@@ -104,8 +104,8 @@ jobs:
           timeout --signal=TERM --kill-after=60s 45m \
             opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
             | tee "$RUNNER_TEMP/fork-merge.jsonl" \
-            | jq -r 'if .type == "text" then (.part.text // empty)
-                     elif .type == "tool_use" then ("-> " + (.part.tool // "tool") + ": " + ((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))
+            | jq -r 'if .type == "text" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] \(.part.text // "")"
+                     elif .type == "tool_use" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] -> \(.part.tool // "tool"): \(((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))"
                      else empty end'
 
       - name: Verify the merged tree
@@ -134,8 +134,8 @@ jobs:
           timeout --signal=TERM --kill-after=60s 45m \
             opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
             | tee "$RUNNER_TEMP/fork-merge-fix.jsonl" \
-            | jq -r 'if .type == "text" then (.part.text // empty)
-                     elif .type == "tool_use" then ("-> " + (.part.tool // "tool") + ": " + ((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))
+            | jq -r 'if .type == "text" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] \(.part.text // "")"
+                     elif .type == "tool_use" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] -> \(.part.tool // "tool"): \(((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))"
                      else empty end'
 
       - name: Verify the final tree
