@@ -13,6 +13,8 @@ import { formatShortcutForDisplay } from '@/lib/shortcuts';
 import { useCommentImagePaste } from './useCommentImagePaste';
 import { useCommentFieldPicker } from './useCommentFieldPicker';
 import { useCommentEnterSubmit } from './useCommentEnterSubmit';
+import { InlineDictationButton } from '@/components/dictation/InlineDictationButton';
+import { withInlineInsertionBoundaries } from '@/components/chat/composer/text';
 import { resolveEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { GuestIcon } from '@/components/layout/GuestRailIcon';
 import { useGuestActions } from '@/hooks/useGuestSurfaces';
@@ -117,6 +119,17 @@ export function InlineCommentInput({
   const handleTextChange = (value: string) => {
     setText(value);
     onTextChange?.(value);
+  };
+
+  const appendTranscript = (spoken: string) => {
+    const trimmed = spoken.trim();
+    if (!trimmed) return;
+    const field = textareaRef.current;
+    const base = field?.value ?? text;
+    const from = field?.selectionStart ?? base.length;
+    const to = field?.selectionEnd ?? from;
+    const insert = withInlineInsertionBoundaries(trimmed, base.slice(0, from), base.slice(to));
+    replaceRange(from, to, insert);
   };
 
   React.useLayoutEffect(resizeTextarea, [text]);
@@ -301,6 +314,16 @@ export function InlineCommentInput({
           style={{ minHeight: 0 }}
         />
         {floating ? (
+          <>
+          <InlineDictationButton
+            onTranscript={appendTranscript}
+            disabled={saving || addingToReview}
+            buttonClassName={cn(
+              'mb-0.5 flex shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none',
+              isMobile ? 'h-9 w-9' : 'h-8 w-8'
+            )}
+            iconClassName="h-4 w-4"
+          />
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -320,6 +343,7 @@ export function InlineCommentInput({
             </TooltipTrigger>
             <TooltipContent side="top" sideOffset={6}>{t('inlineComment.actions.comment')}</TooltipContent>
           </Tooltip>
+          </>
         ) : (
           // A phone has no tooltips and no room for one line: the context heads
           // the field and the actions say what they do in words.
@@ -371,6 +395,12 @@ export function InlineCommentInput({
                 {t('review.action.addToReview')}
               </Button>
             ) : null}
+            <InlineDictationButton
+              onTranscript={appendTranscript}
+              disabled={saving || addingToReview}
+              buttonClassName="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none disabled:opacity-40"
+              iconClassName="size-4"
+            />
             <Button
               type="button"
               size={compactAttach ? 'icon' : isMobile ? 'sm' : 'xs'}
