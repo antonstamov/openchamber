@@ -170,6 +170,7 @@ export const MobileSessionRow: React.FC<{
   let content: React.ReactNode;
   if (detailed) {
     const lead = project ? <MobileProjectIcon project={project} size="xs" /> : null;
+    const projectName = project ? (row.secondaryMeta?.projectLabel?.trim() || project.label?.trim() || null) : null;
     content = (
       <MobileTwoLineLayout
         indent={geometry.detailedLeft(depth)}
@@ -186,6 +187,7 @@ export const MobileSessionRow: React.FC<{
           </>}
         secondLine={project || branch || getSessionGoal(session) || primaryRef || waitingOnUser ? <>
           {lead}
+          {projectName ? <span dir="auto" title={projectName} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{projectName}</span> : null}
           {branch ? <>
             {inSpace
               ? <Icon name="instance" className="size-3.5 shrink-0" aria-hidden={false} role="img" aria-label={t('sessions.sidebar.group.space')} />

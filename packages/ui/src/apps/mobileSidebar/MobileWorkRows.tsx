@@ -59,7 +59,7 @@ export const MobileWorktreeRow: React.FC<{
   const actions = useMobileSidebarActions();
   const { revealed, renaming } = useMobileRowSwipe(row.key);
   const work = useWorktreeWork({ group: row.group, projectId: row.projectId, collapsed: row.collapsed, onNavigate: actions.close });
-  const { worktree, space, spaceName, project, refs, label, secondName, branch, title, inWork, selected, finishing, worktreeRemoving, activityState } = work;
+  const { worktree, space, spaceName, project, projectLabel, refs, label, secondName, branch, title, inWork, selected, finishing, worktreeRemoving, activityState } = work;
   const mixedProject = useMixedRowProject(row.projectId, row.mixed && row.detailed);
   const expandable = !row.empty;
   const expanded = row.forceExpanded || !row.collapsed;
@@ -162,6 +162,7 @@ export const MobileWorktreeRow: React.FC<{
           : <>{titleText}{missing}{pinMark}{directoryIndicator}{stateMark}{duration}</>}
         secondLine={<>
           {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
+          {mixedProject && projectLabel?.trim() ? <span dir="auto" title={projectLabel.trim()} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{projectLabel.trim()}</span> : null}
           {branchMark}
           {secondName ? <span dir="auto" className="block min-w-0 truncate typography-micro">{secondName}</span> : null}
           <span className="ms-auto flex shrink-0 items-center">{ref}</span>
@@ -333,6 +334,7 @@ export const MobileRunRow: React.FC<{
           : <>{titleText}{activity}</>}
         secondLine={<>
           {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
+          {mixedProject && row.projectLabel?.trim() ? <span dir="auto" title={row.projectLabel.trim()} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{row.projectLabel.trim()}</span> : null}
           {runMark}
           <span className="block min-w-0 flex-1 truncate typography-micro">
             {laneCount === 1
@@ -419,6 +421,7 @@ export const MobileDraftRow: React.FC<{
   const pen = <Icon name="edit" className="size-3 shrink-0 text-muted-foreground" />;
   const attachment = firstLine && attachmentCount > 0 ? <Icon name="attachment-2" className="size-3 shrink-0 text-muted-foreground" /> : null;
   const detailed = row.detailed && Boolean(mixedProject || branch || attachment);
+  const mixedProjectName = mixedProject ? (mixedProject.label?.trim() || mixedProject.path) : null;
   const titleText = (
     <span dir="auto" className={cn('block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label italic', isOpen ? MOBILE_ACTIVE_TITLE_CLASS : 'oc-title-rest')}>
       {label}
@@ -455,6 +458,7 @@ export const MobileDraftRow: React.FC<{
           firstLine={titleText}
           secondLine={<>
             {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
+            {mixedProjectName ? <span dir="auto" title={mixedProjectName} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{mixedProjectName}</span> : null}
             {pen}
             {branch ? <span className="block min-w-0 truncate typography-micro">{branch}</span> : null}
             {attachment ? <span className="ms-auto flex shrink-0 items-center">{attachment}</span> : null}
