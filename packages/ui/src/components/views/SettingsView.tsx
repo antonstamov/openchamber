@@ -73,7 +73,7 @@ import {
 import { buildSettingsSearchResults, type SettingsSearchResult } from '@/lib/settings/search';
 import { useTrackerDescriptors } from '@/lib/trackers/registry';
 import { useSourceControlProviders } from '@/lib/source-control/providers/registry';
-import { acknowledgeNewSettingPage, getNewSettingPages } from '@/lib/settings/newSettings';
+import { acknowledgeNewSettingPage, useNewSettingPages } from '@/lib/settings/newSettings';
 import { MOBILE_HEADER_BUTTON_CLASS, MOBILE_HEADER_CLASS, MOBILE_HEADER_TITLE_CLASS } from '@/components/ui/mobileHeader';
 
 // UI Kit: fixed split-page sidebar width
@@ -207,7 +207,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onClose, forceMobile
   const openSettingsShortcutOverride = useUIStore((state) => state.shortcutOverrides.open_settings);
   const settingsSlug = resolveSettingsSlug(settingsPageRaw);
 
-  const [, refreshNewSettings] = React.useReducer((revision: number) => revision + 1, 0);
   const [mobileStage, setMobileStage] = React.useState<MobileStage>(initialMobileStage);
   // Seed with the mount-time slug: the slug persists across opens, and the
   // deep-link auto-jump below must react only to slug CHANGES after mount, not
@@ -287,16 +286,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onClose, forceMobile
     () => ({ ...runtimeCtx, isDesktopLocalOrigin, isMac, isWindows, isLinux, voiceSettings }),
     [runtimeCtx, isDesktopLocalOrigin, isMac, isWindows, isLinux, voiceSettings],
   );
-  const newSettingPages = getNewSettingPages(searchAvailabilityCtx);
+  const newSettingPages = useNewSettingPages(searchAvailabilityCtx);
   const hasNewSettings = newSettingPages.some((page) => visiblePages.some((visible) => visible.slug === page));
 
+  // A page counts as seen when the user leaves it or closes Settings: the row
+  // badges stay visible while the page is open. Opening a page never clears
+  // its own badges; moving between a split page's list and its content on
+  // mobile is still the same open page, and the stale slug behind the mobile
+  // nav list was never opened.
+  const searchAvailabilityCtxRef = React.useRef(searchAvailabilityCtx);
+  searchAvailabilityCtxRef.current = searchAvailabilityCtx;
+  const visiblePagesRef = React.useRef(visiblePages);
+  visiblePagesRef.current = visiblePages;
+  const acknowledgeVisiblePage = React.useCallback((page: SettingsPageSlug) => {
+    if (page === 'home') return;
+    if (!visiblePagesRef.current.some((visible) => visible.slug === page)) return;
+    acknowledgeNewSettingPage(page, searchAvailabilityCtxRef.current);
+  }, []);
+  const prevOpenPageRef = React.useRef<SettingsPageSlug | null>(null);
   React.useEffect(() => {
-    if (isMobile && mobileStage === 'nav') return;
-    if (!newSettingPages.includes(settingsSlug)) return;
-    if (!visiblePages.some((visible) => visible.slug === settingsSlug)) return;
-    acknowledgeNewSettingPage(settingsSlug, searchAvailabilityCtx);
-    refreshNewSettings();
-  }, [isMobile, mobileStage, newSettingPages, settingsSlug, visiblePages, searchAvailabilityCtx]);
+    const dialogClosed = !isSettingsDialogOpen && !runtimeCtx.isVSCode && !isWindowed;
+    const openPage = (isMobile && mobileStage === 'nav') || dialogClosed || settingsSlug === 'home'
+      ? null
+      : settingsSlug;
+    const prevOpenPage = prevOpenPageRef.current;
+    if (prevOpenPage !== openPage) {
+      if (prevOpenPage) acknowledgeVisiblePage(prevOpenPage);
+      prevOpenPageRef.current = openPage;
+    }
+  }, [isMobile, mobileStage, settingsSlug, isSettingsDialogOpen, runtimeCtx.isVSCode, isWindowed, acknowledgeVisiblePage]);
+  React.useEffect(() => () => {
+    const prevOpenPage = prevOpenPageRef.current;
+    prevOpenPageRef.current = null;
+    if (prevOpenPage) acknowledgeVisiblePage(prevOpenPage);
+  }, [acknowledgeVisiblePage]);
 
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const settingsDirectory = useSettingsDirectory();
