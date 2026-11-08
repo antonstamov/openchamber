@@ -73,12 +73,12 @@ const useSessionTreeImages = (sessionId: string): RunningImageJob[] => {
 };
 
 /**
- * Where each background command came from: its tool call's description and
- * message. A `shell.started` event carries no description, so the strip joins
- * the shell index (`shellID`, `sessionID` in `@/sync/background-shells`) with
- * the transcript: the completed `shell` tool part whose metadata names the
- * same `shellID`. The jump then reuses the message-link request
- * (`requestMessageFocus`), which scrolls and highlights like any link.
+ * Where each background command came from: its message. A `shell.started`
+ * event carries no transcript position, so the strip joins the shell index
+ * (`shellID`, `sessionID` in `@/sync/background-shells`) with the transcript:
+ * the `shell` tool part whose metadata names the same `shellID`. The jump then
+ * reuses the message-link request (`requestMessageFocus`), which scrolls and
+ * highlights like any link.
  */
 const useShellOrigins = (
   shells: readonly TrackedShell[],
@@ -174,12 +174,11 @@ export type ShellRowProps = {
   fromSubagent: boolean;
   stopping: boolean;
   onStop: (shell: TrackedShell) => void;
-  description?: string;
   messageID?: string;
   onGoTo: (shell: TrackedShell, messageID: string) => void;
 };
 
-export const ShellRow: React.FC<ShellRowProps> = ({ shell, fromSubagent, stopping, onStop, description, messageID, onGoTo }) => {
+export const ShellRow: React.FC<ShellRowProps> = ({ shell, fromSubagent, stopping, onStop, messageID, onGoTo }) => {
   const { t } = useI18n();
 
   return (
@@ -191,14 +190,9 @@ export const ShellRow: React.FC<ShellRowProps> = ({ shell, fromSubagent, stoppin
             {shell.command}
           </span>
         </TooltipTrigger>
-        {/* The row shows one truncated line; the tooltip shows the model's
-            description when the call carried one, then the command's own line
-            breaks and indentation, wrapping only overlong lines. Without a
-            description it stays the command alone. */}
+        {/* The row shows one truncated line; the tooltip keeps the command's
+            own line breaks and indentation and wraps only overlong lines. */}
         <TooltipContent side="top" sideOffset={6} className="max-w-[min(36rem,90vw)] [text-wrap:wrap]">
-          {description ? (
-            <div className="typography-meta mb-1 text-muted-foreground [text-wrap:wrap]">{description}</div>
-          ) : null}
           <ScrollableOverlay as="pre" outerClassName="max-h-[50vh]" className="whitespace-pre-wrap break-words font-mono typography-code" disableHorizontal>
             {shell.command}
           </ScrollableOverlay>
@@ -318,7 +312,6 @@ const StripView: React.FC<{
           fromSubagent={shell.sessionID !== sessionId}
           stopping={stoppingIds.has(shell.id)}
           onStop={onStopOne}
-          description={origin?.description}
           messageID={origin?.messageID}
           onGoTo={onGoTo}
         />

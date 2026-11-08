@@ -212,10 +212,8 @@ the session and of its
 subagents at any depth (`sessionsInTree` over the global sessions store, a
 subagent missing from it keeps its commands out), each with its command,
 elapsed time and Stop through `opencodeClient.stopBackgroundShells`, the same
-flow as the command's row in the chat. The command tooltip shows the model's
-`input.description` (`shellDescription` in `@/lib/opencode/tools`) when the
-loaded transcript holds the originating `shell` tool part, then the full
-command; without a description it stays the command alone. Each row with a
+flow as the command's row in the chat. The command tooltip keeps the command's
+own line breaks and indentation, wrapping only overlong lines. Each row with a
 known originating message carries its own jump button (icon-only, with
 `chat.backgroundShells.goToMessageAria` and `contextTooltips.chat.shellGoToMessage`):
 the row itself never navigates, so there are no accidental jumps. The button

@@ -508,19 +508,6 @@ export function subagentDescription(input: ToolInput | undefined): string | unde
   return readInput(input).description
 }
 
-/**
- * The human-readable label a `shell` call carries (`input.description`), when
- * the model provided one. OpenCode 2.2.6 documents `command`, `workdir`,
- * `timeout` and `background` for `shell` and its shell service stores only
- * those plus free-form metadata; a `description` on the tool input is still
- * read here when present, so the UI shows it without protocol changes. Until
- * OpenCode asks the model for it, most calls have none.
- */
-export function shellDescription(input: ToolInput | undefined): string | undefined {
-  const description = readInput(input).description?.trim()
-  return description ? description : undefined
-}
-
 /** The child session a `subagent` call runs in (`metadata.sessionID`). */
 export function subagentSessionId(metadata: Metadata | undefined): string | undefined {
   const parsed = metadataSchema.parse(metadata ?? {})
