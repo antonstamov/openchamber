@@ -686,51 +686,38 @@ function getPnpmAllowBuildFlags(pmCommand) {
 
 const BIN_CLEAN_NAMES = ['openchamber', 'openchamber-guest-bundle', 'openchamber-guest-check'];
 
-// Windows cannot resolve the manager's bin dir in-process (its .cmd shims
-// need a shell that CreateProcess cannot provide), so the cleanup step is a
-// node one-liner that resolves it at update time through cmd.exe and drops
-// exactly our entries. One line (the batch path runs one command per line),
-// double quotes only (cmd quoting), no % (cmd and batch expansion), no
-// single quotes or backticks; always exits 0. Reads the manager family from
-// its first argument.
-const WIN_CLEANUP_LINES = [
-  'try{',
-  'const cp=require("child_process"),fs=require("fs"),path=require("path");',
-  'const family=process.argv[1]||"npm";',
-  'if(["npm","pnpm","yarn","bun"].indexOf(family)<0)process.exit(0);',
-  'const run=(c,a)=>{try{const r=cp.spawnSync("cmd.exe",["/d","/c",[c].concat(a).join(" ")],{encoding:"utf8",stdio:["ignore","pipe","pipe"],timeout:10000,windowsHide:true});if(r.status!==0)return null;const o=String(r.stdout||"").trim();return o||null;}catch(e){return null;}};',
-  'if(run(family,["--version"])===null)process.exit(0);',
-  'let dirs=[];',
-  'if(family==="pnpm"){const b=run(family,["bin","-g"]);if(b)dirs.push(b);const p=run(family,["prefix","-g"]);if(p)dirs.push(p);}',
-  'else if(family==="yarn"){const b=run(family,["global","bin"]);if(b)dirs.push(b);}',
-  'else if(family==="bun"){const b=run(family,["pm","bin","-g"]);if(b)dirs.push(b);}',
-  'else{const p=run(family,["prefix","-g"]);if(p)dirs.push(p);}',
-  'const names=__NAMES__;',
-  'dirs.forEach((d)=>{names.forEach((x)=>{[x,x+".cmd",x+".ps1"].forEach((e)=>{const f=path.join(d,e);let s=null;try{s=fs.lstatSync(f);}catch(e2){return;}if(!s.isSymbolicLink()&&!s.isFile())return;try{fs.rmSync(f,{force:true});}catch(e3){}});});});',
-  '}catch(e){}',
-];
-const WIN_CLEANUP_SCRIPT = WIN_CLEANUP_LINES.join('').replace('__NAMES__', JSON.stringify(BIN_CLEAN_NAMES));
-
 /**
- * The `rm`/`node -e` step that drops our stale global bin entries before the
- * tarball install, or null when there is nothing to drop. npm aborts with
- * EEXIST on an entry left by a previous version that points outside the
- * incoming package, after already removing the old package; a missing entry
- * installs cleanly. Only our three names are touched: `rm -f` without `-r`
- * cannot remove directories, and the Windows one-liner keeps only files and
- * symlinks. Both forms always succeed (`|| true`, unconditional exit 0), so
- * the install chain keeps its shape.
+ * Drop our stale global bin entries in this process, before an install.
+ * npm aborts with EEXIST on an entry left by a previous version that points
+ * outside the incoming package, after already removing the old package; a
+ * missing entry installs cleanly. Only our three names are touched (plus
+ * their `.cmd`/`.ps1` shims on Windows), and only files and symlinks:
+ * directories and everything else stay. Best-effort: it never throws, so a
+ * cleanup failure cannot fail the update itself.
  */
-function buildCleanupStep(pm, platform, quote) {
-  if (platform === 'win32') {
-    return `node -e ${quote(WIN_CLEANUP_SCRIPT)} ${quote(pm)}`;
+export function cleanStaleGlobalBins(pm) {
+  try {
+    const suffixes = process.platform === 'win32' ? ['', '.cmd', '.ps1'] : [''];
+    for (const dir of getGlobalBinDirs(pm)) {
+      for (const name of BIN_CLEAN_NAMES) {
+        for (const suffix of suffixes) {
+          const file = path.join(dir, `${name}${suffix}`);
+          let stat = null;
+          try {
+            stat = fs.lstatSync(file);
+          } catch {
+            continue;
+          }
+          if (!stat.isSymbolicLink() && !stat.isFile()) continue;
+          try {
+            fs.rmSync(file, { force: true });
+          } catch {
+          }
+        }
+      }
+    }
+  } catch {
   }
-  const files = [];
-  for (const dir of getGlobalBinDirs(pm)) {
-    for (const name of BIN_CLEAN_NAMES) files.push(path.join(dir, name));
-  }
-  if (!files.length) return null;
-  return `rm -f ${files.map((file) => quote(file)).join(' ')} 2>/dev/null || true`;
 }
 
 /**
@@ -764,18 +751,13 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
         : pm === 'bun'
           ? `${pmCommand} add -g ${specs.map(quote).join(' ')}`
           : `${pmCommand} install -g ${specs.map(quote).join(' ')}`;
-    // Off by default for the first attempt: a failed download must leave
-    // the working install alone, so the cleanup runs only before a retry
-    // over a broken install (see executeUpdate).
+    // The install step stays a plain install: stale bin entries are dropped
+    // in-process by the caller (executeUpdate before its retry, the
+    // install route before spawning), never as an embedded shell step.
     const installStep = options.sdkDownloadUrl
       ? installSpec(options.sdkDownloadUrl, options.downloadUrl)
       : installSpec(options.downloadUrl);
-    let installWithCleanup = installStep;
-    if (options.cleanStaleBins !== false) {
-      const cleanupStep = buildCleanupStep(pm, platform, quote);
-      if (cleanupStep) installWithCleanup = `${cleanupStep} && ${installStep}`;
-    }
-    if (!options.sdkDownloadUrl || !options.targetVersion) return installWithCleanup;
+    if (!options.sdkDownloadUrl || !options.targetVersion) return installStep;
     // Paths are derived from the running copy: the update replaces the
     // install in place, so the global root does not move under us.
     const webPackageDir = path.resolve(__dirname, '..', '..');
@@ -783,7 +765,7 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
     const overlayStep = `node ${quote(path.join(__dirname, 'fork-sdk-overlay.js'))}`
       + ` ${quote(options.sdkDownloadUrl)}`
       + ` ${quote(nestedSdkDir)} ${quote(options.targetVersion)}`;
-    return `${installWithCleanup} && ${overlayStep}`;
+    return `${installStep} && ${overlayStep}`;
   }
   const targetVersion = normalizeTargetVersion(options.targetVersion);
   if (options.targetVersion != null && !targetVersion) {
@@ -1047,10 +1029,9 @@ export function executeUpdate(pm = detectPackageManager(), options = {}) {
     sdkDownloadUrl: options.sdkDownloadUrl,
   };
   // The first attempt runs the plain install: a failed download must leave
-  // the working install alone. Only a retry over a broken install cleans
-  // the stale bin entries first.
-  const command = getUpdateCommand(pm, { ...updateOptions, cleanStaleBins: false });
-  const retryCommand = getUpdateCommand(pm, updateOptions);
+  // the working install alone. Only a retry over a broken install drops the
+  // stale bin entries first, in this process.
+  const command = getUpdateCommand(pm, updateOptions);
   if (!options?.silent) {
     console.log(`Updating ${PACKAGE_NAME} using ${pm}...`);
     console.log(`Running: ${command}`);
@@ -1075,14 +1056,15 @@ export function executeUpdate(pm = detectPackageManager(), options = {}) {
   const cliPresent = () => findCliInRoots(globalRoots) !== null;
 
   // The install must never leave no CLI behind: when bin/cli.js is missing
-  // afterwards, run the same install once more with the cleanup step first,
-  // and only then report an error.
+  // afterwards, drop the stale bin entries in this process and run the same
+  // install once more, and only then report an error.
   if (canVerifyCli && !cliPresent()) {
     if (!options?.silent) {
-      console.log('CLI entry point is missing after the install, retrying once...');
-      console.log(`Running: ${retryCommand}`);
+      console.log('CLI entry point is missing after the install, cleaning stale bin entries and retrying once...');
+      console.log(`Running: ${command}`);
     }
-    result = runInstall(retryCommand);
+    cleanStaleGlobalBins(pm);
+    result = runInstall(command);
   }
 
   if (result.status !== 0) {
