@@ -436,8 +436,56 @@ describe('getUpdateCommand', () => {
     const sdk = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-sdk-1.10.0.tgz';
     const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, sdkDownloadUrl: sdk });
     const overlay = `node ${quoteArg(joinOverlayPath())} ${quoteArg(sdk)} ${quoteArg(joinNestedSdkDir())} ${quoteArg('1.10.0')}`;
-    expect(command).toBe(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)} && ${overlay}`);
+    expect(command).toContain(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)} && ${overlay}`);
+    expect(command).toContain('openchamber-guest-bundle');
     expect(command).not.toContain('@openchamber/web@');
+  });
+
+  it('skips the cleanup step on the first attempt so a failed download leaves the install alone', () => {
+    const web = 'https://example.invalid/openchamber-web-1.10.0.tgz';
+    const sdk = 'https://example.invalid/openchamber-sdk-1.10.0.tgz';
+    const plain = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, sdkDownloadUrl: sdk, cleanStaleBins: false });
+    expect(plain).not.toContain('openchamber-guest-bundle');
+    expect(plain).toContain(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)}`);
+  });
+
+  it('cleans our stale bin entries with rm on POSIX', () => {
+    const web = 'https://example.invalid/openchamber-web-1.10.0.tgz';
+    const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, platform: 'linux' });
+    // The mocked manager reports /usr/local/bin as its prefix; paths render
+    // for the build platform and quoting for the target one.
+    const names = ['openchamber', 'openchamber-guest-bundle', 'openchamber-guest-check']
+      .map((name) => quoteArg(path.resolve('/usr/local/bin', name), 'linux'));
+    expect(command).toBe(
+      `rm -f ${names.join(' ')} 2>/dev/null || true && npm install -g ${quoteArg(web, 'linux')}`,
+    );
+  });
+
+  it.each(['linux', 'darwin', 'win32'])('cleans our stale bin entries before the tarball install on %s', (platform) => {
+    const web = 'https://example.invalid/openchamber-web-1.10.0.tgz';
+    const sdk = 'https://example.invalid/openchamber-sdk-1.10.0.tgz';
+    for (const pm of ['npm', 'pnpm', 'yarn', 'bun']) {
+      const command = getUpdateCommand(pm, { targetVersion: '1.10.0', downloadUrl: web, sdkDownloadUrl: sdk, platform });
+      expect(command).toContain('openchamber-guest-bundle');
+      expect(command.indexOf('openchamber-guest-bundle')).toBeLessThan(command.indexOf(sdk));
+      expect(command).toContain('fork-sdk-overlay.js');
+      if (platform === 'win32') {
+        expect(command.startsWith('node -e "')).toBe(true);
+      } else {
+        expect(command.startsWith('rm -f ')).toBe(true);
+        expect(command).toContain('2>/dev/null || true');
+      }
+    }
+  });
+
+  it('quotes the tarball install per platform', () => {
+    const web = 'https://example.invalid/a b.tgz';
+    expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, platform: 'linux' }))
+      .toContain(`install -g ${quoteArg(web, 'linux')}`);
+    expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, platform: 'win32' }))
+      .toContain(`install -g ${quoteArg(web, 'win32')}`);
+    expect(quoteArg(web, 'linux')).toBe(`'https://example.invalid/a b.tgz'`);
+    expect(quoteArg(web, 'win32')).toBe(`"https://example.invalid/a b.tgz"`);
   });
 
   it('quotes shell arguments per platform', () => {
@@ -458,15 +506,23 @@ describe('getUpdateCommand', () => {
 
   it('installs the release tarball per package manager', () => {
     const web = 'https://example.invalid/openchamber-web-1.10.0.tgz';
-    expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web })).toBe(`npm install -g ${quoteArg(web)}`);
-    expect(getUpdateCommand('yarn', { targetVersion: '1.10.0', downloadUrl: web })).toBe(`yarn global add ${quoteArg(web)}`);
-    expect(getUpdateCommand('bun', { targetVersion: '1.10.0', downloadUrl: web })).toContain(`add -g ${quoteArg(web)}`);
-    expect(getUpdateCommand('pnpm', { targetVersion: '1.10.0', downloadUrl: web })).toContain(`add -g ${quoteArg(web)}`);
+    for (const [pm, install] of [
+      ['npm', `npm install -g ${quoteArg(web)}`],
+      ['yarn', `yarn global add ${quoteArg(web)}`],
+      ['bun', `add -g ${quoteArg(web)}`],
+      ['pnpm', `add -g ${quoteArg(web)}`],
+    ]) {
+      const command = getUpdateCommand(pm, { targetVersion: '1.10.0', downloadUrl: web });
+      expect(command).toContain('openchamber-guest-bundle');
+      expect(command).toContain(install);
+    }
   });
 
   it('installs only the web tarball when the release has no SDK asset', () => {
     const web = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-web-1.10.0.tgz';
-    expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web })).toBe(`npm install -g ${quoteArg(web)}`);
+    const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web });
+    expect(command).toContain('openchamber-guest-bundle');
+    expect(command).toContain(`npm install -g ${quoteArg(web)}`);
   });
 
   it('rejects a target version that is not a concrete version', () => {
@@ -475,13 +531,35 @@ describe('getUpdateCommand', () => {
 });
 
 describe('executeUpdate', () => {
-  function stubSpawnSync({ installStatus = 0, listingStdout = '', listingStatus = 0 } = {}) {
+  let globalPrefix;
+  let shellRuns;
+
+  const globalRootDir = () => process.platform === 'win32'
+    ? path.join(globalPrefix, 'node_modules')
+    : path.join(globalPrefix, 'lib', 'node_modules');
+  const cliPath = () => path.join(globalRootDir(), '@openchamber', 'web', 'bin', 'cli.js');
+  const placeCli = () => {
+    fs.mkdirSync(path.dirname(cliPath()), { recursive: true });
+    fs.writeFileSync(cliPath(), '#!/usr/bin/env node\n');
+  };
+
+  function stubSpawnSync({ installStatuses = [0], listingStdout = '', listingStatus = 0, onShellRun, noRoots = false } = {}) {
+    shellRuns = [];
     spawnSync.mockImplementation((command, args) => {
       if (!Array.isArray(args)) {
-        return { status: installStatus, stdout: '', stderr: '' };
+        shellRuns.push(command);
+        onShellRun?.(shellRuns.length);
+        const status = installStatuses[Math.min(shellRuns.length - 1, installStatuses.length - 1)];
+        return { status, stdout: '', stderr: '' };
       }
       if (args.includes('--version')) {
         return { status: 0, stdout: '10.0.0', stderr: '' };
+      }
+      if (args[0] === 'root') {
+        return noRoots ? { status: 1, stdout: '', stderr: '' } : { status: 0, stdout: `${globalRootDir()}\n`, stderr: '' };
+      }
+      if (args[0] === 'prefix') {
+        return noRoots ? { status: 1, stdout: '', stderr: '' } : { status: 0, stdout: `${globalPrefix}\n`, stderr: '' };
       }
       if (args[0] === 'list' || args[0] === 'pm' || args[0] === 'global') {
         return { status: listingStatus, stdout: listingStdout, stderr: '' };
@@ -490,25 +568,97 @@ describe('executeUpdate', () => {
     });
   }
 
+  beforeEach(() => {
+    globalPrefix = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-update-global-'));
+    shellRuns = [];
+  });
+
   afterEach(() => {
     spawnSync.mockReset();
+    fs.rmSync(globalPrefix, { recursive: true, force: true });
   });
 
   it('reports success when the installed version matches the target', () => {
+    placeCli();
     stubSpawnSync({ listingStdout: '└── @openchamber/web@1.24.1' });
     const result = executeUpdate('npm', { targetVersion: '1.24.1' });
     expect(result.success).toBe(true);
     expect(result.installedVersion).toBe('1.24.1');
+    expect(shellRuns).toHaveLength(1);
   });
 
-  it('fails when the package manager exits non-zero', () => {
-    stubSpawnSync({ installStatus: 1 });
+  it('retries once when the CLI entry point is missing after a failed install', () => {
+    stubSpawnSync({ installStatuses: [1, 1] });
+    const update = {
+      targetVersion: '1.24.1',
+      downloadUrl: 'https://example.invalid/openchamber-web-1.24.1.tgz',
+      sdkDownloadUrl: 'https://example.invalid/openchamber-sdk-1.24.1.tgz',
+    };
+    const result = executeUpdate('npm', update);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('exited with code 1');
+    expect(result.error).toContain('still missing after one retry');
+    expect(shellRuns).toHaveLength(2);
+    expect(shellRuns[0]).not.toContain('openchamber-guest-bundle');
+    expect(shellRuns[1]).toContain('openchamber-guest-bundle');
+  });
+
+  it('retries the plain command on the registry branch', () => {
+    stubSpawnSync({ installStatuses: [1, 1] });
     const result = executeUpdate('npm', { targetVersion: '1.24.1' });
     expect(result.success).toBe(false);
     expect(result.error).toContain('exited with code 1');
+    expect(shellRuns).toHaveLength(2);
+    expect(shellRuns[0]).toBe('npm install -g @openchamber/web@1.24.1');
+    expect(shellRuns[1]).toBe(shellRuns[0]);
+  });
+
+  it('does not retry a failed install that left the CLI in place', () => {
+    placeCli();
+    stubSpawnSync({ installStatuses: [1] });
+    const result = executeUpdate('npm', { targetVersion: '1.24.1' });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('exited with code 1');
+    expect(shellRuns).toHaveLength(1);
+  });
+
+  it('recovers when the retry brings the CLI back', () => {
+    stubSpawnSync({
+      listingStdout: '└── @openchamber/web@1.24.1',
+      onShellRun: (run) => {
+        if (run === 2) placeCli();
+      },
+    });
+    const update = {
+      targetVersion: '1.24.1',
+      downloadUrl: 'https://example.invalid/openchamber-web-1.24.1.tgz',
+      sdkDownloadUrl: 'https://example.invalid/openchamber-sdk-1.24.1.tgz',
+    };
+    const result = executeUpdate('npm', update);
+    expect(result.success).toBe(true);
+    expect(result.installedVersion).toBe('1.24.1');
+    expect(shellRuns).toHaveLength(2);
+    expect(shellRuns[0]).not.toContain('openchamber-guest-bundle');
+    expect(shellRuns[1]).toContain('openchamber-guest-bundle');
+  });
+
+  it('fails instead of reporting success when the CLI is still missing after the retry', () => {
+    stubSpawnSync({ listingStdout: '└── @openchamber/web@1.24.1' });
+    const update = {
+      targetVersion: '1.24.1',
+      downloadUrl: 'https://example.invalid/openchamber-web-1.24.1.tgz',
+      sdkDownloadUrl: 'https://example.invalid/openchamber-sdk-1.24.1.tgz',
+    };
+    const result = executeUpdate('npm', update);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('still missing after one retry');
+    expect(shellRuns).toHaveLength(2);
+    expect(shellRuns[0]).not.toContain('openchamber-guest-bundle');
+    expect(shellRuns[1]).toContain('openchamber-guest-bundle');
   });
 
   it('fails when the package manager exits successfully but installed the wrong version', () => {
+    placeCli();
     stubSpawnSync({ listingStdout: '└── @openchamber/web@1.19.0' });
     const result = executeUpdate('npm', { targetVersion: '1.24.1' });
     expect(result.success).toBe(false);
@@ -517,6 +667,7 @@ describe('executeUpdate', () => {
   });
 
   it('fails loudly when the installed version cannot be verified', () => {
+    placeCli();
     stubSpawnSync({ listingStdout: '', listingStatus: 1 });
     const result = executeUpdate('npm', { targetVersion: '1.24.1' });
     expect(result.success).toBe(false);
@@ -524,31 +675,35 @@ describe('executeUpdate', () => {
   });
 
   it('keeps the previous behavior when no target version is given', () => {
+    placeCli();
     stubSpawnSync();
     const result = executeUpdate('npm');
     expect(result.success).toBe(true);
     expect(result.installedVersion).toBeNull();
   });
 
+  it('skips the CLI verification when the global root does not resolve', () => {
+    stubSpawnSync({ noRoots: true, listingStdout: '└── @openchamber/web@1.24.1' });
+    const result = executeUpdate('npm', { targetVersion: '1.24.1' });
+    expect(result.success).toBe(true);
+    expect(result.installedVersion).toBe('1.24.1');
+    expect(shellRuns).toHaveLength(1);
+  });
+
   it('passes release tarball URLs through to the install command', () => {
-    let ran = '';
+    placeCli();
     const web = 'https://example.invalid/openchamber-web-1.24.1.tgz';
     const sdk = 'https://example.invalid/openchamber-sdk-1.24.1.tgz';
-    spawnSync.mockImplementation((command, args) => {
-      if (!Array.isArray(args)) {
-        ran = command;
-        return { status: 0, stdout: '', stderr: '' };
-      }
-      if (args[0] === 'list' || args[0] === 'pm' || args[0] === 'global') {
-        return { status: 0, stdout: '└── @openchamber/web@1.24.1', stderr: '' };
-      }
-      return { status: 0, stdout: '', stderr: '' };
-    });
+    stubSpawnSync({ listingStdout: '└── @openchamber/web@1.24.1' });
     const result = executeUpdate('npm', { targetVersion: '1.24.1', downloadUrl: web, sdkDownloadUrl: sdk });
     expect(result.success).toBe(true);
-    expect(ran).toContain(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)}`);
-    expect(ran).toContain('fork-sdk-overlay.js');
-    expect(ran).toContain(sdk);
+    expect(shellRuns).toHaveLength(1);
+    // A healthy install runs the plain command once: the cleanup step is
+    // reserved for the retry over a broken install.
+    expect(shellRuns[0]).not.toContain('openchamber-guest-bundle');
+    expect(shellRuns[0]).toContain(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)}`);
+    expect(shellRuns[0]).toContain('fork-sdk-overlay.js');
+    expect(shellRuns[0]).toContain(sdk);
   });
 });
 

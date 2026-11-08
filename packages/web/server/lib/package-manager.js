@@ -569,10 +569,10 @@ function resolvePackageManagerCommand(pm) {
   return pm;
 }
 
-function quoteCommand(command) {
+function quoteCommand(command, platform = process.platform) {
   if (!command) return command;
   if (!/\s/.test(command)) return command;
-  if (process.platform === 'win32') {
+  if (platform === 'win32') {
     return `"${command.replace(/"/g, '""')}"`;
   }
   return `'${command.replace(/'/g, "'\\''")}'`;
@@ -684,6 +684,55 @@ function getPnpmAllowBuildFlags(pmCommand) {
   return PNPM_BUILD_DEPENDENCIES.map((name) => ` --allow-build=${name}`).join('');
 }
 
+const BIN_CLEAN_NAMES = ['openchamber', 'openchamber-guest-bundle', 'openchamber-guest-check'];
+
+// Windows cannot resolve the manager's bin dir in-process (its .cmd shims
+// need a shell that CreateProcess cannot provide), so the cleanup step is a
+// node one-liner that resolves it at update time through cmd.exe and drops
+// exactly our entries. One line (the batch path runs one command per line),
+// double quotes only (cmd quoting), no % (cmd and batch expansion), no
+// single quotes or backticks; always exits 0. Reads the manager family from
+// its first argument.
+const WIN_CLEANUP_LINES = [
+  'try{',
+  'const cp=require("child_process"),fs=require("fs"),path=require("path");',
+  'const family=process.argv[1]||"npm";',
+  'if(["npm","pnpm","yarn","bun"].indexOf(family)<0)process.exit(0);',
+  'const run=(c,a)=>{try{const r=cp.spawnSync("cmd.exe",["/d","/c",[c].concat(a).join(" ")],{encoding:"utf8",stdio:["ignore","pipe","pipe"],timeout:10000,windowsHide:true});if(r.status!==0)return null;const o=String(r.stdout||"").trim();return o||null;}catch(e){return null;}};',
+  'if(run(family,["--version"])===null)process.exit(0);',
+  'let dirs=[];',
+  'if(family==="pnpm"){const b=run(family,["bin","-g"]);if(b)dirs.push(b);const p=run(family,["prefix","-g"]);if(p)dirs.push(p);}',
+  'else if(family==="yarn"){const b=run(family,["global","bin"]);if(b)dirs.push(b);}',
+  'else if(family==="bun"){const b=run(family,["pm","bin","-g"]);if(b)dirs.push(b);}',
+  'else{const p=run(family,["prefix","-g"]);if(p)dirs.push(p);}',
+  'const names=__NAMES__;',
+  'dirs.forEach((d)=>{names.forEach((x)=>{[x,x+".cmd",x+".ps1"].forEach((e)=>{const f=path.join(d,e);let s=null;try{s=fs.lstatSync(f);}catch(e2){return;}if(!s.isSymbolicLink()&&!s.isFile())return;try{fs.rmSync(f,{force:true});}catch(e3){}});});});',
+  '}catch(e){}',
+];
+const WIN_CLEANUP_SCRIPT = WIN_CLEANUP_LINES.join('').replace('__NAMES__', JSON.stringify(BIN_CLEAN_NAMES));
+
+/**
+ * The `rm`/`node -e` step that drops our stale global bin entries before the
+ * tarball install, or null when there is nothing to drop. npm aborts with
+ * EEXIST on an entry left by a previous version that points outside the
+ * incoming package, after already removing the old package; a missing entry
+ * installs cleanly. Only our three names are touched: `rm -f` without `-r`
+ * cannot remove directories, and the Windows one-liner keeps only files and
+ * symlinks. Both forms always succeed (`|| true`, unconditional exit 0), so
+ * the install chain keeps its shape.
+ */
+function buildCleanupStep(pm, platform, quote) {
+  if (platform === 'win32') {
+    return `node -e ${quote(WIN_CLEANUP_SCRIPT)} ${quote(pm)}`;
+  }
+  const files = [];
+  for (const dir of getGlobalBinDirs(pm)) {
+    for (const name of BIN_CLEAN_NAMES) files.push(path.join(dir, name));
+  }
+  if (!files.length) return null;
+  return `rm -f ${files.map((file) => quote(file)).join(' ')} 2>/dev/null || true`;
+}
+
 /**
  * Get the update command for the detected package manager.
  * When an exact target version is given, it is pinned in the spec instead of
@@ -700,9 +749,13 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
   // then overlaid over the nested published copy, which can lag the web
   // sources even when the registry copy exists.
   if (options.downloadUrl) {
+    // `platform` is an override for tests: the update runs on the local
+    // machine, so production callers leave it at process.platform and the
+    // quoting matches the shell that runs the command.
+    const platform = options.platform || process.platform;
     const resolvedCommand = resolvePackageManagerCommand(pm);
-    const pmCommand = quoteCommand(resolvedCommand);
-    const quote = (value) => quoteArg(value);
+    const pmCommand = quoteCommand(resolvedCommand, platform);
+    const quote = (value) => quoteArg(value, platform);
     const allowBuild = pm === 'pnpm' ? getPnpmAllowBuildFlags(resolvedCommand) : '';
     const installSpec = (...specs) => pm === 'pnpm'
       ? `${pmCommand} add -g${allowBuild} ${specs.map(quote).join(' ')}`
@@ -711,10 +764,18 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
         : pm === 'bun'
           ? `${pmCommand} add -g ${specs.map(quote).join(' ')}`
           : `${pmCommand} install -g ${specs.map(quote).join(' ')}`;
+    // Off by default for the first attempt: a failed download must leave
+    // the working install alone, so the cleanup runs only before a retry
+    // over a broken install (see executeUpdate).
     const installStep = options.sdkDownloadUrl
       ? installSpec(options.sdkDownloadUrl, options.downloadUrl)
       : installSpec(options.downloadUrl);
-    if (!options.sdkDownloadUrl || !options.targetVersion) return installStep;
+    let installWithCleanup = installStep;
+    if (options.cleanStaleBins !== false) {
+      const cleanupStep = buildCleanupStep(pm, platform, quote);
+      if (cleanupStep) installWithCleanup = `${cleanupStep} && ${installStep}`;
+    }
+    if (!options.sdkDownloadUrl || !options.targetVersion) return installWithCleanup;
     // Paths are derived from the running copy: the update replaces the
     // install in place, so the global root does not move under us.
     const webPackageDir = path.resolve(__dirname, '..', '..');
@@ -722,7 +783,7 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
     const overlayStep = `node ${quote(path.join(__dirname, 'fork-sdk-overlay.js'))}`
       + ` ${quote(options.sdkDownloadUrl)}`
       + ` ${quote(nestedSdkDir)} ${quote(options.targetVersion)}`;
-    return `${installStep} && ${overlayStep}`;
+    return `${installWithCleanup} && ${overlayStep}`;
   }
   const targetVersion = normalizeTargetVersion(options.targetVersion);
   if (options.targetVersion != null && !targetVersion) {
@@ -955,6 +1016,24 @@ export async function checkForUpdates(options = {}) {
 }
 
 /**
+ * The installed global CLI entry point under the given global roots, or null
+ * when no root has it. A failed npm install removes the old package before
+ * aborting (EEXIST on a stale bin link), so the entry point being missing is
+ * the signal that the install must not be reported as done and may be worth
+ * one retry.
+ */
+function findCliInRoots(roots) {
+  for (const root of roots) {
+    const cliPath = path.join(getPackagePathForGlobalRoot(root), 'bin', 'cli.js');
+    try {
+      if (fs.existsSync(cliPath)) return cliPath;
+    } catch {
+    }
+  }
+  return null;
+}
+
+/**
  * Execute the update (used by CLI).
  * When an exact target version is given, the globally installed version is
  * read back after the package manager exits: a zero exit status alone is not
@@ -962,27 +1041,65 @@ export async function checkForUpdates(options = {}) {
  * and the caller must not report success without the version matching.
  */
 export function executeUpdate(pm = detectPackageManager(), options = {}) {
-  const command = getUpdateCommand(pm, {
+  const updateOptions = {
     targetVersion: options.targetVersion,
     downloadUrl: options.downloadUrl,
     sdkDownloadUrl: options.sdkDownloadUrl,
-  });
+  };
+  // The first attempt runs the plain install: a failed download must leave
+  // the working install alone. Only a retry over a broken install cleans
+  // the stale bin entries first.
+  const command = getUpdateCommand(pm, { ...updateOptions, cleanStaleBins: false });
+  const retryCommand = getUpdateCommand(pm, updateOptions);
   if (!options?.silent) {
     console.log(`Updating ${PACKAGE_NAME} using ${pm}...`);
     console.log(`Running: ${command}`);
   }
 
-  const result = spawnSync(command, {
+  const runInstall = (step) => spawnSync(step, {
     stdio: 'inherit',
     shell: true,
     ...getSpawnSyncBaseOptions(),
   });
 
+  let result = runInstall(command);
+
+  // The global root does not move under an in-place update, so resolve it
+  // once: a later probe failure must not look like a missing CLI and trigger
+  // a second full install over a healthy one. The package manager cannot be
+  // queried this way on Windows (its .cmd shims need a shell), and without
+  // resolvable roots there is no location to verify: keep the previous
+  // behavior there instead of reporting every update as CLI-less.
+  const globalRoots = getGlobalNodeModulesRoots(pm);
+  const canVerifyCli = globalRoots.length > 0;
+  const cliPresent = () => findCliInRoots(globalRoots) !== null;
+
+  // The install must never leave no CLI behind: when bin/cli.js is missing
+  // afterwards, run the same install once more with the cleanup step first,
+  // and only then report an error.
+  if (canVerifyCli && !cliPresent()) {
+    if (!options?.silent) {
+      console.log('CLI entry point is missing after the install, retrying once...');
+      console.log(`Running: ${retryCommand}`);
+    }
+    result = runInstall(retryCommand);
+  }
+
   if (result.status !== 0) {
     return {
       success: false,
       exitCode: result.status,
-      error: `Package manager exited with code ${result.status}`,
+      error: canVerifyCli && !cliPresent()
+        ? `Package manager exited with code ${result.status} and the global CLI entry point is still missing after one retry; the install was left without a CLI`
+        : `Package manager exited with code ${result.status}`,
+    };
+  }
+
+  if (canVerifyCli && !cliPresent()) {
+    return {
+      success: false,
+      exitCode: result.status,
+      error: `Update finished but the global CLI entry point is still missing after one retry; not reporting success without a CLI`,
     };
   }
 
