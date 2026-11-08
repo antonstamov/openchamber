@@ -2495,7 +2495,7 @@ export const dict = {
   'chat.statusRow.todo.priority.low': 'Низкий приоритет',
   'chat.statusRow.actions.stopGeneratingAria': 'Прекратить генерировать',
   'chat.statusRow.tasksTitle': 'Задачи',
-  'chat.statusRow.modelStatus': '{model} — {status}',
+  'chat.statusRow.modelStatus': '{model} {status}',
   'chat.statusRow.summary.activeLeft': '{active} активен · {left} осталось',
   'chat.revertIndicator.redo': 'Повторить',
   'chat.revertIndicator.redoAria': 'Повторить — восстановить откаченные сообщения',
