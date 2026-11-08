@@ -140,6 +140,7 @@ jobs:
                      else empty end'
 
       - name: Verify the final tree
+        id: verify-final
         if: steps.merge.outputs.status != 'up-to-date'
         run: |
           set -euo pipefail
