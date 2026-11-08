@@ -65,29 +65,30 @@ afterAll(() => {
 });
 
 describe('new settings badge', () => {
-  test('unavailable controls stay pending when their page is opened', () => {
+  test('leaving a page marks even its hidden controls seen', () => {
     startFromBaseline(baselineWithout('appearance.dock-badge', 'appearance.language'));
     expect(getPages(runtimeCtx)).toEqual(['appearance']);
     acknowledgePage('appearance', runtimeCtx);
     expect(getPages(runtimeCtx)).toEqual([]);
     expect(storedBaseline()).toContain('appearance.language');
-    expect(storedBaseline()).not.toContain('appearance.dock-badge');
+    expect(storedBaseline()).toContain('appearance.dock-badge');
 
+    // The page was seen, so no layout re-announces it.
     const macCtx = { ...runtimeCtx, isDesktop: true, isWeb: false, isMac: true };
-    expect(getPages(macCtx)).toEqual(['appearance']);
+    expect(getPages(macCtx)).toEqual([]);
     acknowledgePage('appearance', macCtx);
     expect(getPages(macCtx)).toEqual([]);
     resetNewSettingsBadgeCacheForTests();
     expect(getPages(macCtx)).toEqual([]);
   });
 
-  test('a page with only unavailable new controls has no badge and cannot acknowledge them', () => {
+  test('leaving a badgeless page still marks its hidden controls seen', () => {
     startFromBaseline(baselineWithout('appearance.dock-badge'));
     expect(getPages(runtimeCtx)).toEqual([]);
     acknowledgePage('appearance', runtimeCtx);
-    expect(storedBaseline()).not.toContain('appearance.dock-badge');
+    expect(storedBaseline()).toContain('appearance.dock-badge');
     resetNewSettingsBadgeCacheForTests();
-    expect(getPages({ ...runtimeCtx, isDesktop: true, isMac: true })).toEqual(['appearance']);
+    expect(getPages({ ...runtimeCtx, isDesktop: true, isMac: true })).toEqual([]);
   });
 
   test('VS Code cannot announce or acknowledge controls from an unavailable page', () => {
@@ -144,6 +145,70 @@ describe('new settings badge', () => {
 
     resetNewSettingsBadgeCacheForTests();
     expect(isNewSetting('voice.playback')).toBe(false);
+  });
+
+  test('leaving a page on desktop clears its section badge on mobile too', () => {
+    const desktopCtx = { ...runtimeCtx, isDesktop: true, isWeb: false };
+    const mobileCtx = { ...runtimeCtx, isMobile: true };
+    startFromBaseline(baselineWithout('appearance.interface-font-size', 'appearance.mobile-keyboard-mode'));
+
+    // While the page is open, its badge stays: opening never acknowledges.
+    expect(getPages(desktopCtx)).toEqual(['appearance']);
+    expect(isNewSetting('appearance.interface-font-size')).toBe(true);
+
+    // The mobile-only row was never visible on desktop, but the page was
+    // seen, so its section badge must not survive on mobile.
+    acknowledgePage('appearance', desktopCtx);
+    expect(isNewSetting('appearance.interface-font-size')).toBe(false);
+    expect(getPages(desktopCtx)).toEqual([]);
+    expect(getPages(mobileCtx)).toEqual([]);
+  });
+
+  test('leaving a page on mobile clears its section badge on desktop too', () => {
+    const desktopCtx = { ...runtimeCtx, isDesktop: true, isWeb: false };
+    const mobileCtx = { ...runtimeCtx, isMobile: true };
+    startFromBaseline(baselineWithout('appearance.interface-font-size', 'appearance.mobile-keyboard-mode'));
+
+    expect(getPages(mobileCtx)).toEqual(['appearance']);
+
+    acknowledgePage('appearance', mobileCtx);
+    expect(getPages(mobileCtx)).toEqual([]);
+    expect(getPages(desktopCtx)).toEqual([]);
+  });
+
+  test('leaving a page keeps value-hidden controls pending until shown', () => {
+    const ttsOffCtx: SettingsSearchAvailabilityContext = {
+      ...runtimeCtx,
+      voiceSettings: {
+        showMessageTTSButtons: false,
+        autoReadAloudEnabled: false,
+        voiceProvider: 'browser',
+        dictationEnabled: false,
+        sttProvider: 'local',
+      },
+    };
+    const ttsOnCtx: SettingsSearchAvailabilityContext = {
+      ...ttsOffCtx,
+      voiceSettings: {
+        showMessageTTSButtons: true,
+        autoReadAloudEnabled: false,
+        voiceProvider: 'openai-compatible',
+        dictationEnabled: false,
+        sttProvider: 'local',
+      },
+    };
+    startFromBaseline(baselineWithout('voice.playback', 'voice.tts-endpoint-path'));
+
+    // The endpoint row is hidden while the provider is off, so only playback badges.
+    expect(getPages(ttsOffCtx)).toEqual(['voice']);
+
+    acknowledgePage('voice', ttsOffCtx);
+
+    expect(getPages(ttsOffCtx)).toEqual([]);
+    expect(isNewSetting('voice.playback')).toBe(false);
+    // The never-shown control stays pending and announces once turned on.
+    expect(storedBaseline()).not.toContain('voice.tts-endpoint-path');
+    expect(getPages(ttsOnCtx)).toEqual(['voice']);
   });
 
   test('acknowledging a page with nothing new leaves the baseline alone', () => {
