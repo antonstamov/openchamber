@@ -1222,6 +1222,22 @@ within a ten-minute overall deadline.
       detached child inherits the listening socket and would hold the port
       for the whole batch, so the restart inside it failed with "port already
       in use" and the update ended with no server.
+    - Tarball self-updates install the web and SDK release tarballs in one
+      package-manager transaction. npm aborts with EEXIST on a global bin
+      entry left by a previous version that points outside the incoming
+      package, after already removing the old package, which left no CLI; a
+      missing entry installs cleanly. The generated command therefore drops
+      the three global bin entries the packages own (`openchamber`,
+      `openchamber-guest-bundle`, `openchamber-guest-check`, plus `.cmd`/`.ps1`
+      on Windows) via `server/lib/clean-global-bins.js` before installing.
+      Only those file/symlink names are removed, never directories or other
+      entries, and the script always exits 0. `openchamber update`
+      (executeUpdate) still runs the plain install first, so a failed
+      download leaves the working install alone, and runs the command again
+      with the cleanup step first only when global `bin/cli.js` is missing
+      afterwards, reporting an error only after that retry. CLI presence is
+      verified only where the manager's global root resolves (not on Windows,
+      whose `.cmd` shims need a shell to query).
   - `GET /api/openchamber/models-metadata`
   - `GET /api/zen/models`
 

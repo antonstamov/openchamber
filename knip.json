@@ -35,6 +35,7 @@
         "bin/cli.js",
         "server/lib/opencode/login-shell-env.js",
         "server/lib/fork-sdk-overlay.js",
+        "server/lib/clean-global-bins.js",
         "src/mobile-main.tsx",
         "src/mini-chat-main.tsx",
         "src/main.tsx",
