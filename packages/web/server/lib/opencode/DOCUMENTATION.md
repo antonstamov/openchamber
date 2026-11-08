@@ -355,7 +355,7 @@ Installer output is discarded, not forwarded to clients or logs.
 
 ## Public exports (session-activity.js)
 - `hasWorkingDescendants(id, statuses)` is the queue delivery check returned by the probe. It follows the running sessions' parent links through at most 8 ancestors. Reads share one timeout and each session record is read once per check. Failed or malformed records and cycles return `null` unless another chain proves a running descendant; a chain deeper than 8 counts as unrelated, matching the UI's `MAX_SUBAGENT_DEPTH`. Parent links are refreshed on the next check. The direct-child check used by other consumers keeps its existing behavior.
-- `createSessionActivityProbe({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs, signal? })`: whether a session's turn really ended. A parent goes idle while a background subagent works and runs again when OpenCode hands the result back. `fetchActiveSessionStatuses()` reads `/api/session/active`, `fetchChildSessionIds(id)` pages `GET /api/session?parentID=`, `hasWorkingChildren(id, statuses)` combines them. Every read answers `null` when OpenCode could not be asked. An optional caller signal is combined with each read's timeout, including lineage walks and running-shell checks. Used by the goal loop (waits), the notification runtime (stays silent on the pause), and scheduled cleanup (cancels its outstanding reads on timeout or stop).
+- `createSessionActivityProbe({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs, signal? })`: whether a session's turn really ended. A parent goes idle while a background subagent works and runs again when OpenCode hands the result back. `fetchActiveSessionStatuses()` reads `/api/session/active`, `fetchChildSessionIds(id)` pages `GET /api/session?parentID=`, `hasWorkingChildren(id, statuses)` combines them. `fetchRunningBackgroundJobs(id)` reads OpenCode's global `job.list` (2.2.6+) for the running subagents, shells and images of the session and every subagent under it; it answers `undefined` on an OpenCode without the route (a bare 404, so callers keep the reads above) and `null` on a 404 that names an error, such as a missing session. Every read answers `null` when OpenCode could not be asked. An optional caller signal is combined with each read's timeout, including lineage walks and running-shell checks. Used by the goal loop (waits), the notification runtime (stays silent on the pause), and scheduled cleanup (cancels its outstanding reads on timeout or stop).
 
 ## Public exports (turn-start.js)
 - `createTurnStartReader({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs?, fetchImpl? })` returns `readTurnStart(sessionId)`: the running turn's start read back from `GET /api/session/:id/message`, newest first. OpenCode 2 writes an `idle` record when a turn ends, so the turn began with the first message after the last one; settings records (`agent-switched`, `model-switched`, `location-switched`) are skipped because the user makes them while idle. Null when the read fails, the latest record ends a turn, or no `idle` record appears within 10 pages of 50.
@@ -661,9 +661,10 @@ OpenCode's MCP client listens on `127.0.0.1` and, without configuration, registe
 a loopback redirect. That is correct when the browser runs on the OpenCode
 machine, and wrong when OpenChamber is opened from another one: the provider
 sends the browser to the viewer's own `127.0.0.1`, and nothing reaches the
-listener. The supported path is a browser with a direct connection to
-OpenChamber and an OpenCode on the same machine as OpenChamber, managed or
-external.
+listener. A browser with a direct connection to OpenChamber, with an OpenCode
+on the same machine as OpenChamber, finishes on its own. Everywhere else the
+user pastes the address the browser landed on into the waiting sign-in, which
+OpenCode accepts since 2.2.6 (an attempt marked `paste`).
 
 The work happens at the start of a sign-in (`mcp-oauth.js`, wired in
 `proxy.js`), so an existing entry needs no edit and an entry nobody signs in to
@@ -674,8 +675,9 @@ name from OpenCode's integration and then takes one of these paths:
 | --- | --- |
 | `oauth: false`, a local server, or a server with no config entry here | Forwarded untouched. |
 | `redirect_uri` or `callback_port` written by a person | Forwarded untouched, whatever the origin and whatever OpenCode runs. It is that person's route. |
-| OpenCode on another machine, nothing configured | Refused with a 400 naming the problem, before consent. |
-| Relay client, nothing configured | Refused with a 400 naming the problem, before consent. |
+| OpenCode on another machine, nothing configured or a generated redirect | Started on OpenCode's own redirect, unbound and with the config unchanged, for the user to paste. |
+| Relay client, nothing configured | Started on OpenCode's own redirect, unbound, for the user to paste. |
+| Either of the two above, OpenCode without `paste` | The attempt is cancelled and the start answers 400 naming the problem, before consent. |
 | Browser on loopback, nothing generated | Forwarded untouched, so CIMD and the ephemeral listener stay. This includes an SSH-forwarded address. |
 | Browser on another machine | `oauth.redirect_uri` becomes `<origin>/api/mcp/oauth/<name>/callback` and `oauth.callback_port` a free loopback port. The attempt is then bound. |
 | Generated redirect already in place, any browser | The attempt is bound, so a loopback or relay browser follows the address generated last. |
@@ -687,8 +689,22 @@ round is a callback sent to the wrong listener.
 
 The relay is detected by `x-openchamber-relay-connection`, which the dispatcher
 sets on every request it forwards. Its requests arrive with a loopback `host`,
-so the origin alone would read as a local browser. The refusal stands until the
-relay can give the provider an address that reaches a NAT-hidden server.
+so the origin alone would read as a local browser. The relay cannot give the
+provider an address that reaches a NAT-hidden server, so a relay sign-in ends
+with a paste.
+
+### Why a pasted address and not a refusal where the redirect cannot return
+
+Refusing before consent was the only honest answer while OpenCode could take
+nothing but its listener's redirect: a started sign-in would wait for a
+callback that never comes. Since 2.2.6 OpenCode validates a pasted redirect
+address against the attempt's state, so these starts go through and the
+waiting sign-in shows a paste field. The start checks `paste` on the attempt
+OpenCode returns, which keeps the refusal for an older OpenCode without a
+version probe. The automatic routes stay where they work, because they ask
+the user for nothing. The callback route's error page tells the user to paste
+its address, since a generated redirect that outlived its OpenCode lands
+there.
 
 **Ownership.** `mcp-oauth-assignments.json` in the data directory records each
 generated redirect by port. Only an entry whose `redirect_uri` and
@@ -1429,7 +1445,7 @@ under a running child.
   a tool switched on later then reaches a process that can already call back.
 - `persistSettings` rewrites the file (temp + rename) whenever
   `agentControlToolEnabled`, `agentScheduleToolEnabled`, `agentWebToolEnabled`, `agentMemoryToolEnabled`,
-  `agentKnowledgeToolEnabled`, `agentNotifyToolEnabled`, `agentRenderToolEnabled`, `agentSecretToolEnabled`, `agentWorkflowToolEnabled` or `agentToolsCodeMode` changes, and the guest change listener rewrites it after an extension is installed, approved, paused, resumed, updated or removed. Plugin directories are written before the
+  `agentKnowledgeToolEnabled`, `agentNotifyToolEnabled`, `agentRenderToolEnabled`, `agentSecretToolEnabled`, `agentUsageToolEnabled`, `agentWorkflowToolEnabled` or `agentToolsCodeMode` changes, and the guest change listener rewrites it after an extension is installed, approved, paused, resumed, updated or removed. Plugin directories are written before the
   file names them, and a disabled plugin is removed from the list. OpenCode
   reloads within a couple of seconds; no restart is involved. Writes run one at
   a time: the catalog is read before the file is written, so two refreshes

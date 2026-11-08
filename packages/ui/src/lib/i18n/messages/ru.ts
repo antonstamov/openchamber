@@ -24,6 +24,7 @@ import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { usageToolI18n } from './usage-tool.i18n';
 import { agentStatusI18n } from './agent-status.i18n';
 import { selectionApprovalI18n } from './selection-approval.i18n';
 import { snippetsI18n } from './snippets.i18n';
@@ -199,6 +200,7 @@ export const dict = {
   ...heapSnapshotI18n.ru,
   ...consoleBudgetsI18n.ru,
   ...imageToolI18n.ru,
+  ...usageToolI18n.ru,
   ...agentStatusI18n.ru,
   ...snippetsI18n.ru,
   ...sidebarWorkI18n.ru,
@@ -781,6 +783,9 @@ export const dict = {
   'chat.backgroundShells.stopAll': 'Остановить все',
   'chat.backgroundShells.stopAria': 'Остановить {command}',
   'chat.backgroundShells.elapsed': 'Работает уже {duration}',
+  'chat.backgroundWork.aria': 'Фоновая работа',
+  'chat.backgroundWork.count': 'В фоне: {count}',
+  'chat.backgroundImages.generating': 'Создаётся изображение',
   'sessions.sidebar.session.menu.share': 'Делиться',
   'sessions.sidebar.session.menu.copied': 'Скопировано',
   'sessions.sidebar.session.menu.copyLink': 'Копировать ссылку',
@@ -820,6 +825,7 @@ export const dict = {
   'sessions.sidebar.session.status.unread': 'Непрочитанные обновления',
   'sessions.sidebar.session.status.backgroundSubagent': 'Субагент работает в фоне',
   'sessions.sidebar.session.status.backgroundCommand': 'Команда выполняется в фоне',
+  'sessions.sidebar.session.status.backgroundImage': 'Изображение создаётся в фоне',
   'sessions.sidebar.session.status.waitingOnPullRequest': 'Ожидание PR',
   'sessions.sidebar.session.status.pinned': 'Закрепленная сессия',
   'sessions.sidebar.session.status.movingToWorktree': 'Перемещение сессии в новый worktree',
@@ -1852,6 +1858,7 @@ export const dict = {
   'contextSidebar.empty.openSession': 'Откройте сессию, чтобы проверить контекст.',
   'contextSidebar.section.context': 'Контекст',
   'contextSidebar.section.lastAssistantMessage': 'Последнее сообщение Ассистента',
+  'contextSidebar.section.sessionTotals': 'Итоги сессии',
   'contextSidebar.section.rawMessages': 'Необработанные сообщения',
   'contextSidebar.context.percentUsed': 'Использовано {percent}%',
   'contextSidebar.breakdown.user': 'Пользователь',
