@@ -1242,21 +1242,25 @@ within a ten-minute overall deadline.
       package-manager transaction. npm aborts with EEXIST on a global bin
       entry left by a previous version that points outside the incoming
       package, after already removing the old package, which left no CLI; a
-      missing entry installs cleanly. The generated command therefore drops
-      the three global bin entries the packages own (`openchamber`,
-      `openchamber-guest-bundle`, `openchamber-guest-check`) before
-      installing: `rm -f` with the manager's bin-dir paths on POSIX (rm
-      without `-r` never removes directories), and a `node -e` one-liner
-      that resolves the bin dir at update time on Windows, where the `.cmd`
-      shims cannot be probed from the process. The one-liner keeps only
-      files and symlinks and always exits 0, as does the `rm` step
-      (`2>/dev/null || true`). `openchamber update` (executeUpdate) still
-      runs the plain install first, so a failed download leaves the working
-      install alone, and runs the command again with the cleanup step first
-      only when global `bin/cli.js` is missing afterwards, reporting an
-      error only after that retry. CLI presence is verified only where the
-      manager's global root resolves (not on Windows, whose `.cmd` shims
-      need a shell to query).
+      missing entry installs cleanly. The three global bin entries the
+      packages own (`openchamber`, `openchamber-guest-bundle`,
+      `openchamber-guest-check`, plus their `.cmd`/`.ps1` shims on Windows)
+      are therefore dropped in-process, never as an embedded `rm` or
+      `node -e` step in the install command: `cleanStaleGlobalBins` in
+      `../package-manager.js` resolves the manager's bin dirs the same way
+      the update does and removes only files and symlinks, so directories
+      stay, and it never throws. The install command stays a plain install
+      plus the SDK overlay. `openchamber update` (executeUpdate) still runs
+      that plain install first, so a failed download leaves the working
+      install alone, and drops the stale entries in-process and runs the
+      same install once more only when global `bin/cli.js` is missing
+      afterwards, reporting an error only after that retry. The Update button
+      path (`POST /api/openchamber/update-install`) has no retry: it drops
+      the entries in this process right before launching the single detached
+      install (after the systemd unit is queued, never on a refusal path that
+      answers without installing). CLI presence is verified only where the manager's global root
+      resolves (not on Windows, whose `.cmd` shims need a shell to query, so
+      neither the retry nor the cleanup can run there).
   - `GET /api/openchamber/models-metadata`
   - `GET /api/zen/models`
 

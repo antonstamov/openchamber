@@ -13,6 +13,7 @@ vi.mock('../package-manager.js', () => ({
   getUpdateCommand: vi.fn(),
   detectPackageManagerDetails: vi.fn(),
   isUnmanagedInstall: vi.fn(),
+  cleanStaleGlobalBins: vi.fn(),
 }));
 
 const childProcess = await import('child_process');
@@ -275,6 +276,7 @@ describe('OpenChamber foreground update route', () => {
         error: 'Foreground servers must be updated by their service manager. Set OPENCHAMBER_SYSTEMD_UNIT when running under systemd, or run openchamber update and restart the service.',
       });
 
+    expect(packageManager.cleanStaleGlobalBins).not.toHaveBeenCalled();
     expect(childProcess.spawnSync).not.toHaveBeenCalled();
   });
 
@@ -469,6 +471,26 @@ describe('OpenChamber foreground update route', () => {
       expect.objectContaining({
         detached: true,
       })
+    );
+  });
+
+  it('drops stale bin entries in-process before spawning the detached install', async () => {
+    const { app } = createApp({
+      storedOptions: { launchMode: 'daemon', port: 7897 },
+    });
+    childProcess.spawn.mockReturnValue({ unref: vi.fn() });
+
+    await request(app).post('/api/openchamber/update-install').expect(200);
+
+    // The cleanup runs in the detached-install timer, right before the
+    // spawn; let that timer fire inside this test so it does not leak into
+    // the next one.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(packageManager.cleanStaleGlobalBins).toHaveBeenCalledWith('npm');
+    expect(childProcess.spawn).toHaveBeenCalled();
+    expect(packageManager.cleanStaleGlobalBins.mock.invocationCallOrder[0]).toBeLessThan(
+      childProcess.spawn.mock.invocationCallOrder[0],
     );
   });
 });

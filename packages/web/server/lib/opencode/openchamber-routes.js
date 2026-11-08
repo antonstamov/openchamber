@@ -240,6 +240,7 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
         getUpdateCommand,
         detectPackageManagerDetails,
         isUnmanagedInstall,
+        cleanStaleGlobalBins,
       } = await import('../package-manager.js');
 
       const updateInfo = await checkForUpdates();
@@ -256,6 +257,16 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
 
       const pmDetails = detectPackageManagerDetails();
       const pm = pmDetails.packageManager;
+      // The detached install runs once with no retry: stale bin entries are
+      // dropped in this process right before it is launched, never on a path
+      // that answers without installing. Best-effort: the cleanup never
+      // throws, and the install decides.
+      const dropStaleBins = () => {
+        try {
+          cleanStaleGlobalBins(pm);
+        } catch {
+        }
+      };
       const updateCmd = getUpdateCommand(pm, {
       targetVersion: updateInfo.version,
       downloadUrl: updateInfo.downloadUrl,
@@ -279,6 +290,7 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
           console.log(`\nInstalling update using ${pm} (container mode)...`);
           console.log(`Running: ${updateCmd}`);
 
+          dropStaleBins();
           const shell = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : 'sh';
           const shellFlag = process.platform === 'win32' ? '/c' : '-c';
           const child = spawnChild(shell, [shellFlag, updateCmd], {
@@ -331,6 +343,7 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
             });
           }
 
+          dropStaleBins();
           return res.json({
             success: true,
             message: 'Update queued; OpenChamber will restart after installation completes',
@@ -474,6 +487,7 @@ export const registerOpenChamberRoutes = (app, dependencies) => {
           }
         }
 
+        dropStaleBins();
         const child = spawnChild(shell, [shellFlag, script], {
           detached: true,
           stdio: logFd !== null ? ['ignore', logFd, logFd] : 'ignore',
