@@ -25,6 +25,8 @@ import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
 import { usageToolI18n } from './usage-tool.i18n';
+import { openchamberToolOutputI18n } from './openchamber-tool-output.i18n';
+import { opencodeToolOutputI18n } from './opencode-tool-output.i18n';
 import { agentStatusI18n } from './agent-status.i18n';
 import { selectionApprovalI18n } from './selection-approval.i18n';
 import { snippetsI18n } from './snippets.i18n';
@@ -201,6 +203,8 @@ export const dict = {
   ...consoleBudgetsI18n.ru,
   ...imageToolI18n.ru,
   ...usageToolI18n.ru,
+  ...openchamberToolOutputI18n.ru,
+  ...opencodeToolOutputI18n.ru,
   ...agentStatusI18n.ru,
   ...snippetsI18n.ru,
   ...sidebarWorkI18n.ru,
@@ -1268,6 +1272,9 @@ export const dict = {
   'magicPrompts.toast.loadFailed': 'Не удалось загрузить магические промпты. Ничего не отправлено.',
   'gitView.empty.notGitRepository': 'Это не Git-репозиторий.',
   'gitView.empty.notGitRepositoryDescription': 'Инициализируйте Git или откройте существующий репозиторий.',
+  'gitView.empty.repositoryUnreadable': 'Git не смог прочитать эту папку',
+  'gitView.empty.repositoryUnreadableDescription': 'Вот что сообщил Git. Исправьте проблему и попробуйте снова.',
+  'gitView.empty.repositoryUnreadableRetry': 'Попробовать снова',
   'gitView.empty.selectSessionOrDirectory': 'Выберите сессию или каталог для просмотра Git.',
   'gitView.empty.worktreeFeaturesUnavailable': 'Функции worktree недоступны в этом режиме рабочей области.',
   'gitView.empty.worktreeSetupDescription': 'Подготовка worktree и состояния репозитория.',
