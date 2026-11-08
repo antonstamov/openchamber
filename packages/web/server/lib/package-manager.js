@@ -684,6 +684,55 @@ function getPnpmAllowBuildFlags(pmCommand) {
   return PNPM_BUILD_DEPENDENCIES.map((name) => ` --allow-build=${name}`).join('');
 }
 
+const BIN_CLEAN_NAMES = ['openchamber', 'openchamber-guest-bundle', 'openchamber-guest-check'];
+
+// Windows cannot resolve the manager's bin dir in-process (its .cmd shims
+// need a shell that CreateProcess cannot provide), so the cleanup step is a
+// node one-liner that resolves it at update time through cmd.exe and drops
+// exactly our entries. One line (the batch path runs one command per line),
+// double quotes only (cmd quoting), no % (cmd and batch expansion), no
+// single quotes or backticks; always exits 0. Reads the manager family from
+// its first argument.
+const WIN_CLEANUP_LINES = [
+  'try{',
+  'const cp=require("child_process"),fs=require("fs"),path=require("path");',
+  'const family=process.argv[1]||"npm";',
+  'if(["npm","pnpm","yarn","bun"].indexOf(family)<0)process.exit(0);',
+  'const run=(c,a)=>{try{const r=cp.spawnSync("cmd.exe",["/d","/c",[c].concat(a).join(" ")],{encoding:"utf8",stdio:["ignore","pipe","pipe"],timeout:10000,windowsHide:true});if(r.status!==0)return null;const o=String(r.stdout||"").trim();return o||null;}catch(e){return null;}};',
+  'if(run(family,["--version"])===null)process.exit(0);',
+  'let dirs=[];',
+  'if(family==="pnpm"){const b=run(family,["bin","-g"]);if(b)dirs.push(b);const p=run(family,["prefix","-g"]);if(p)dirs.push(p);}',
+  'else if(family==="yarn"){const b=run(family,["global","bin"]);if(b)dirs.push(b);}',
+  'else if(family==="bun"){const b=run(family,["pm","bin","-g"]);if(b)dirs.push(b);}',
+  'else{const p=run(family,["prefix","-g"]);if(p)dirs.push(p);}',
+  'const names=__NAMES__;',
+  'dirs.forEach((d)=>{names.forEach((x)=>{[x,x+".cmd",x+".ps1"].forEach((e)=>{const f=path.join(d,e);let s=null;try{s=fs.lstatSync(f);}catch(e2){return;}if(!s.isSymbolicLink()&&!s.isFile())return;try{fs.rmSync(f,{force:true});}catch(e3){}});});});',
+  '}catch(e){}',
+];
+const WIN_CLEANUP_SCRIPT = WIN_CLEANUP_LINES.join('').replace('__NAMES__', JSON.stringify(BIN_CLEAN_NAMES));
+
+/**
+ * The `rm`/`node -e` step that drops our stale global bin entries before the
+ * tarball install, or null when there is nothing to drop. npm aborts with
+ * EEXIST on an entry left by a previous version that points outside the
+ * incoming package, after already removing the old package; a missing entry
+ * installs cleanly. Only our three names are touched: `rm -f` without `-r`
+ * cannot remove directories, and the Windows one-liner keeps only files and
+ * symlinks. Both forms always succeed (`|| true`, unconditional exit 0), so
+ * the install chain keeps its shape.
+ */
+function buildCleanupStep(pm, platform, quote) {
+  if (platform === 'win32') {
+    return `node -e ${quote(WIN_CLEANUP_SCRIPT)} ${quote(pm)}`;
+  }
+  const files = [];
+  for (const dir of getGlobalBinDirs(pm)) {
+    for (const name of BIN_CLEAN_NAMES) files.push(path.join(dir, name));
+  }
+  if (!files.length) return null;
+  return `rm -f ${files.map((file) => quote(file)).join(' ')} 2>/dev/null || true`;
+}
+
 /**
  * Get the update command for the detected package manager.
  * When an exact target version is given, it is pinned in the spec instead of
@@ -715,22 +764,17 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
         : pm === 'bun'
           ? `${pmCommand} add -g ${specs.map(quote).join(' ')}`
           : `${pmCommand} install -g ${specs.map(quote).join(' ')}`;
-    // npm aborts the install with EEXIST when a global bin entry left by a
-    // previous version points outside the package being installed, after
-    // already removing the old package. Dropping exactly our three entries
-    // first makes them missing, which npm installs over. The script only
-    // removes our file/symlink names and always exits 0, so the chain keeps
-    // its shape on POSIX and Windows. Off by default for the first attempt:
-    // a failed download must leave the working install alone, so the cleanup
-    // runs only before a retry over a broken install (see executeUpdate).
-    // The probe is the resolved command, not the bare manager name: bun can
-    // resolve to an absolute path that is not on PATH.
+    // Off by default for the first attempt: a failed download must leave
+    // the working install alone, so the cleanup runs only before a retry
+    // over a broken install (see executeUpdate).
     const installStep = options.sdkDownloadUrl
       ? installSpec(options.sdkDownloadUrl, options.downloadUrl)
       : installSpec(options.downloadUrl);
-    const installWithCleanup = options.cleanStaleBins === false
-      ? installStep
-      : `node ${quote(path.join(__dirname, 'clean-global-bins.js'))} ${quote(pm)} ${quote(resolvedCommand)} && ${installStep}`;
+    let installWithCleanup = installStep;
+    if (options.cleanStaleBins !== false) {
+      const cleanupStep = buildCleanupStep(pm, platform, quote);
+      if (cleanupStep) installWithCleanup = `${cleanupStep} && ${installStep}`;
+    }
     if (!options.sdkDownloadUrl || !options.targetVersion) return installWithCleanup;
     // Paths are derived from the running copy: the update replaces the
     // install in place, so the global root does not move under us.
