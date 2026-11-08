@@ -238,7 +238,7 @@ const DraftPreviewEntry: React.FC<{
             <div className="flex items-center gap-1.5 px-3 py-1.5"
                 style={{ backgroundColor: 'color-mix(in srgb, var(--surface-muted-foreground) 8%, transparent)' }}>
                 <span className="text-xs font-medium text-muted-foreground">{index + 1}.</span>
-                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={title}>
+                <span dir="auto" className="min-w-0 flex-1 truncate oc-ui-start-align text-xs font-medium text-foreground" title={title}>
                     {title}
                 </span>
                 {onSaveComment ? (
@@ -335,7 +335,7 @@ const DraftPreviewEntry: React.FC<{
                                 </span>
                             </div>
                         ) : (
-                            <div className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">
+                            <div dir="auto" className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">
                                 {withAttachmentChips(draft.text, attachmentFilenames, `draft-${draft.id}`)}
                             </div>
                         )}

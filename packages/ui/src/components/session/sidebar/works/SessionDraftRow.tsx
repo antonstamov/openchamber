@@ -112,7 +112,7 @@ export function SessionDraftRow({ draft, depth, detailed: detailedRequested, mix
             <span dir="auto" title={projectName} className="min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{projectName}</span>
           ) : null}
           <Icon name="edit" className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-          {branch ? <span className="min-w-0 truncate typography-micro text-muted-foreground">{branch}</span> : null}
+          {branch ? <span dir="ltr" className="min-w-0 truncate typography-micro text-muted-foreground">{branch}</span> : null}
           {firstLine && attachmentCount > 0 ? <Icon name="attachment-2" className="ms-auto h-3 w-3 flex-shrink-0 text-muted-foreground" /> : null}
         </div>
       ) : null}
