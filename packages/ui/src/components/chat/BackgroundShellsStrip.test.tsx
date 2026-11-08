@@ -224,3 +224,56 @@ describe('BackgroundShellsStrip', () => {
     stop.mockRestore();
   });
 });
+
+describe('BackgroundShellsStrip origins subscription', () => {
+  let windowInstance: Window;
+  let host: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(async () => {
+    windowInstance = new Window();
+    Object.assign(globalThis, {
+      window: windowInstance,
+      document: windowInstance.document,
+      HTMLElement: windowInstance.HTMLElement,
+      Element: windowInstance.Element,
+      Node: windowInstance.Node,
+      IS_REACT_ACT_ENVIRONMENT: true,
+    });
+    resetBackgroundShells();
+    resetBackgroundImages();
+    useGlobalSessionsStore.setState({
+      entityById: new Map([
+        ['ses_root', session('ses_root')],
+        ['ses_child', session('ses_child', 'ses_root')],
+      ]),
+    });
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    await windowInstance.happyDOM.close();
+    resetBackgroundShells();
+    resetBackgroundImages();
+  });
+
+  test('a running command with a sync runtime renders its row instead of looping the subscription', async () => {
+    const { OpenCode } = await import('@opencode/client');
+    const { SyncProvider } = await import('@/sync/sync-context');
+    const sdk = OpenCode.make({ baseUrl: 'http://strip.test', fetch: () => new Promise<Response>(() => undefined) });
+    await start(shell('sh_1', 'ses_root', 'bun run dev --port 5391'));
+    await act(async () => {
+      root.render(
+        <I18nProvider>
+          <SyncProvider sdk={sdk} directory="/repo">
+            <BackgroundShellsStrip sessionId="ses_root" directory="/repo" />
+          </SyncProvider>
+        </I18nProvider>,
+      );
+    });
+    expect(host.textContent).toContain('bun run dev --port 5391');
+  });
+});

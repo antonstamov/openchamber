@@ -88,25 +88,38 @@ const useShellOrigins = (
     () => shells.map((shell) => `${shell.sessionID}|${shell.id}`).sort().join('\n'),
     [shells],
   );
-  return useDirectorySync(
+  // The subscription converges only on a stable snapshot: a Map built inline
+  // is a new identity on every snapshot read, which React answers with another
+  // render until it throws "Maximum update depth exceeded". The origins as a
+  // string compare by value instead, and the Map is derived from it.
+  const originsKey = useDirectorySync(
     React.useCallback(
-      (state: State) => {
-        const origins = new Map<string, ShellOrigin>();
-        if (!lookupKey) return origins;
-        for (const entry of lookupKey.split('\n')) {
+      (state: State): string => {
+        if (!lookupKey) return '';
+        return lookupKey.split('\n').map((entry) => {
           const separator = entry.indexOf('|');
-          if (separator === -1) continue;
+          if (separator === -1) return '';
           const sessionID = entry.slice(0, separator);
           const shellID = entry.slice(separator + 1);
-          if (!sessionID || !shellID || origins.has(shellID)) continue;
-          origins.set(shellID, findShellToolOrigin(state, sessionID, shellID));
-        }
-        return origins;
+          if (!sessionID || !shellID) return '';
+          return findShellToolOrigin(state, sessionID, shellID).messageID ?? '';
+        }).join('\n');
       },
       [lookupKey],
     ),
     directory,
   );
+  return React.useMemo(() => {
+    const origins = new Map<string, ShellOrigin>();
+    if (!originsKey) return origins;
+    const shellIDs = lookupKey ? lookupKey.split('\n').map((entry) => entry.slice(entry.indexOf('|') + 1)) : [];
+    originsKey.split('\n').forEach((messageID, index) => {
+      const shellID = shellIDs[index];
+      if (!shellID || origins.has(shellID)) return;
+      origins.set(shellID, messageID ? { messageID } : {});
+    });
+    return origins;
+  }, [lookupKey, originsKey]);
 };
 
 /** Its own leaf, so the once-a-second tick re-renders this text alone. */
