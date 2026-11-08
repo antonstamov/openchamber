@@ -18,11 +18,26 @@ import {
 } from '@/sync/background-shells';
 import { backgroundImagesOfSessions, useBackgroundImagesStore } from '@/sync/background-images';
 import type { RunningImageJob } from '@/lib/opencode/background-image';
+import { useDirectorySync } from '@/sync/sync-context';
+import { requestMessageFocus } from '@/lib/router/messageFocus';
+import { useSessionUIStore } from '@/sync/session-ui-store';
+import type { State } from '@/sync/types';
+import { findShellToolOrigin, type ShellOrigin } from './backgroundShellOrigin';
 
 interface BackgroundShellsStripProps {
   sessionId: string | null;
   directory?: string;
 }
+
+const useHasSyncRuntime = (): boolean => {
+  // SAFETY: `sync-context` publishes its runtime context on globalThis under this key once imported.
+  const syncGlobal = globalThis as unknown;
+  // SAFETY: The published value is exactly `React.Context<unknown>`; reading it directly (instead of
+  // `useSyncRuntime`, which throws) keeps this strip mountable in tests that render it without a `SyncProvider`.
+  const Ctx = (syncGlobal as Record<string, React.Context<unknown>>).__openchamber_sync_runtime_context__;
+  const value = React.useContext(Ctx);
+  return value !== null;
+};
 
 const COMMAND_TOOLTIP_DELAY_MS = 500;
 
@@ -55,6 +70,43 @@ const useSessionTreeImages = (sessionId: string): RunningImageJob[] => {
   return useBackgroundImagesStore(useShallow(React.useCallback((state) => (
     treeIds.size === 0 ? [] : backgroundImagesOfSessions(state.byId, treeIds)
   ), [treeIds])));
+};
+
+/**
+ * Where each background command came from: its tool call's description and
+ * message. A `shell.started` event carries no description, so the strip joins
+ * the shell index (`shellID`, `sessionID` in `@/sync/background-shells`) with
+ * the transcript: the completed `shell` tool part whose metadata names the
+ * same `shellID`. The jump then reuses the message-link request
+ * (`requestMessageFocus`), which scrolls and highlights like any link.
+ */
+const useShellOrigins = (
+  shells: readonly TrackedShell[],
+  directory: string | undefined,
+): ReadonlyMap<string, ShellOrigin> => {
+  const lookupKey = React.useMemo(
+    () => shells.map((shell) => `${shell.sessionID}|${shell.id}`).sort().join('\n'),
+    [shells],
+  );
+  return useDirectorySync(
+    React.useCallback(
+      (state: State) => {
+        const origins = new Map<string, ShellOrigin>();
+        if (!lookupKey) return origins;
+        for (const entry of lookupKey.split('\n')) {
+          const separator = entry.indexOf('|');
+          if (separator === -1) continue;
+          const sessionID = entry.slice(0, separator);
+          const shellID = entry.slice(separator + 1);
+          if (!sessionID || !shellID || origins.has(shellID)) continue;
+          origins.set(shellID, findShellToolOrigin(state, sessionID, shellID));
+        }
+        return origins;
+      },
+      [lookupKey],
+    ),
+    directory,
+  );
 };
 
 /** Its own leaf, so the once-a-second tick re-renders this text alone. */
@@ -117,12 +169,17 @@ const useStopShells = (rootSessionId: string, rootDirectory: string | undefined)
   return { stoppingIds, stop };
 };
 
-const ShellRow: React.FC<{
+export type ShellRowProps = {
   shell: TrackedShell;
   fromSubagent: boolean;
   stopping: boolean;
   onStop: (shell: TrackedShell) => void;
-}> = ({ shell, fromSubagent, stopping, onStop }) => {
+  description?: string;
+  messageID?: string;
+  onGoTo: (shell: TrackedShell, messageID: string) => void;
+};
+
+export const ShellRow: React.FC<ShellRowProps> = ({ shell, fromSubagent, stopping, onStop, description, messageID, onGoTo }) => {
   const { t } = useI18n();
 
   return (
@@ -134,9 +191,14 @@ const ShellRow: React.FC<{
             {shell.command}
           </span>
         </TooltipTrigger>
-        {/* The row shows one truncated line; the tooltip keeps the command's
-            own line breaks and indentation and wraps only overlong lines. */}
+        {/* The row shows one truncated line; the tooltip shows the model's
+            description when the call carried one, then the command's own line
+            breaks and indentation, wrapping only overlong lines. Without a
+            description it stays the command alone. */}
         <TooltipContent side="top" sideOffset={6} className="max-w-[min(36rem,90vw)] [text-wrap:wrap]">
+          {description ? (
+            <div className="typography-meta mb-1 text-muted-foreground [text-wrap:wrap]">{description}</div>
+          ) : null}
           <ScrollableOverlay as="pre" outerClassName="max-h-[50vh]" className="whitespace-pre-wrap break-words font-mono typography-code" disableHorizontal>
             {shell.command}
           </ScrollableOverlay>
@@ -146,6 +208,26 @@ const ShellRow: React.FC<{
         <span className="shrink-0 typography-meta text-muted-foreground">{t('chat.backgroundShells.subagent')}</span>
       ) : null}
       <ShellElapsed startedAt={shell.startedAt} />
+      {messageID ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => onGoTo(shell, messageID)}
+                onMouseDown={(event) => event.preventDefault()}
+                aria-label={t('chat.backgroundShells.goToMessageAria', { command: shell.command })}
+                className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <Icon name="arrow-up" className="size-3.5" aria-hidden="true" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={6}>{t('contextTooltips.chat.shellGoToMessage')}</TooltipContent>
+        </Tooltip>
+      ) : null}
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex shrink-0">
@@ -209,29 +291,39 @@ const ImageRow: React.FC<{ job: RunningImageJob; fromSubagent: boolean }> = ({ j
  * count that expands in place, so the composer grows by one row unless the
  * user asks for the list.
  */
-export const BackgroundShellsStrip: React.FC<BackgroundShellsStripProps> = React.memo(({ sessionId, directory }) => {
+const StripView: React.FC<{
+  sessionId: string;
+  shells: readonly TrackedShell[];
+  images: readonly RunningImageJob[];
+  origins: ReadonlyMap<string, ShellOrigin>;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  listId: string;
+  stoppingIds: ReadonlySet<string>;
+  onStop: (shells: readonly TrackedShell[]) => void;
+  onStopOne: (shell: TrackedShell) => void;
+  onGoTo: (shell: TrackedShell, messageID: string) => void;
+}> = ({ sessionId, shells, images, origins, expanded, onToggleExpanded, listId, stoppingIds, onStop, onStopOne, onGoTo }) => {
   const { t } = useI18n();
-  const shells = useSessionTreeShells(sessionId ?? '');
-  const images = useSessionTreeImages(sessionId ?? '');
-  const [expanded, setExpanded] = React.useState(false);
-  const listId = React.useId();
-  const { stoppingIds, stop } = useStopShells(sessionId ?? '', directory);
-  const stopOne = React.useCallback((shell: TrackedShell) => stop([shell]), [stop]);
 
   const count = shells.length + images.length;
-  if (!sessionId || count === 0) return null;
-
   const ariaLabel = images.length === 0 ? t('chat.backgroundShells.aria') : t('chat.backgroundWork.aria');
   const rows = [
-    ...shells.map((shell) => (
-      <ShellRow
-        key={shell.id}
-        shell={shell}
-        fromSubagent={shell.sessionID !== sessionId}
-        stopping={stoppingIds.has(shell.id)}
-        onStop={stopOne}
-      />
-    )),
+    ...shells.map((shell) => {
+      const origin = origins.get(shell.id);
+      return (
+        <ShellRow
+          key={shell.id}
+          shell={shell}
+          fromSubagent={shell.sessionID !== sessionId}
+          stopping={stoppingIds.has(shell.id)}
+          onStop={onStopOne}
+          description={origin?.description}
+          messageID={origin?.messageID}
+          onGoTo={onGoTo}
+        />
+      );
+    }),
     ...images.map((job) => <ImageRow key={job.id} job={job} fromSubagent={job.sessionID !== sessionId} />),
   ];
 
@@ -254,7 +346,7 @@ export const BackgroundShellsStrip: React.FC<BackgroundShellsStripProps> = React
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setExpanded((value) => !value)}
+              onClick={onToggleExpanded}
               onMouseDown={(event) => event.preventDefault()}
               aria-expanded={expanded}
               aria-controls={expanded ? listId : undefined}
@@ -281,7 +373,7 @@ export const BackgroundShellsStrip: React.FC<BackgroundShellsStripProps> = React
                   variant="ghost"
                   size="sm"
                   disabled={shells.every((shell) => stoppingIds.has(shell.id))}
-                  onClick={() => stop(shells)}
+                  onClick={() => onStop(shells)}
                   onMouseDown={(event) => event.preventDefault()}
                   className={STOP_BUTTON_CLASS}
                 >
@@ -299,6 +391,83 @@ export const BackgroundShellsStrip: React.FC<BackgroundShellsStripProps> = React
         </div>
       ) : null}
     </div>
+  );
+};
+
+/** Origins need the directory sync store, so only this subtree requires a `SyncProvider`. */
+const StripWithOrigins: React.FC<{
+  sessionId: string;
+  directory?: string;
+  shells: readonly TrackedShell[];
+  images: readonly RunningImageJob[];
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  listId: string;
+  stoppingIds: ReadonlySet<string>;
+  onStop: (shells: readonly TrackedShell[]) => void;
+  onStopOne: (shell: TrackedShell) => void;
+  onGoTo: (shell: TrackedShell, messageID: string) => void;
+}> = ({ directory, shells, ...rest }) => {
+  const origins = useShellOrigins(shells, directory);
+  return <StripView shells={shells} origins={origins} {...rest} />;
+};
+
+const EMPTY_ORIGINS: ReadonlyMap<string, ShellOrigin> = new Map();
+
+export const BackgroundShellsStrip: React.FC<BackgroundShellsStripProps> = React.memo(({ sessionId, directory }) => {
+  const shells = useSessionTreeShells(sessionId ?? '');
+  const images = useSessionTreeImages(sessionId ?? '');
+  const hasRuntime = useHasSyncRuntime();
+  const [expanded, setExpanded] = React.useState(false);
+  const listId = React.useId();
+  const { stoppingIds, stop } = useStopShells(sessionId ?? '', directory);
+  const stopOne = React.useCallback((shell: TrackedShell) => stop([shell]), [stop]);
+  const toggleExpanded = React.useCallback(() => setExpanded((value) => !value), []);
+  const goToMessage = React.useCallback((shell: TrackedShell, messageID: string) => {
+    // The row itself stays non-clickable to avoid accidental jumps; only this
+    // button navigates, through the same message-link request links and search
+    // use, so older history loads and the target highlights.
+    if (shell.sessionID !== sessionId) {
+      useSessionUIStore.getState().setCurrentSession(shell.sessionID, shell.directory);
+    }
+    requestMessageFocus(shell.sessionID, messageID);
+  }, [sessionId]);
+
+  const count = shells.length + images.length;
+  if (!sessionId || count === 0) return null;
+
+  if (!hasRuntime) {
+    return (
+      <StripView
+        sessionId={sessionId}
+        shells={shells}
+        images={images}
+        origins={EMPTY_ORIGINS}
+        expanded={expanded}
+        onToggleExpanded={toggleExpanded}
+        listId={listId}
+        stoppingIds={stoppingIds}
+        onStop={stop}
+        onStopOne={stopOne}
+        onGoTo={goToMessage}
+      />
+    );
+  }
+
+  return (
+    <StripWithOrigins
+      sessionId={sessionId}
+      directory={directory}
+      shells={shells}
+      images={images}
+      expanded={expanded}
+      onToggleExpanded={toggleExpanded}
+      listId={listId}
+      stoppingIds={stoppingIds}
+      onStop={stop}
+      onStopOne={stopOne}
+      onGoTo={goToMessage}
+    />
   );
 });
 

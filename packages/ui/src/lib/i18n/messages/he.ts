@@ -716,6 +716,7 @@ export const dict = {
   'chat.backgroundShells.stop': 'עצור',
   'chat.backgroundShells.stopAll': 'עצור הכול',
   'chat.backgroundShells.stopAria': 'עצור את {command}',
+  'chat.backgroundShells.goToMessageAria': 'עבור להודעה של {command}',
   'chat.backgroundShells.elapsed': 'פועלת כבר {duration}',
   'chat.backgroundWork.aria': 'עבודה ברקע',
   'chat.backgroundWork.count': 'ברקע: {count}',

@@ -603,6 +603,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.backgroundShells.stop': 'Zatrzymaj',
   'chat.backgroundShells.stopAll': 'Zatrzymaj wszystkie',
   'chat.backgroundShells.stopAria': 'Zatrzymaj {command}',
+  'chat.backgroundShells.goToMessageAria': 'Przejdź do wiadomości dla {command}',
   'chat.backgroundShells.elapsed': 'Działa od {duration}',
   'chat.backgroundWork.aria': 'Praca w tle',
   'chat.backgroundWork.count': 'W tle: {count}',

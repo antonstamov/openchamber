@@ -96,6 +96,7 @@ import {
     isWebSearchTool,
     subagentAgent,
     subagentDescription,
+    shellDescription,
     isWriteTool,
     normalizeToolName,
     soleOpenChamberCall,
@@ -1747,6 +1748,16 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
     );
     const description = guestHeader?.subtitle ?? builtInDescription;
     const displayName = guestHeader?.title ?? getToolMetadata(normalizedPartTool || part.tool).displayName;
+    // A shell call's own text stays the command; the model's `input.description`
+    // (when OpenCode provides one) is shown as the hover tooltip, so the row
+    // keeps its copy/expand/status actions and long commands still wrap there.
+    const shellHumanDescription = React.useMemo(() => {
+        if (!isShellTool(normalizedPartTool) || guestHeader?.subtitle) return undefined;
+        return shellDescription(input);
+    }, [guestHeader?.subtitle, input, normalizedPartTool]);
+    const shellTooltip = shellHumanDescription && shellHumanDescription !== description
+        ? shellHumanDescription
+        : undefined;
 
     // Opened, the body already carries the whole error and output.
     const failureDetail = isError && !isExpanded ? failureReason : undefined;
@@ -2068,6 +2079,17 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
                             {!justificationText && description && (
                                 descriptionPath && description === descriptionPath ? (
                                     renderAnimatedPathWithIcon(descriptionPath, animateTailText, false, showToolFileIcons)
+                                ) : shellTooltip ? (
+                                    <HoverTooltip label={shellTooltip}>
+                                        <Text
+                                            variant={animateTailText ? 'generate-effect' : 'static'}
+                                            className={cn('min-w-0 truncate', TOOL_ROW_DESCRIPTION_CLASS)}
+                                            style={{ color: 'var(--tools-description)' }}
+                                            title={shellTooltip}
+                                        >
+                                            {description}
+                                        </Text>
+                                    </HoverTooltip>
                                 ) : (
                                     <Text
                                         variant={animateTailText ? 'generate-effect' : 'static'}

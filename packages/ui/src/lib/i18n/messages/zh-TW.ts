@@ -803,6 +803,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.backgroundShells.stop': '停止',
   'chat.backgroundShells.stopAll': '全部停止',
   'chat.backgroundShells.stopAria': '停止 {command}',
+  'chat.backgroundShells.goToMessageAria': '前往 {command} 的訊息',
   'chat.backgroundShells.elapsed': '已執行 {duration}',
   'chat.backgroundWork.aria': '背景工作',
   'chat.backgroundWork.count': '背景：{count}',

@@ -199,6 +199,13 @@ describe('BackgroundShellsStrip', () => {
     }
   });
 
+  test('without a loaded tool call there is no jump button', async () => {
+    await start(shell('sh_1', 'ses_root', 'bun run dev --port 5391'));
+    expect(host.textContent).toContain('bun run dev --port 5391');
+    expect(host.querySelector('button[aria-label^="Go to message"]')).toBeNull();
+    expect(host.querySelector('button[aria-label^="Перейти к сообщению"]')).toBeNull();
+  });
+
   test('an image the session generates is its own row, without a stop', async () => {
     await startImage('image_1', 'ses_root', '/repo/assets/hero');
     expect(host.textContent).toContain('Generating an image');

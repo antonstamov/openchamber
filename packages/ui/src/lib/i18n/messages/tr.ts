@@ -695,6 +695,7 @@ export const dict = {
   'chat.backgroundShells.stop': 'Durdur',
   'chat.backgroundShells.stopAll': 'Tümünü durdur',
   'chat.backgroundShells.stopAria': '{command} komutunu durdur',
+  'chat.backgroundShells.goToMessageAria': '{command} için iletiye git',
   'chat.backgroundShells.elapsed': '{duration} süredir çalışıyor',
   'chat.backgroundWork.aria': 'Arka plandaki iş',
   'chat.backgroundWork.count': 'Arka planda: {count}',

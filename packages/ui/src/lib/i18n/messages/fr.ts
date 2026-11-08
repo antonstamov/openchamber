@@ -615,6 +615,7 @@ export const dict = {
   'chat.backgroundShells.stop': 'Arrêter',
   'chat.backgroundShells.stopAll': 'Tout arrêter',
   'chat.backgroundShells.stopAria': 'Arrêter {command}',
+  'chat.backgroundShells.goToMessageAria': 'Aller au message pour {command}',
   'chat.backgroundShells.elapsed': 'En cours depuis {duration}',
   'chat.backgroundWork.aria': 'Travail en arrière-plan',
   'chat.backgroundWork.count': 'En arrière-plan : {count}',
