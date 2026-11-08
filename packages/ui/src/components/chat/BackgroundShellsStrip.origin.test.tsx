@@ -58,27 +58,15 @@ describe('findShellToolOrigin', () => {
     part: { msg_1: parts },
   });
 
-  test('returns the model description and the message holding the call', () => {
-    const state = stateWith([toolPart({ command: 'bun run dev', description: 'Start the dev server' }, 'sh_1')]);
-    expect(findShellToolOrigin(state, 'ses_root', 'sh_1')).toEqual({
-      description: 'Start the dev server',
-      messageID: 'msg_1',
-    });
-  });
-
-  test('returns only the message when the call carries no description', () => {
+  test('returns the message holding the call', () => {
     const state = stateWith([toolPart({ command: 'bun run dev' }, 'sh_1')]);
     expect(findShellToolOrigin(state, 'ses_root', 'sh_1')).toEqual({ messageID: 'msg_1' });
   });
 
-  test('ignores blank descriptions and foreign shells', () => {
-    const state = stateWith([
-      toolPart({ command: 'bun run dev', description: '   ' }, 'sh_1'),
-      toolPart({ command: 'other', description: 'Other' }, 'sh_other', 'msg_1'),
-    ]);
-    expect(findShellToolOrigin(state, 'ses_root', 'sh_1')).toEqual({ messageID: 'msg_1' });
+  test('ignores foreign shells', () => {
+    const state = stateWith([toolPart({ command: 'other' }, 'sh_other', 'msg_1')]);
     expect(findShellToolOrigin(state, 'ses_root', 'sh_missing')).toEqual({});
-    expect(findShellToolOrigin(state, 'ses_other', 'sh_1')).toEqual({});
+    expect(findShellToolOrigin(state, 'ses_other', 'sh_other')).toEqual({});
   });
 });
 
@@ -121,14 +109,13 @@ describe('ShellRow origin UI', () => {
     try {
       expect(host.textContent).toContain('bun run dev --port 5391');
       expect(host.querySelector('button[aria-label^="Go to message"]')).toBeNull();
-      expect(host.textContent).not.toContain('Start the dev server');
     } finally {
       await act(async () => root.unmount());
       await windowInstance.happyDOM.close();
     }
   });
 
-  test('with a description the tooltip shows it and the jump button works by mouse and keyboard', async () => {
+  test('with an origin the jump button works by mouse and keyboard', async () => {
     const windowInstance = new Window();
     Object.assign(globalThis, {
       window: windowInstance,
@@ -151,7 +138,6 @@ describe('ShellRow origin UI', () => {
               fromSubagent={false}
               stopping={false}
               onStop={() => {}}
-              description="Start the dev server"
               messageID="msg_1"
               onGoTo={(target, messageID) => {
                 jumped = { shellID: target.id, messageID };
@@ -160,7 +146,6 @@ describe('ShellRow origin UI', () => {
           </I18nProvider>,
         );
       });
-      expect(host.textContent).toContain('Start the dev server');
       expect(host.textContent).toContain('bun run dev --port 5391');
       // SAFETY: The selector names a button, so a match is an HTML button element.
       const jump = host.querySelector('button[aria-label="Go to message for bun run dev --port 5391"]') as HTMLButtonElement | null;

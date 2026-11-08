@@ -1,10 +1,8 @@
 import { readBackgroundShellID } from '@/lib/opencode/background-shell';
-import { isShellTool, shellDescription } from '@/lib/opencode/tools';
+import { isShellTool } from '@/lib/opencode/tools';
 import type { Message, Part } from '@/lib/opencode/model';
 
 export type ShellOrigin = {
-  /** The model's `input.description` on the tool call that started the command, when provided. */
-  description?: string;
   /** The message that holds that tool call, for the existing message-link jump. */
   messageID?: string;
 };
@@ -20,12 +18,11 @@ export type ShellOriginLookup = {
 
 /**
  * The tool call that started one background command, if the loaded transcript
- * holds it: its human description and its message.
+ * holds it: its message.
  *
- * A `shell.started` event carries no description, so callers join the shell
- * index (`shellID`, `sessionID` in `@/sync/background-shells`) with the
- * transcript: the completed `shell` tool part whose metadata names the same
- * `shellID`.
+ * Callers join the shell index (`shellID`, `sessionID` in
+ * `@/sync/background-shells`) with the transcript: the `shell` tool part whose
+ * metadata names the same `shellID`.
  */
 export const findShellToolOrigin = (
   state: ShellOriginLookup,
@@ -40,10 +37,7 @@ export const findShellToolOrigin = (
     for (const part of parts) {
       if (part.type !== 'tool' || !isShellTool(part.tool)) continue;
       if (readBackgroundShellID(part) !== shellID) continue;
-      const description = part.state.status === 'completed' || part.state.status === 'running'
-        ? shellDescription(part.state.input)
-        : undefined;
-      return description ? { description, messageID: part.messageID } : { messageID: part.messageID };
+      return { messageID: part.messageID };
     }
   }
   return {};
