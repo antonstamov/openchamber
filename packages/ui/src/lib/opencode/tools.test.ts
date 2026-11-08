@@ -18,6 +18,7 @@ import {
   soleOpenChamberCall,
   renderedPage,
   requestedSecret,
+  shellDescription,
   subagentSessionId,
   toolDescription,
   toolFileDiffs,
@@ -105,6 +106,13 @@ describe("tool row description", () => {
       kind: "text",
       value: "git status",
     })
+  })
+
+  test("shell description reads input.description when the model provided one", () => {
+    expect(shellDescription({ command: "bun run dev", description: "Start the dev server" })).toBe("Start the dev server")
+    expect(shellDescription({ command: "bun run dev", description: "  " })).toBe(undefined)
+    expect(shellDescription({ command: "bun run dev" })).toBe(undefined)
+    expect(shellDescription(undefined)).toBe(undefined)
   })
 
   test("subagent shows the 3-5 word label the model wrote", () => {

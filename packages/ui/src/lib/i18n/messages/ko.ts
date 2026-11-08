@@ -783,6 +783,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.backgroundShells.stop': '중지',
   'chat.backgroundShells.stopAll': '모두 중지',
   'chat.backgroundShells.stopAria': '{command} 중지',
+  'chat.backgroundShells.goToMessageAria': '{command} 메시지로 이동',
   'chat.backgroundShells.elapsed': '{duration} 동안 실행 중',
   'chat.backgroundWork.aria': '백그라운드 작업',
   'chat.backgroundWork.count': '백그라운드: {count}',

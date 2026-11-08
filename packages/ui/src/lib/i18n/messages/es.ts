@@ -787,6 +787,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.backgroundShells.stop": "Detener",
   "chat.backgroundShells.stopAll": "Detener todos",
   "chat.backgroundShells.stopAria": "Detener {command}",
+  "chat.backgroundShells.goToMessageAria": "Ir al mensaje de {command}",
   "chat.backgroundShells.elapsed": "En ejecución desde hace {duration}",
   "chat.backgroundWork.aria": "Trabajo en segundo plano",
   "chat.backgroundWork.count": "En segundo plano: {count}",
