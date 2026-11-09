@@ -122,7 +122,11 @@ jobs:
           bun check -b
 
       - name: Fix the merged tree with the agent
-        if: steps.merge.outputs.status == 'clean' && steps.verify1.outcome == 'failure'
+        # Any red verify gets a fix pass, not just clean merges: a
+        # conflict merge the agent already resolved can still leave the tree
+        # red (e.g. missing translations for new upstream strings), and
+        # without this the run dies at the final verify with no recovery.
+        if: steps.merge.outputs.status != 'up-to-date' && steps.verify1.outcome == 'failure'
         env:
           PROMPT_FILE: .github/fork-merge-prompt.md
         run: |
