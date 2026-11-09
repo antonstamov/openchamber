@@ -12,7 +12,60 @@ const checkResponse = z.object({
   currentVersion: z.string().optional(),
   error: z.string().optional(),
 });
+const healthResponse = z.object({
+  openchamberVersion: z.string().min(1).optional(),
+});
 const errorResponse = z.object({ error: z.string(), code: z.string().optional() });
+
+/**
+ * Whether the restarted server really serves the new interface, not just the
+ * new package metadata. The update check reads the version from package.json
+ * on disk, which the package manager replaces before the restart completes,
+ * while the running process still serves the old (or half-replaced) dist. A
+ * reload on the check alone lands on a missing index.html. The health version
+ * comes from the running process memory, so matching it against the checked
+ * version proves the restart even without a known previous version; a 200
+ * text/html document proves the static route serves again.
+ */
+async function isRestartedServerServingUI(
+  fetchUpdate: typeof runtimeFetch,
+  signal: AbortSignal | undefined,
+  options: { expectedVersion?: string; previousVersion?: string },
+): Promise<boolean> {
+  const expectedVersion = options.expectedVersion === 'unknown' ? undefined : options.expectedVersion;
+  const previousVersion = options.previousVersion === 'unknown' ? undefined : options.previousVersion;
+  try {
+    const health = await fetchUpdate('/health', {
+      headers: { Accept: 'application/json' },
+      signal,
+    });
+    if (!health.ok) return false;
+    const parsed = healthResponse.safeParse(await health.json().catch(() => null));
+    const version = parsed.success ? parsed.data.openchamberVersion : undefined;
+    if (version === undefined || version.length === 0) return false;
+    if (expectedVersion !== undefined) {
+      if (version !== expectedVersion) return false;
+    } else if (previousVersion !== undefined && version === previousVersion) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  try {
+    const document = await fetchUpdate('/', {
+      headers: { Accept: 'text/html' },
+      signal,
+    });
+    if (!document.ok) return false;
+    const contentType = document.headers.get('content-type') || '';
+    if (!contentType.includes('text/html')) return false;
+  } catch {
+    return false;
+  }
+
+  return true;
+}
 
 type UpdateTarget = { owner: 'electron'; version: string } | { owner: 'package-manager' };
 type InstallResult =
@@ -63,7 +116,22 @@ export async function waitForUpdateApplied(
           const applied = target.owner === 'electron'
             ? data.currentVersion === target.version
             : data.available === false || (previousVersion !== undefined && data.currentVersion !== undefined && data.currentVersion !== previousVersion);
-          if (applied) return { status: 'applied' };
+          if (applied) {
+            // The electron updater proves its target version above and keeps
+            // its own behavior. A package-manager install must also prove the
+            // restarted server serves the interface: the check flips when
+            // package.json lands on disk, before the restart serves dist.
+            if (target.owner === 'package-manager') {
+              const serving = await isRestartedServerServingUI(fetchUpdate, signal, {
+                expectedVersion: data.currentVersion,
+                previousVersion,
+              });
+              if (serving) return { status: 'applied' };
+              // Not ready yet: keep polling within the deadline.
+            } else {
+              return { status: 'applied' };
+            }
+          }
         }
       } else {
         const parsed = errorResponse.safeParse(await response.json().catch(() => null));
@@ -73,8 +141,8 @@ export async function waitForUpdateApplied(
         // Package-manager restarts can replace the browser session. A native
         // update must still prove its target version after authentication.
         if (target.owner === 'package-manager' && (response.status === 401 || response.status === 403)) {
-          const health = await fetchUpdate('/health', { headers: { Accept: 'application/json' }, signal });
-          if (health.ok) return { status: 'applied' };
+          const serving = await isRestartedServerServingUI(fetchUpdate, signal, { previousVersion });
+          if (serving) return { status: 'applied' };
         }
       }
     } catch {
