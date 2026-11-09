@@ -458,7 +458,7 @@ describe('getUpdateCommand', () => {
     const sdk = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-sdk-1.10.0.tgz';
     const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, sdkDownloadUrl: sdk });
     const overlay = `node ${quoteArg(joinOverlayPath())} ${quoteArg(sdk)} ${quoteArg(joinNestedSdkDir())} ${quoteArg('1.10.0')}`;
-    expect(command).toBe(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)} && ${overlay}`);
+    expect(command).toBe(`npm install -g --allow-remote=root ${quoteArg(sdk)} ${quoteArg(web)} && ${overlay}`);
     expect(command).not.toContain('@openchamber/web@');
   });
 
@@ -482,9 +482,9 @@ describe('getUpdateCommand', () => {
   it('quotes the tarball install per platform', () => {
     const web = 'https://example.invalid/a b.tgz';
     expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, platform: 'linux' }))
-      .toContain(`install -g ${quoteArg(web, 'linux')}`);
+      .toContain(`install -g --allow-remote=root ${quoteArg(web, 'linux')}`);
     expect(getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web, platform: 'win32' }))
-      .toContain(`install -g ${quoteArg(web, 'win32')}`);
+      .toContain(`install -g --allow-remote=root ${quoteArg(web, 'win32')}`);
     expect(quoteArg(web, 'linux')).toBe(`'https://example.invalid/a b.tgz'`);
     expect(quoteArg(web, 'win32')).toBe(`"https://example.invalid/a b.tgz"`);
   });
@@ -508,7 +508,7 @@ describe('getUpdateCommand', () => {
   it('installs the release tarball per package manager', () => {
     const web = 'https://example.invalid/openchamber-web-1.10.0.tgz';
     for (const [pm, install] of [
-      ['npm', `npm install -g ${quoteArg(web)}`],
+      ['npm', `npm install -g --allow-remote=root ${quoteArg(web)}`],
       ['yarn', `yarn global add ${quoteArg(web)}`],
       ['bun', `add -g ${quoteArg(web)}`],
       ['pnpm', `add -g ${quoteArg(web)}`],
@@ -523,7 +523,7 @@ describe('getUpdateCommand', () => {
     const web = 'https://github.com/antonstamov/openchamber/releases/download/v1.10.0/openchamber-web-1.10.0.tgz';
     const command = getUpdateCommand('npm', { targetVersion: '1.10.0', downloadUrl: web });
     expect(command).not.toContain('openchamber-guest-bundle');
-    expect(command).toContain(`npm install -g ${quoteArg(web)}`);
+    expect(command).toContain(`npm install -g --allow-remote=root ${quoteArg(web)}`);
   });
 
   it('rejects a target version that is not a concrete version', () => {
@@ -731,7 +731,7 @@ describe('executeUpdate', () => {
     // A healthy install runs the plain command once: the in-process cleanup
     // runs only before a retry over a broken install.
     expect(shellRuns[0]).not.toContain('openchamber-guest-bundle');
-    expect(shellRuns[0]).toContain(`npm install -g ${quoteArg(sdk)} ${quoteArg(web)}`);
+    expect(shellRuns[0]).toContain(`npm install -g --allow-remote=root ${quoteArg(sdk)} ${quoteArg(web)}`);
     expect(shellRuns[0]).toContain('fork-sdk-overlay.js');
     expect(shellRuns[0]).toContain(sdk);
   });

@@ -751,13 +751,17 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
     const pmCommand = quoteCommand(resolvedCommand, platform);
     const quote = (value) => quoteArg(value, platform);
     const allowBuild = pm === 'pnpm' ? getPnpmAllowBuildFlags(resolvedCommand) : '';
+    // npm 12 refuses to fetch a remote tarball (`EALLOWREMOTE`) unless the
+    // allow-remote policy says so; our specs here are exactly the release
+    // tarballs. Older npm treats the flag as an ordinary config value.
+    const allowRemote = pm === 'npm' ? ' --allow-remote=root' : '';
     const installSpec = (...specs) => pm === 'pnpm'
       ? `${pmCommand} add -g${allowBuild} ${specs.map(quote).join(' ')}`
       : pm === 'yarn'
         ? `${pmCommand} global add ${specs.map(quote).join(' ')}`
         : pm === 'bun'
           ? `${pmCommand} add -g ${specs.map(quote).join(' ')}`
-          : `${pmCommand} install -g ${specs.map(quote).join(' ')}`;
+          : `${pmCommand} install -g${allowRemote} ${specs.map(quote).join(' ')}`;
     // The install step stays a plain install: stale bin entries are dropped
     // in-process by the caller (executeUpdate before its retry, the
     // install route before spawning), never as an embedded shell step.
