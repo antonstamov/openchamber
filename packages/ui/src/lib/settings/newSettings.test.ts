@@ -65,18 +65,19 @@ afterAll(() => {
 });
 
 describe('new settings badge', () => {
-  test('leaving a page marks even its hidden controls seen', () => {
+  test('unavailable controls stay pending when their page is opened', () => {
     startFromBaseline(baselineWithout('appearance.dock-badge', 'appearance.language'));
     expect(getPages(runtimeCtx)).toEqual(['appearance']);
     acknowledgePage('appearance', runtimeCtx);
     expect(getPages(runtimeCtx)).toEqual([]);
     expect(storedBaseline()).toContain('appearance.language');
-    expect(storedBaseline()).toContain('appearance.dock-badge');
+    expect(storedBaseline()).not.toContain('appearance.dock-badge');
 
-    // The page was seen, so no layout re-announces it.
+    // The dock badge moved to General's Desktop app section, so a Mac layout
+    // announces it there.
     const macCtx = { ...runtimeCtx, isDesktop: true, isWeb: false, isMac: true };
-    expect(getPages(macCtx)).toEqual([]);
-    acknowledgePage('appearance', macCtx);
+    expect(getPages(macCtx)).toEqual(['general']);
+    acknowledgePage('general', macCtx);
     expect(getPages(macCtx)).toEqual([]);
     resetNewSettingsBadgeCacheForTests();
     expect(getPages(macCtx)).toEqual([]);
@@ -85,7 +86,9 @@ describe('new settings badge', () => {
   test('leaving a badgeless page still marks its hidden controls seen', () => {
     startFromBaseline(baselineWithout('appearance.dock-badge'));
     expect(getPages(runtimeCtx)).toEqual([]);
-    acknowledgePage('appearance', runtimeCtx);
+    // The dock badge lives on the general page now: leaving general marks it
+    // seen even where this layout hides it.
+    acknowledgePage('general', runtimeCtx);
     expect(storedBaseline()).toContain('appearance.dock-badge');
     resetNewSettingsBadgeCacheForTests();
     expect(getPages({ ...runtimeCtx, isDesktop: true, isMac: true })).toEqual([]);
