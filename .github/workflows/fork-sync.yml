@@ -8,8 +8,11 @@ name: Fork sync and release
 
 on:
   schedule:
-    # 08:00 UTC is 11:00 in Moscow.
-    - cron: '0 8 * * *'
+    # 03:00 UTC is 06:00 in Moscow (MSK is UTC+3, no DST). Off-peak hours,
+    # because GitHub queues scheduled runs: the early slot leaves hours of
+    # margin before the 11:30 MSK watchdog, which triggers the workflow
+    # itself when the scheduled run has not appeared.
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       model:
