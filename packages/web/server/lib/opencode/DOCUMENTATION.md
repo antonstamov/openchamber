@@ -1156,6 +1156,15 @@ headers }` or v1 `{ npm, options }`. The stored entry is always a
 - Returned API:
   - `registerStaticRoutes(app)`
 
+### Why a missing index.html answers 503 with a self-reloading page and not 404
+
+A package-manager install replaces dist under the running server before the
+restart, so the SPA fallback's `sendFile(index.html)` can fail while the API
+is healthy. Express would answer that failure as plain-text `NotFoundError`.
+The fallback instead answers 503 `text/html` with `Cache-Control: no-store`
+and `Retry-After: 2` plus a meta refresh and a timed reload, so a manual
+reload in that window waits for the new server instead of showing plain text.
+
 ## Public exports (feature-routes-runtime.js)
 - `createFeatureRoutesRuntime(dependencies)`: creates runtime for main feature route registration orchestration.
 - Returned API:
@@ -1189,7 +1198,12 @@ ordinary availability checks remain usable so a browser reload can offer a
 retry. Starting another installation clears the previous restart error.
 The shared UI's `lib/web-update.ts` parses install/check responses and waits
 for the installed native target version, rather than treating absence of a
-newer release as installation success. Poll requests have individual deadlines
+newer release as installation success. A package-manager install additionally
+waits for the restarted server to serve the interface: the check flips when
+package.json lands on disk, before the restart, so the client requires
+`/health` to report the checked version plus a 200 `text/html` document
+before reloading.
+Poll requests have individual deadlines
 within a ten-minute overall deadline.
 
 - `registerOpenChamberRoutes(app, dependencies)`: registers OpenChamber endpoints:

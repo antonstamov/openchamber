@@ -76,7 +76,96 @@ describe('browser host updates', () => {
 
   test('preserves package-manager completion after a version change', async () => {
     const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
-      fetchUpdate: async () => Response.json({ available: false, currentVersion: '1.22.3' }),
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          return Response.json({ status: 'ok', openchamberVersion: '1.22.3' });
+        }
+        if (String(url) === '/') {
+          return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
+    });
+    expect(result).toEqual({ status: 'applied' });
+  });
+
+  test('holds a package-manager reload while health still reports the old version', async () => {
+    let polls = 0;
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
+      intervalMs: 1, maxWaitMs: 1000,
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          polls += 1;
+          // package.json already flipped, but the process has not restarted.
+          return Response.json({ status: 'ok', openchamberVersion: polls < 3 ? '1.22.2' : '1.22.3' });
+        }
+        if (String(url) === '/') {
+          return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
+    });
+    expect(polls).toBeGreaterThan(1);
+    expect(result).toEqual({ status: 'applied' });
+  });
+
+  test('holds a package-manager reload while the document is not servable', async () => {
+    let polls = 0;
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
+      intervalMs: 1, maxWaitMs: 1000,
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          return Response.json({ status: 'ok', openchamberVersion: '1.22.3' });
+        }
+        if (String(url) === '/') {
+          polls += 1;
+          // The restarted server answers, but dist is not served yet: the
+          // waiting page is 503 text/html, not a servable document.
+          if (polls === 1) {
+            return new Response('OpenChamber is updating', {
+              status: 503,
+              headers: { 'content-type': 'text/html; charset=utf-8' },
+            });
+          }
+          return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
+    });
+    expect(polls).toBeGreaterThan(1);
+    expect(result).toEqual({ status: 'applied' });
+  });
+
+  test('holds a package-manager reload without a known previous version until health matches the check', async () => {
+    let polls = 0;
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, undefined, {
+      intervalMs: 1, maxWaitMs: 1000,
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          polls += 1;
+          return Response.json({ status: 'ok', openchamberVersion: polls < 3 ? '1.22.2' : '1.22.3' });
+        }
+        if (String(url) === '/') {
+          return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
+    });
+    expect(polls).toBeGreaterThan(1);
+    expect(result).toEqual({ status: 'applied' });
+  });
+
+  test('completes a same-version package-manager install once the document is servable', async () => {
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.3', {
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          return Response.json({ status: 'ok', openchamberVersion: '1.22.3' });
+        }
+        if (String(url) === '/') {
+          return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
     });
     expect(result).toEqual({ status: 'applied' });
   });

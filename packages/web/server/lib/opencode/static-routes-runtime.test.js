@@ -72,6 +72,32 @@ describe('static file caching', () => {
     expect(favicon.headers['cache-control']).toBe('public, max-age=0');
     expect(serviceWorker.headers['cache-control']).toBe('no-store');
   });
+
+  it('serves the document when dist is complete', async () => {
+    const response = await request(serve()).get('/');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('<!doctype html>');
+  });
+
+  it('answers a self-retrying waiting page while index.html is missing', async () => {
+    const emptyDist = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-static-routes-empty-'));
+    try {
+      const app = express();
+      createServingRuntime(emptyDist).registerStaticRoutes(app);
+
+      const response = await request(app).get('/');
+
+      expect(response.status).toBe(503);
+      expect(response.headers['content-type']).toContain('text/html');
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(response.headers['retry-after']).toBe('2');
+      expect(response.text).toContain('OpenChamber is updating');
+      expect(response.text).toContain('window.location.reload()');
+    } finally {
+      fs.rmSync(emptyDist, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('static routes runtime', () => {

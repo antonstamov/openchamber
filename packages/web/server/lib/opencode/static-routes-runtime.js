@@ -16,6 +16,41 @@ export const createStaticRoutesRuntime = (dependencies) => {
     isRequestAuthorized,
   } = dependencies;
 
+  // A package-manager install replaces dist under the running server before
+  // the restart: the document request then finds no index.html and Express
+  // answers plain-text NotFoundError. The waiting page keeps a manual reload
+  // in that window (and an early client reload) on a self-retrying 503
+  // instead of a plain-text 404.
+  const UPDATE_RETRY_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenChamber is updating</title>
+<meta http-equiv="refresh" content="2">
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#151313;color:#cdccc3}main{text-align:center;padding:32px}p{opacity:.7;font-size:14px}</style>
+</head>
+<body>
+<main>
+<h1>OpenChamber is updating</h1>
+<p>The new version is starting. This page reloads automatically.</p>
+</main>
+<script>window.setTimeout(function(){window.location.reload();},2000);</script>
+</body>
+</html>`;
+
+  const sendIndexHtmlOrWaiting = (res, file) => {
+    res.sendFile(file, (error) => {
+      if (error && !res.headersSent) {
+        res.status(503).set({
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'Retry-After': '2',
+        }).send(UPDATE_RETRY_HTML);
+      }
+    });
+  };
+
   const resolveDistPath = () => {
     const env = typeof process.env.OPENCHAMBER_DIST_DIR === 'string' ? process.env.OPENCHAMBER_DIST_DIR.trim() : '';
     if (env) {
@@ -58,7 +93,7 @@ export const createStaticRoutesRuntime = (dependencies) => {
       });
 
       app.get(/^(?!\/api|\/linear|.*\.(js|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|map)).*$/, (_req, res) => {
-        res.sendFile(path.join(distPath, 'index.html'));
+        sendIndexHtmlOrWaiting(res, path.join(distPath, 'index.html'));
       });
       return;
     }
