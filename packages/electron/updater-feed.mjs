@@ -18,30 +18,14 @@ export const CANARY_UPDATER_FEED = Object.freeze({
   url: 'https://github.com/antonstamov/openchamber/releases/download/canary/',
 });
 
-// Both channels are mirrored to Cloudflare R2 (scripts/release-mirror):
-// release.yml copies each Stable release, canary.yml each night. The same
-// files and manifests as on GitHub, served by Cloudflare, which stays up when
-// GitHub's release downloads fail and downloads faster. GitHub stays the
-// fallback.
-export const STABLE_MIRROR_UPDATER_FEED = Object.freeze({
-  provider: 'generic',
-  url: 'https://downloads.openchamber.dev/desktop/stable/',
-});
-
-export const CANARY_MIRROR_UPDATER_FEED = Object.freeze({
-  provider: 'generic',
-  url: 'https://downloads.openchamber.dev/desktop/canary/',
-});
-
-// After the mirror fails a check or a download, the app reads GitHub for this
-// long before trying the mirror again, so a broken mirror costs one failed
-// request, not one per check.
-export const MIRROR_FAILURE_BACKOFF_MS = 60 * 60 * 1000;
-
-/** The source a check reads: the mirror unless it failed within the backoff, GitHub otherwise. */
-export const pickUpdaterSource = ({ mirrorFailedAt = null, now = Date.now() } = {}) => (
-  mirrorFailedAt === null || now - mirrorFailedAt >= MIRROR_FAILURE_BACKOFF_MS ? 'mirror' : 'github'
-);
+// Fork: this fork publishes no mirror. Upstream reads its Stable and Canary
+// channels from Cloudflare R2 first (downloads.openchamber.dev) with GitHub
+// as the fallback; the fork has no R2 keys and never uploads there, so the
+// app reads GitHub directly. The mirror feed constants and the failure
+// backoff were removed on purpose: a mirror-first chain would serve upstream
+// builds here. pickUpdaterSource stays and always answers 'github' so
+// existing callers keep working.
+export const pickUpdaterSource = () => 'github';
 
 // Where the app takes its updates from: the releases, or the nightly Canary
 // build. The person picks it in Settings → About; the app installs the next
@@ -90,11 +74,10 @@ export const resolveUpdaterFeed = ({
   environment = process.env,
   testBuild = false,
   channel = 'stable',
-  source = 'github',
 } = {}) => {
   const productionFeed = channel === 'canary'
-    ? (source === 'mirror' ? CANARY_MIRROR_UPDATER_FEED : CANARY_UPDATER_FEED)
-    : (source === 'mirror' ? STABLE_MIRROR_UPDATER_FEED : PRODUCTION_UPDATER_FEED);
+    ? CANARY_UPDATER_FEED
+    : PRODUCTION_UPDATER_FEED;
   if (environment.OPENCHAMBER_E2E !== '1'
     || testBuild !== true) {
     return productionFeed;

@@ -104,14 +104,11 @@ import { menuAccelerator, normalizeMenuShortcuts } from './menu-shortcuts.mjs';
 import { createCopyLinkMenuHook } from './context-menu-clipboard.mjs';
 import { createCopyMenuAction } from './menu-copy-action.mjs';
 import {
-  CANARY_MIRROR_UPDATER_FEED,
   CANARY_UPDATER_FEED,
   PRODUCTION_UPDATER_FEED,
-  STABLE_MIRROR_UPDATER_FEED,
   isCanaryVersion,
   isUpdateChannel,
   normalizeUpdateChannel,
-  pickUpdaterSource,
   resolveUpdaterFeed,
 } from './updater-feed.mjs';
 import {
@@ -333,13 +330,11 @@ const state = {
   // path may end the process: the update sequence owns the exit.
   updateInstallPending: false,
   pendingUpdate: null,
-  // The channel and source ('mirror' or 'github') the updater's feed was last
-  // pointed at (applyUpdaterChannel), and the update check in flight, if any.
+  // The channel the updater's feed was last pointed at (applyUpdaterChannel),
+  // and the update check in flight, if any.
   updaterChannel: null,
-  updaterSource: null,
-  // When the Stable mirror last failed a check or a download; checks read
-  // GitHub for a while after (pickUpdaterSource).
-  updaterMirrorFailedAt: null,
+  // Fork: no mirror, so no updaterSource or mirror-failure backoff. Upstream
+  // keeps both in main.mjs next to pickUpdaterSource.
   updateCheck: null,
   updateDownloadPromise: null,
   updateDownloadVersion: null,
@@ -3667,15 +3662,16 @@ const readUpdateChannel = () => normalizeUpdateChannel(readSettingsRoot().deskto
  * stored channel, so a switch takes effect on the next check without a
  * restart. Stable from a Canary build allows the downgrade to the latest
  * release, which is the way back; a release build never downgrades.
+ * Fork: GitHub is the only feed, there is no mirror to fall back from.
  */
-const applyUpdaterChannel = (channel, source = pickUpdaterSource({ mirrorFailedAt: state.updaterMirrorFailedAt })) => {
-  if (state.updaterChannel === channel && state.updaterSource === source) return;
+const applyUpdaterChannel = (channel) => {
+  if (state.updaterChannel === channel) return;
   // An update found on the other channel is not this channel's; the next
   // check starts clean (a failed feed otherwise keeps it, #5921).
   if (state.updaterChannel !== null && state.updaterChannel !== channel) state.pendingUpdate = null;
-  const feed = resolveUpdaterFeed({ testBuild: UPDATER_E2E_BUILD, channel, source });
+  const feed = resolveUpdaterFeed({ testBuild: UPDATER_E2E_BUILD, channel });
   // Every published feed carries the Windows ARM64 manifest; the E2E fixture does not.
-  const updaterChannel = [PRODUCTION_UPDATER_FEED, CANARY_UPDATER_FEED, STABLE_MIRROR_UPDATER_FEED, CANARY_MIRROR_UPDATER_FEED].includes(feed)
+  const updaterChannel = [PRODUCTION_UPDATER_FEED, CANARY_UPDATER_FEED].includes(feed)
     ? resolveUpdaterChannel({ platform: process.platform, architecture: process.arch })
     : null;
   if (updaterChannel) {
@@ -3684,10 +3680,8 @@ const applyUpdaterChannel = (channel, source = pickUpdaterSource({ mirrorFailedA
   autoUpdater.setFeedURL(feed);
   autoUpdater.allowDowngrade = channel === 'stable' && isCanaryVersion(APP_VERSION);
   state.updaterChannel = channel;
-  state.updaterSource = source;
   log.info('[electron] updater feed configured', {
     channel,
-    source,
     provider: feed.provider,
     target: feed.provider === 'github' ? `${feed.owner}/${feed.repo}` : feed.url,
     manifest: updaterChannel || 'latest',
@@ -5155,32 +5149,13 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       }
       const channel = readUpdateChannel();
       applyUpdaterChannel(channel);
-      // The source this check started on. A check running beside it can fall
-      // back first and move the shared state to GitHub; this one still owes
-      // its caller the same fallback.
-      const startedOn = state.updaterSource;
       const currentVersion = APP_VERSION;
       const runCheck = () => checkForDesktopUpdate({
         autoUpdater,
         currentVersion,
         pendingUpdate: state.pendingUpdate,
-        missingFeedIsError: state.updaterSource === 'mirror',
       });
-      // The whole check, the GitHub retry included, is what a channel switch
-      // waits for: a switch that ran between the two would have its feed
-      // replaced by the retry.
-      const check = (async () => {
-        try {
-          return await runCheck();
-        } catch (error) {
-          if (startedOn !== 'mirror') throw error;
-          // The mirror failed: GitHub answers this check and the next ones for a while.
-          log.warn('[electron] update mirror failed, checking GitHub', error instanceof Error ? error.message : String(error));
-          state.updaterMirrorFailedAt = Date.now();
-          applyUpdaterChannel(channel, 'github');
-          return runCheck();
-        }
-      })();
+      const check = runCheck();
       state.updateCheck = check;
       let result;
       try {
@@ -5226,11 +5201,6 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
           data: {},
         }));
         return null;
-      } catch (error) {
-        // A retry checks first (useUpdateStore.downloadUpdate), so marking the
-        // mirror failed sends the retry's check and download to GitHub.
-        if (state.updaterSource === 'mirror') state.updaterMirrorFailedAt = Date.now();
-        throw error;
       } finally {
         setTaskbarProgress(-1);
       }

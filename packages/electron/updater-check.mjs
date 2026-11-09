@@ -42,10 +42,10 @@ export const isDowngrade = (nextVersion, currentVersion) => {
 };
 
 /**
- * `missingFeedIsError`: the Stable mirror always carries the manifests, so a
- * 404 there means the mirror is broken and GitHub should be asked instead.
+ * A missing feed on GitHub means no release for this platform yet, so the
+ * check reports "no update". A failed feed must preserve an existing package.
  */
-export const checkForDesktopUpdate = async ({ autoUpdater, currentVersion, pendingUpdate, missingFeedIsError = false }) => {
+export const checkForDesktopUpdate = async ({ autoUpdater, currentVersion, pendingUpdate }) => {
   let updateResult;
   try {
     updateResult = await autoUpdater.checkForUpdates();
@@ -53,7 +53,7 @@ export const checkForDesktopUpdate = async ({ autoUpdater, currentVersion, pendi
     // Before the first Linux (or platform) release publishes its feed, electron-updater
     // returns 404 for latest-*.yml. With no pending package, keep the first-release
     // "no update" behavior. A failed feed must preserve an existing package.
-    if (isMissingUpdateFeedError(error) && !pendingUpdate && !missingFeedIsError) {
+    if (isMissingUpdateFeedError(error) && !pendingUpdate) {
       return {
         available: false,
         updateInfo: null,

@@ -181,11 +181,13 @@ test('drops the downloaded payload when a newer version appears', async () => {
   assert.equal(result.pendingUpdate.downloaded, undefined);
 });
 
-test('a missing manifest on the mirror is a failed check, so GitHub is asked', async () => {
-  await assert.rejects(checkForDesktopUpdate({
+test('a missing manifest on GitHub means no release for this platform yet', async () => {
+  const result = await checkForDesktopUpdate({
     autoUpdater: { checkForUpdates: async () => { throw new Error('HttpError: 404 Not Found'); } },
     currentVersion: '2.7.0',
     pendingUpdate: null,
-    missingFeedIsError: true,
-  }), /Unable to check for updates \(HTTP 404\)/);
+  });
+  assert.equal(result.available, false);
+  assert.equal(result.pendingUpdate, null);
+  assert.equal(result.nextVersion, '2.7.0');
 });
