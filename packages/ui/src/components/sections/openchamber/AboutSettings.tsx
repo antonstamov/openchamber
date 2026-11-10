@@ -31,7 +31,7 @@ import {
   SETTINGS_BRAND_TITLE_CLASS,
 } from '@/components/sections/shared/SettingsSection';
 
-const GITHUB_URL = 'https://github.com/openchamber/openchamber';
+const GITHUB_URL = 'https://github.com/antonstamov/openchamber';
 const DISCORD_URL = 'https://discord.gg/ZYRSdnwwKA';
 const X_URL = 'https://x.com/openchamber_dev';
 
