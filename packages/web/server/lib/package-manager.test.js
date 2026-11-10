@@ -207,19 +207,22 @@ describe('checkForUpdates', () => {
     }
   });
 
-  it('offers a Canary Android app the newest APK of the fork canary pre-release', async () => {
+  it('offers an Android app the APK from the fork latest release', async () => {
     fetchMock
       .when('api.openchamber.dev', {
         ok: true,
-        json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
+        json: async () => ({ latestVersion: '2.7.4', updateAvailable: false }),
       })
-      .when('api.github.com/repos/antonstamov/openchamber/releases/tags/canary', {
+      .when('api.github.com/repos/antonstamov/openchamber/releases/latest', {
         ok: true,
         json: async () => ({
+          tag_name: 'v2.7.4',
+          body: '## [2.7.4]\n\n- Fork build',
+          html_url: 'https://github.com/antonstamov/openchamber/releases/tag/v2.7.4',
           assets: [
-            { name: 'OpenChamber-2.5.4-canary.20261030.4-29857000-android.apk', browser_download_url: 'https://downloads.example/old.apk' },
-            { name: 'OpenChamber-2.5.4-canary.20261031.5-29858440-android.apk', browser_download_url: 'https://downloads.example/new.apk' },
-            { name: 'OpenChamber-2.5.4-canary.20261031.5-29858440-android.aab', browser_download_url: 'https://downloads.example/new.aab' },
+            { name: 'OpenChamber-2.7.3-29900000-android.apk', browser_download_url: 'https://github.com/antonstamov/openchamber/releases/download/v2.7.4/OpenChamber-2.7.3-29900000-android.apk' },
+            { name: 'OpenChamber-2.7.4-29904486-android.apk', browser_download_url: 'https://github.com/antonstamov/openchamber/releases/download/v2.7.4/OpenChamber-2.7.4-29904486-android.apk' },
+            { name: 'OpenChamber-2.7.4-29904486-android.aab', browser_download_url: 'https://github.com/antonstamov/openchamber/releases/download/v2.7.4/OpenChamber-2.7.4-29904486-android.aab' },
           ],
         }),
       });
@@ -227,67 +230,149 @@ describe('checkForUpdates', () => {
     const result = await checkForUpdates({
       appType: 'mobile-capacitor',
       platform: 'android',
-      currentVersion: '2.5.4-canary.20261030.4',
+      currentVersion: '2.7.3',
     });
 
     expect(result).toMatchObject({
       available: true,
-      version: '2.5.4-canary.20261031.5',
-      downloadUrl: 'https://downloads.example/new.apk',
+      version: '2.7.4',
+      downloadUrl: 'https://github.com/antonstamov/openchamber/releases/download/v2.7.4/OpenChamber-2.7.4-29904486-android.apk',
+      releaseUrl: 'https://github.com/antonstamov/openchamber/releases/tag/v2.7.4',
     });
-
-    // An APK from a release, whose releases carry no APK any more, moves to Canary.
-    const fromRelease = await checkForUpdates({
-      appType: 'mobile-capacitor',
-      platform: 'android',
-      currentVersion: '2.5.3',
-    });
-    expect(fromRelease.available).toBe(true);
-    expect(fromRelease.downloadUrl).toBe('https://downloads.example/new.apk');
+    // The fork asset comes straight from GitHub: no R2 mirror HEAD request.
+    expect(fetchedUrls().some((url) => url.includes('downloads.openchamber.dev'))).toBe(false);
 
     const upToDate = await checkForUpdates({
       appType: 'mobile-capacitor',
       platform: 'android',
-      currentVersion: '2.5.4-canary.20261031.5',
+      currentVersion: '2.7.4',
     });
     expect(upToDate.available).toBe(false);
     expect(upToDate.downloadUrl).toBeUndefined();
+
+    const olderInstalled = await checkForUpdates({
+      appType: 'mobile-capacitor',
+      platform: 'android',
+      currentVersion: '2.7.5',
+    });
+    expect(olderInstalled.available).toBe(false);
   });
 
-  it('offers the Canary APK from the R2 mirror once the mirror has it', async () => {
+  it('points the Android release URL at the release when the tag and APK versions diverge', async () => {
     fetchMock
       .when('api.openchamber.dev', {
         ok: true,
-        json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
+        json: async () => ({ latestVersion: '2.8.0', updateAvailable: false }),
       })
-      .when('api.github.com/repos/antonstamov/openchamber/releases/tags/canary', {
+      .when('api.github.com/repos/antonstamov/openchamber/releases/latest', {
         ok: true,
         json: async () => ({
-          assets: [{ name: 'OpenChamber-2.5.4-canary.20261031.5-29858440-android.apk', browser_download_url: 'https://downloads.example/new.apk' }],
+          tag_name: 'v2.8.0',
+          html_url: 'https://github.com/antonstamov/openchamber/releases/tag/v2.8.0',
+          assets: [
+            { name: 'OpenChamber-2.7.4-29904486-android.apk', browser_download_url: 'https://github.com/antonstamov/openchamber/releases/download/v2.8.0/OpenChamber-2.7.4-29904486-android.apk' },
+          ],
         }),
-      })
-      .when('downloads.openchamber.dev/desktop/canary/OpenChamber-2.5.4-canary.20261031.5-29858440-android.apk', { ok: true });
+      });
 
     const result = await checkForUpdates({
       appType: 'mobile-capacitor',
       platform: 'android',
-      currentVersion: '2.5.4-canary.20261030.4',
+      currentVersion: '2.7.3',
     });
-    expect(result.downloadUrl).toBe('https://downloads.openchamber.dev/desktop/canary/OpenChamber-2.5.4-canary.20261031.5-29858440-android.apk');
+
+    expect(result).toMatchObject({
+      available: true,
+      version: '2.7.4',
+      releaseUrl: 'https://github.com/antonstamov/openchamber/releases/tag/v2.8.0',
+    });
   });
 
-  it('reports an unreadable fork canary pre-release as an error for a Canary Android app', async () => {
+  it('reports no Android update when the fork latest release has no APK', async () => {
     fetchMock
       .when('api.openchamber.dev', {
         ok: true,
-        json: async () => ({ latestVersion: '2.5.3', updateAvailable: false }),
+        json: async () => ({ latestVersion: '2.7.4', updateAvailable: false }),
       })
-      .when('api.github.com/repos/antonstamov/openchamber/releases/tags/canary', { ok: false, status: 503 });
+      .when('api.github.com/repos/antonstamov/openchamber/releases/latest', {
+        ok: true,
+        json: async () => ({
+          tag_name: 'v2.7.4',
+          assets: [{ name: 'openchamber-web-2.7.4.tgz', browser_download_url: 'https://example.invalid/web.tgz' }],
+        }),
+      });
 
     const result = await checkForUpdates({
       appType: 'mobile-capacitor',
       platform: 'android',
-      currentVersion: '2.5.4-canary.20261030.4',
+      currentVersion: '2.7.3',
+    });
+
+    expect(result.available).toBe(false);
+    expect(result.version).toBeUndefined();
+    expect(result.downloadUrl).toBeUndefined();
+  });
+
+  it('ignores APK names with a broken version in the fork latest release', async () => {
+    fetchMock
+      .when('api.openchamber.dev', {
+        ok: true,
+        json: async () => ({ latestVersion: '2.7.4', updateAvailable: false }),
+      })
+      .when('api.github.com/repos/antonstamov/openchamber/releases/latest', {
+        ok: true,
+        json: async () => ({
+          tag_name: 'v2.7.4',
+          assets: [
+            { name: 'OpenChamber-foo-29904486-android.apk', browser_download_url: 'https://example.invalid/broken.apk' },
+            { name: 'OpenChamber-2.7.4-29904486-android.apk', browser_download_url: 'https://github.com/antonstamov/openchamber/releases/download/v2.7.4/OpenChamber-2.7.4-29904486-android.apk' },
+          ],
+        }),
+      });
+
+    const result = await checkForUpdates({
+      appType: 'mobile-capacitor',
+      platform: 'android',
+      currentVersion: '2.7.3',
+    });
+
+    expect(result).toMatchObject({
+      available: true,
+      version: '2.7.4',
+      downloadUrl: 'https://github.com/antonstamov/openchamber/releases/download/v2.7.4/OpenChamber-2.7.4-29904486-android.apk',
+    });
+  });
+
+  it('reports no Android update when the fork has no releases yet', async () => {
+    fetchMock
+      .when('api.openchamber.dev', {
+        ok: true,
+        json: async () => ({ latestVersion: '2.7.3', updateAvailable: false }),
+      })
+      .when('api.github.com/repos/antonstamov/openchamber/releases/latest', { ok: false, status: 404 });
+
+    const result = await checkForUpdates({
+      appType: 'mobile-capacitor',
+      platform: 'android',
+      currentVersion: '2.7.3',
+    });
+
+    expect(result.available).toBe(false);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('reports an unreadable fork latest release as an error for an Android app', async () => {
+    fetchMock
+      .when('api.openchamber.dev', {
+        ok: true,
+        json: async () => ({ latestVersion: '2.7.4', updateAvailable: false }),
+      })
+      .when('api.github.com/repos/antonstamov/openchamber/releases/latest', { ok: false, status: 503 });
+
+    const result = await checkForUpdates({
+      appType: 'mobile-capacitor',
+      platform: 'android',
+      currentVersion: '2.7.3',
     });
 
     expect(result.available).toBe(false);

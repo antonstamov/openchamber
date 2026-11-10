@@ -96,42 +96,40 @@ function normalizeArch(value) {
   return mapArch(process.arch);
 }
 
-const CANARY_MIRROR_URL = 'https://downloads.openchamber.dev/desktop/canary/';
-
-// The Android APK the Canary workflow puts in the canary pre-release.
-const CANARY_ANDROID_APK_RE = /^OpenChamber-(\d+\.\d+\.\d+-canary\.\d+\.\d+)-\d+-android\.apk$/;
+// Fork: the Android APK ships in full releases
+// (OpenChamber-2.7.4-29904486-android.apk). The fork publishes no canary
+// pre-release, so there is no canary path here.
+const FORK_ANDROID_APK_RE = /^OpenChamber-(\d+\.\d+\.\d+)-\d+-android\.apk$/;
 
 /**
- * The newest Android APK in the canary pre-release: `{ newest }`, where
- * newest is null when none is published, or null when GitHub could not be read.
+ * The newest Android APK in the fork's latest full release: `{ newest }`,
+ * where newest is null when none is published, or null when GitHub could
+ * not be read. The download is the asset's browser_download_url directly:
+ * no R2 mirror exists for fork assets.
  */
-async function fetchCanaryAndroidApk() {
+async function fetchForkAndroidApk() {
   try {
-    const response = await fetch(`${GITHUB_RELEASES_API_URL}/tags/canary`, {
+    const response = await fetch(`${GITHUB_RELEASES_API_URL}/latest`, {
       headers: {
         Accept: 'application/vnd.github+json',
         'User-Agent': 'openchamber-update-check',
       },
       signal: AbortSignal.timeout(10000),
     });
-    if (response.status === 404) return { newest: null };
+    if (response.status === 404) return { newest: null, release: null };
     if (!response.ok) return null;
 
     const release = await response.json();
     let newest = null;
     for (const asset of Array.isArray(release?.assets) ? release.assets : []) {
-      const match = typeof asset?.name === 'string' ? CANARY_ANDROID_APK_RE.exec(asset.name) : null;
+      const match = typeof asset?.name === 'string' ? FORK_ANDROID_APK_RE.exec(asset.name) : null;
       if (!match || typeof asset.browser_download_url !== 'string') continue;
       if (!newest || compareVersions(match[1], newest.version) > 0) {
         newest = { version: match[1], name: asset.name, url: asset.browser_download_url };
       }
     }
-    if (!newest) return { newest: null };
-    // The R2 mirror (canary.yml) once it has the file: it stays up when
-    // GitHub's release downloads fail, and downloads faster.
-    const mirrorUrl = `${CANARY_MIRROR_URL}${newest.name}`;
-    const mirrored = await fetch(mirrorUrl, { method: 'HEAD', signal: AbortSignal.timeout(3000) }).then((head) => head.ok, () => false);
-    return { newest: { version: newest.version, url: mirrored ? mirrorUrl : newest.url } };
+    if (!newest) return { newest: null, release };
+    return { newest, release };
   } catch {
     return null;
   }
@@ -956,26 +954,36 @@ export async function checkForUpdates(options = {}) {
     }
   }
 
-  // The Android app ships only as Canary for now (.github/workflows/canary.yml):
-  // its next build is the newest APK in the canary pre-release, also for an
-  // APK from an earlier release, whose releases carry no APK any more. iOS
-  // updates through TestFlight and needs nothing from here.
+  // Fork: the Android APK ships in the latest full release, not in a
+  // canary pre-release (the fork publishes none). iOS updates through
+  // TestFlight and needs nothing from here.
   if (appType === 'mobile-capacitor' && platform === 'android' && currentVersion !== 'unknown') {
-    const [, canary] = await Promise.all([
+    const [, forkApk] = await Promise.all([
       checkForUpdatesFromApi(currentVersion, options),
-      fetchCanaryAndroidApk(),
+      fetchForkAndroidApk(),
     ]);
-    if (!canary) {
+    if (!forkApk) {
       return { available: false, currentVersion, error: 'Unable to determine versions' };
     }
-    const available = Boolean(canary.newest) && compareVersions(canary.newest.version, currentVersion) > 0;
+    const available = Boolean(forkApk.newest) && compareVersions(forkApk.newest.version, currentVersion) > 0;
+    // The release object is authoritative for its own URL: the APK filename
+    // version can lag the tag, so html_url/tag_name win over a synthesized
+    // tag link (mirrors checkForkWebUpdate; coerce instead of
+    // typeof-checking, same as there).
+    const releaseHtmlUrl = String(forkApk.release?.html_url ?? '');
+    const releaseTag = String(forkApk.release?.tag_name ?? '');
+    const releaseUrl = releaseHtmlUrl.startsWith('https://')
+      ? releaseHtmlUrl
+      : releaseTag !== ''
+        ? `${GITHUB_RELEASES_URL}/tag/${releaseTag}`
+        : forkApk.newest ? `${GITHUB_RELEASES_URL}/tag/v${forkApk.newest.version}` : `${GITHUB_RELEASES_URL}/latest`;
     return {
       available,
-      version: canary.newest?.version,
+      version: forkApk.newest?.version,
       currentVersion,
-      body: available ? await fetchChangelogNotes(currentVersion, canary.newest.version) : undefined,
-      releaseUrl: `${GITHUB_RELEASES_URL}/tag/canary`,
-      downloadUrl: available ? canary.newest.url : undefined,
+      body: available ? await fetchChangelogNotes(currentVersion, forkApk.newest.version) : undefined,
+      releaseUrl,
+      downloadUrl: available ? forkApk.newest.url : undefined,
     };
   }
 

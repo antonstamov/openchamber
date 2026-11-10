@@ -1231,9 +1231,12 @@ within a ten-minute overall deadline.
       read npm, since the website API serves only the release; it still gets
       the check-in. The install route and `openchamber update` read the same
       channel through `checkForUpdates`. The desktop app keeps its own
-      `desktopUpdateChannel`. The Android app ships only as Canary until it
-      has a store release: every Android build, an APK from an earlier release
-      included, is offered the newest APK of the `canary` GitHub pre-release, downloaded from the R2 mirror (`downloads.openchamber.dev/desktop/canary/`) once canary.yml put it there. Other app types stay on releases.
+      `desktopUpdateChannel`. Fork: the Android app is offered the newest
+      APK of the fork's latest full release
+      (`OpenChamber-x.y.z-<build>-android.apk`), downloaded from the asset's
+      `browser_download_url` directly; the fork publishes no `canary`
+      pre-release and uses no R2 mirror. iOS updates through TestFlight.
+      Other app types stay on releases.
   - `GET /api/openchamber/release-notes?version=&since=`
     - Settings → About shows these. The answer is the releases of `version` as data, `{ releases: [{ version, date, title, intro, groups: [{ key, bullets }] }] }`,
       read from the website API's `/v1/changelog/full`, which keeps the last
