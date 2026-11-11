@@ -61,3 +61,35 @@ export function mergeExternalDraftAppend(baseText: string, currentText: string, 
   if (!suffix.trim()) return editedText;
   return appendInlineText(editedText, suffix).trimEnd();
 }
+
+/**
+ * How long a send waits for attached drafts that are still expecting their
+ * transcripts before going out without them. Transcription usually lands in
+ * seconds; the timeout only guards a stuck stream from holding a send forever.
+ */
+const COMMENT_DICTATION_SETTLE_TIMEOUT_MS = 60_000;
+
+/**
+ * Resolves once no attached draft is still waiting for its transcript, so a
+ * send pressed mid-transcription can go out whole. Resolves `'timeout'` when
+ * the wait outlasts a stuck stream; the caller then sends without it.
+ */
+export function waitForCommentDictationSettled(timeoutMs = COMMENT_DICTATION_SETTLE_TIMEOUT_MS): Promise<'settled' | 'timeout'> {
+  if (Object.keys(useCommentDictationPendingStore.getState().pending).length === 0) {
+    return Promise.resolve('settled');
+  }
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (outcome: 'settled' | 'timeout') => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(outcome);
+    };
+    const timer = setTimeout(() => finish('timeout'), timeoutMs);
+    const unsubscribe = useCommentDictationPendingStore.subscribe((state) => {
+      if (Object.keys(state.pending).length === 0) finish('settled');
+    });
+  });
+}

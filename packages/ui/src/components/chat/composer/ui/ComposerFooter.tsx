@@ -15,7 +15,7 @@ import type { SourceControlProvider } from '@/lib/api/types';
 import React from 'react';
 
 import { SessionGoalButton, SessionGoalObjectiveCounter } from '@/components/chat/SessionGoalButton';
-import { ComposerDictation } from '@/components/dictation/ComposerDictation';
+import { ComposerDictation, type ComposerDictationController } from '@/components/dictation/ComposerDictation';
 import { Icon } from '@/components/icon/Icon';
 import type { GuestAttachItem } from '@/hooks/useGuestSurfaces';
 import { useI18n } from '@/lib/i18n';
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { isDictationCaptureSupported } from '@/lib/dictation/use-dictation-audio-source';
+import type { DictationStatus } from '@/hooks/useDictation';
 import { ModelControls } from '../../ModelControls';
 import { ComposerActionButtons } from './ComposerActionButtons';
 import { ComposerAttachmentControls, type ComposerTrackerPicker } from './ComposerAttachmentControls';
@@ -77,9 +78,11 @@ interface ComposerFooterProps {
     onDictationInsertAndSend: (text: string) => void;
     onDictationSendStart: () => void;
     onDictationStart: () => void;
-    onDictationContentHeightChange: (height: number | null) => void;
-    /** Desktop only: the composer box hides its other contents while the overlay is up. */
-    onDictationActiveChange?: (active: boolean) => void;
+    /** Reports every dictation engine status change; the host queues a send
+        pressed mid-dictation until the transcript lands. */
+    onDictationStatusChange?: (status: DictationStatus) => void;
+    /** Imperative handle for the host's send path (confirm for insert). */
+    dictationControllerRef?: React.RefObject<ComposerDictationController | null>;
     isBtw?: boolean;
     /** The composer's double Escape stops the run (not in the mini chat). */
     escapeStops?: boolean;
@@ -151,8 +154,8 @@ function ComposerFooterView(props: ComposerFooterProps) {
         onDictationInsertAndSend,
         onDictationSendStart,
         onDictationStart,
-        onDictationContentHeightChange,
-        onDictationActiveChange,
+        onDictationStatusChange,
+        dictationControllerRef,
         isBtw = false,
         escapeStops = false,
         modelSessionId,
@@ -181,9 +184,6 @@ function ComposerFooterView(props: ComposerFooterProps) {
                 borderBottomRightRadius: chatInputRadius,
             }}
             data-chat-input-footer="true"
-            // On the path from the composer box to the desktop dictation
-            // overlay (see the .oc-dictation-overlay rule in design-system.css).
-            data-dictation-chain={isMobile ? undefined : 'true'}
         >
             {isMobile ? (
                 <>
@@ -222,7 +222,7 @@ function ComposerFooterView(props: ComposerFooterProps) {
                         <div className="flex items-center min-w-0 gap-x-1 justify-end">
                             {waitingForOpenCode ? <OpenCodeStartupNote /> : null}
                             <div className="flex items-center gap-x-1 flex-shrink-0">
-                                {!isBtw && showDictation ? <Tooltip><TooltipTrigger asChild><button
+                                {showDictation ? <Tooltip><TooltipTrigger asChild><button
                                     type="button"
                                     className={footerIconButtonClass}
                                     // Keep the soft keyboard open (same guard as
@@ -293,23 +293,20 @@ function ComposerFooterView(props: ComposerFooterProps) {
                         /> : null}
                         {!isBtw ? <SessionGoalObjectiveCounter length={messageLength} /> : null}
                     </div>
-                    <div className={cn('flex items-center flex-1 justify-end', footerGapClass, 'md:gap-x-3')} data-dictation-chain="true">
+                    <div className={cn('flex items-center flex-1 justify-end', footerGapClass, 'md:gap-x-3')}>
                         {waitingForOpenCode ? <OpenCodeStartupNote className="flex-shrink-0" /> : null}
                         {parallelRun ? <MemoModelControls className="flex-1 min-w-0" agentOnly /> : isBtw ? <ModelControls className="flex-1 min-w-0 justify-end" sessionId={modelSessionId ?? null} selection={btwSelection} rememberVariantPicks={false} modelSelectorOpen={btwModelSelectorOpen} onModelSelectorOpenChange={onBtwModelSelectorOpenChange} /> : pinnedSelection ? <ModelControls className="flex-1 min-w-0 justify-end" sessionId={currentSessionId} selection={pinnedSelection} rememberVariantPicks /> : <MemoModelControls className={cn('flex-1 min-w-0 justify-end')} onRunInParallel={onRunInParallel} />}
-                        {!isBtw ? <MemoComposerDictation
-                            radius={chatInputRadius}
+                        {<MemoComposerDictation
                             isMobile={isMobile}
                             footerIconButtonClass={footerIconButtonClass}
-                            footerPaddingClass={footerPaddingClass}
                             iconSizeClass={iconSizeClass}
-                            sendIconSizeClass={sendIconSizeClass}
                             onInsert={onDictationInsert}
                             onInsertAndSend={onDictationInsertAndSend}
                             onSendStart={onDictationSendStart}
                             onStart={onDictationStart}
-                            onContentHeightChange={onDictationContentHeightChange}
-                            onActiveChange={onDictationActiveChange}
-                        /> : null}
+                            onStatusChange={onDictationStatusChange}
+                            controllerRef={dictationControllerRef}
+                        />}
                         {parallelRun ? (
                             // Parallel mode keeps the ordinary send button: the strip above
                             // already shows how many runs start, and submitting the form

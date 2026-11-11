@@ -29,6 +29,7 @@ import {
     mergeExternalDraftAppend,
     routeTranscriptToDraft,
 } from '@/components/dictation/commentDictationHandoff';
+import { appendInlineText } from '@/components/chat/composer/text';
 import { useCommentDictationPendingStore } from '@/stores/useCommentDictationPendingStore';
 import type { DictationCompletionHandoff, DictationStatus } from '@/hooks/useDictation';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -178,8 +179,16 @@ const DraftPreviewEntry: React.FC<{
 
     const handleEditTranscript = React.useCallback((spoken: string) => {
         editSettledRef.current = true;
-        if (routeTranscriptToDraft({ target, draftId: draft.id }, spoken) === 'refused') {
+        const routed = routeTranscriptToDraft({ target, draftId: draft.id }, spoken);
+        if (routed === 'refused') {
             toast.error(t('inlineComment.toast.noRoom'));
+        } else if (routed === 'appended') {
+            // Show the transcript in the open editor at once instead of
+            // waiting for the save merge below; the edit base moves with it
+            // so the save does not append it a second time.
+            const trimmed = spoken.trim();
+            setEditText((prev) => appendInlineText(prev, trimmed));
+            editBaseRef.current = appendInlineText(editBaseRef.current, trimmed);
         }
         disarmEditHandoff();
     }, [disarmEditHandoff, draft.id, t, target]);
@@ -294,7 +303,7 @@ const DraftPreviewEntry: React.FC<{
                         )}
                     </div>
                 ) : null}
-                {onSaveComment && (editing || draft.text.trim()) ? (
+                {onSaveComment && (editing || draft.text.trim() || dictationPending) ? (
                     <div>
                         <div className="flex items-center gap-1.5">
                             <div className={ENTRY_LABEL_CLASS}>{t('chat.chatInput.contextPreview.commentLabel')}</div>
@@ -334,11 +343,16 @@ const DraftPreviewEntry: React.FC<{
                                     />
                                 </span>
                             </div>
-                        ) : (
+                        ) : draft.text.trim() ? (
                             <div dir="auto" className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">
                                 {withAttachmentChips(draft.text, attachmentFilenames, `draft-${draft.id}`)}
                             </div>
-                        )}
+                        ) : dictationPending ? (
+                            <div dir="auto" className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status">
+                                <Icon name="loader-4" className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                                <span className="min-w-0 truncate">{t('chat.dictation.processing')}</span>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
             </div>
@@ -364,6 +378,9 @@ function ComposerContextChipsView({ draftTarget, colors, previewHost, isMobile }
     const attachedFiles = useInputStore((state) => state.attachedFiles);
     const attachmentFilenames = React.useMemo(() => attachedFiles.map((file) => file.filename), [attachedFiles]);
     const mobileComment = useMobileCommentComposerController();
+    // A draft whose transcript is still on its way shows a pending mark in the
+    // preview and on its chip, so an empty attached comment never reads as lost.
+    const dictationPendingMap = useCommentDictationPendingStore((state) => state.pending);
 
     const [openGroupKey, setOpenGroupKey] = React.useState<string | null>(null);
     const [editingDraftId, setEditingDraftId] = React.useState<string | null>(null);
@@ -627,7 +644,9 @@ function ComposerContextChipsView({ draftTarget, colors, previewHost, isMobile }
                 </AnimatePresence>,
                 previewHost,
             ) : null}
-            {groups.map((group) => (
+            {groups.map((group) => {
+                const groupDictationPending = group.drafts.some((draft) => Boolean(dictationPendingMap[draft.id]));
+                return (
                 <button
                     key={group.key}
                     type="button"
@@ -649,13 +668,19 @@ function ComposerContextChipsView({ draftTarget, colors, previewHost, isMobile }
                 >
                     <Icon name={group.icon} className={`h-3.5 w-3.5 shrink-0 text-muted-foreground ${group.iconClassName ?? ''}`} />
                     <span className="truncate text-foreground">{group.label}</span>
+                    {groupDictationPending ? (
+                        <span role="status" aria-label={t('chat.dictation.processing')} className="inline-flex shrink-0 items-center text-muted-foreground">
+                            <Icon name="loader-4" className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                        </span>
+                    ) : null}
                     {group.count > 0 ? (
                         <span className="font-semibold" style={{ color: colors?.status?.info }}>
                             {group.count}
                         </span>
                     ) : null}
                 </button>
-            ))}
+                );
+            })}
         </div>
     );
 }

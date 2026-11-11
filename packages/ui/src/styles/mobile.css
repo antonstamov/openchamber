@@ -931,11 +931,6 @@
   }
 }
 
-@keyframes oc-composer-morph-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 /* Pill ↔ full-composer morph (native iOS; see mobileComposerMorph.ts). While
    the box carries data-composer-morph its height is animated inline, so it
    clips instead of overflowing and its contents sit on the bottom edge: the
@@ -948,15 +943,6 @@
 }
 :root.oc-capacitor-app [data-composer-box][data-composer-morph] > * {
   flex-shrink: 0;
-}
-
-/* Voice overlay variant: the overlay BACKGROUND appears immediately (it rides
-   the morphing shape), but its content stays hidden until the shape has mostly
-   finished growing, then fades in — no clipped controls mid-morph. Timings
-   follow the 340ms wrapper morph in ChatInput. */
-/* The glass layer is the background, so it is exempt from the fade. */
-.oc-composer-morph-content-fade > :not([data-dictation-glass]) {
-  animation: oc-composer-morph-fade 0.18s ease-out 0.26s both;
 }
 
 /* On a phone every dialog is a bottom sheet, like MobileOverlayPanel: dozens of

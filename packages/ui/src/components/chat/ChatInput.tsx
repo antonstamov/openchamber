@@ -3,7 +3,7 @@ import { DraftProjectName } from '@/components/chat/DraftProjectName';
 import { formatChangeRequestLabel } from '@/lib/source-control/providers/terminology';
 import { useSourceControlDescriptorOf, useSourceControlProvider } from '@/lib/source-control/providers/registry';
 import { ProviderIcon } from '@/components/sourceControl/ProviderIcon';
-import { ComposerDictation } from '@/components/dictation/ComposerDictation';
+import { ComposerDictation, type ComposerDictationController } from '@/components/dictation/ComposerDictation';
 // sessionStore removed — currentSessionId comes from useSessionUIStore
 import { useConfigStore } from '@/stores/useConfigStore';
 import { filterVisibleAgents } from '@/stores/useAgentsStore';
@@ -211,7 +211,6 @@ import {
     type ComposerEditorHandle,
     type ComposerSelection,
 } from './composer/editor/ComposerEditor';
-import { useComposerHeightLimit } from './composer/editor/useComposerHeightLimit';
 import { usePendingComposerText } from './composer/state/usePendingComposerText';
 import { createComposerEditorViewStore } from './composer/editor/viewStore';
 import { composerAutoCorrect } from './composer/editor/autocorrect';
@@ -258,6 +257,9 @@ import { MentionCompletionState } from './composer/state/mentionCompletion';
 import { useFileMentionCheck } from './composer/state/useFileMentionCheck';
 import { useSessionDraftPublishing } from './composer/state/useSessionDraftPublishing';
 import { useDictationOrigin } from './composer/state/useDictationOrigin';
+import type { DictationStatus } from '@/hooks/useDictation';
+import { waitForCommentDictationSettled } from '@/components/dictation/commentDictationHandoff';
+import { useCommentDictationPendingStore } from '@/stores/useCommentDictationPendingStore';
 import { useDraftTarget } from './composer/state/useDraftTarget';
 import { useMobileComposerShell } from './composer/state/useMobileComposerShell';
 import { useMobileViewportPin } from './composer/state/useMobileViewportPin';
@@ -565,6 +567,27 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // Ref to track current message value without triggering re-renders in effects
     const messageRef = React.useRef(message);
     const dictationSendInFlightRef = React.useRef(false);
+    // A Send or Enter pressed during recording or transcription confirms the
+    // dictation and queues the send: the transcript lands below and the
+    // message goes out whole. The ref mirrors the state so the submit path
+    // (which may run before the next render commits) reads the live value.
+    const dictationControllerRef = React.useRef<ComposerDictationController | null>(null);
+    const [dictationStatus, setDictationStatus] = React.useState<DictationStatus>('idle');
+    const [dictationSendPending, setDictationSendPending] = React.useState(false);
+    const dictationSendPendingRef = React.useRef(false);
+    // A send already waiting for comment transcripts owns the wait; a second
+    // press while it runs is redundant because the first submit reads the
+    // composer and drafts when it fires, not when it was pressed.
+    const commentDictationWaitRef = React.useRef<Promise<'settled' | 'timeout'> | null>(null);
+    // Cancel, discard, an unmount, or a confirmation that produced nothing
+    // drops the queued send; a failure keeps it armed for retry.
+    const handleDictationStatusChange = React.useCallback((status: DictationStatus) => {
+        setDictationStatus(status);
+        if (status === 'idle') {
+            dictationSendPendingRef.current = false;
+            setDictationSendPending(false);
+        }
+    }, []);
     const currentChatDraftIdentityRef = React.useRef<ChatDraftIdentity | null>(initialDraftIdentityRef.current);
     const pendingPastedAttachmentFilenamesRef = React.useRef<Set<string>>(new Set());
     // The unanswered large-paste choice; `resolve` applies the answer once.
@@ -1764,7 +1787,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // created, its request about to leave): the composer keeps what is typed
     // and sends nothing until then, so a second message cannot overtake it.
     const pendingFirstSend = useSessionUIStore((s) => (currentSessionId ? s.pendingDraftSends.get(currentSessionId) ?? null : null));
-    const canSend = (hasContent || hasQueuedMessages) && !(isBtwActive && (btwPanel.creating || preparingBtwSend)) && !pendingFirstSend;
+    // Recording or transcribing: Send and Enter confirm the dictation first,
+    // so the button stays enabled even on an empty composer while busy, and
+    // goes quiet while a confirmed send waits for its transcript.
+    const dictationBusy = dictationStatus === 'recording' || dictationStatus === 'uploading';
+    const canSend = (hasContent || hasQueuedMessages || dictationBusy) && !(isBtwActive && (btwPanel.creating || preparingBtwSend)) && !pendingFirstSend && !dictationSendPending;
 
     const canAbort = sessionPhase !== 'idle' && !pendingFirstSend;
     // While a page the agent showed waits for the user's answer, the turn
@@ -2114,6 +2141,37 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         if (parallel.isActive && !options?.queuedOnly) {
             if (parallel.runCount >= 2) void parallel.launch();
             return;
+        }
+        // A Send or Enter during recording or transcription confirms the
+        // dictation and queues the send instead of sending without the
+        // transcript: the transcript lands in handleDictationInsert below and
+        // the message goes out whole. While a send is queued, further sends
+        // are ignored; cancel, discard, or an unmount drops the queue, while
+        // a failure keeps it armed for retry. Special submits (a preset
+        // override, a queued-only row) keep their own routing.
+        if (options?.presetText == null && !options?.queuedOnly) {
+            if (dictationSendPendingRef.current) return;
+            const liveDictationStatus = dictationControllerRef.current?.getStatus() ?? 'idle';
+            if (liveDictationStatus === 'recording' || liveDictationStatus === 'uploading') {
+                dictationSendPendingRef.current = true;
+                setDictationSendPending(true);
+                dictationControllerRef.current?.confirmInsert();
+                return;
+            }
+        }
+        // Attached comments still waiting for their transcripts join the
+        // message before it goes out: a send pressed mid-transcription waits
+        // for the drafts to land instead of sending without them. A second
+        // press while the wait runs is redundant — the pending submit reads
+        // the composer and drafts when it fires — so it is dropped.
+        if (!options?.queuedOnly) {
+            if (commentDictationWaitRef.current) return;
+            if (Object.keys(useCommentDictationPendingStore.getState().pending).length > 0) {
+                const wait = waitForCommentDictationSettled();
+                commentDictationWaitRef.current = wait;
+                await wait;
+                commentDictationWaitRef.current = null;
+            }
         }
         const submitRuntimeKey = getRuntimeKey();
         const queuedOnly = options?.queuedOnly ?? false;
@@ -2935,6 +2993,19 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // started. After a session switch it is kept for that draft and must not
     // be inserted or sent here.
     const handleDictationInsert = React.useCallback((text: string) => {
+        // A send queued mid-dictation goes out now, with the transcript: the
+        // transcript resolves after the submit below starts, so it is passed
+        // as an explicit override (the editor may be unmounted at this point).
+        if (dictationSendPendingRef.current) {
+            dictationSendPendingRef.current = false;
+            setDictationSendPending(false);
+            if (!text.trim()) return;
+            if (keepTranscriptForOrigin(text)) return;
+            const next = appendInlineText(messageRef.current, text);
+            setMessage(next);
+            void handleSubmitRef.current({ presetText: next });
+            return;
+        }
         if (keepTranscriptForOrigin(text)) return;
         dictationSendEndRef.current?.();
         setMessage((prev) => {
@@ -2948,6 +3019,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     }, [keepTranscriptForOrigin]);
 
     const handleDictationInsertAndSend = React.useCallback((text: string) => {
+        // A queued send is consumed by the explicit path below; without this
+        // the flag would stay armed and swallow the next send.
+        dictationSendPendingRef.current = false;
+        setDictationSendPending(false);
         if (keepTranscriptForOrigin(text)) return;
         // Read the pending draft from the ref, NOT from the editor: the
         // transcript resolves asynchronously, and on mobile the shell may have
@@ -3266,27 +3341,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         if (!columnPinned) setAgent(nextAgentName);
     }, [agents, columnPinned, currentAgentName, currentModelId, currentProviderId, currentSessionId, setAgent, pickSessionAgent]);
 
-    // Height the failed-dictation salvage text needs. Its overlay sits
-    // absolutely over the composer, so the composer must be able to grow for
-    // it. Apply the editor's line and screen bounds before using that height as
-    // a floor, otherwise long salvage text can push the action row off-screen.
+    // Host for the placeholder-fit check below the editor.
     const dictationHeightHostRef = React.useRef<HTMLDivElement | null>(null);
     // The short hint drops the @, $ and / pointers, so it only replaces the
     // full one when that would wrap.
     const fullChatPlaceholderFits = usePlaceholderFitsOneLine(dictationHeightHostRef, t('chat.chatInput.placeholder.chat'));
     const useCompactChatPlaceholder = isMobile || !fullChatPlaceholderFits;
-    const [dictationContentHeight, setDictationContentHeight] = React.useState<number | null>(null);
-    const handleDictationContentHeightChange = React.useCallback((height: number | null) => {
-        setDictationContentHeight((prev) => (prev === height ? prev : height));
-    }, []);
-    const dictationHeightLimit = useComposerHeightLimit({
-        active: dictationContentHeight !== null,
-        disabled: isComposerExpanded,
-        hostRef: dictationHeightHostRef,
-        maxLines: isMobile ? MAX_MOBILE_COMPOSER_LINES : MAX_VISIBLE_COMPOSER_LINES,
-        boundSelector: isMobile ? '[data-composer-bound]' : undefined,
-        boundGapPx: isMobile ? MOBILE_COMPOSER_BOUND_GAP_PX : 0,
-    });
 
     const updateAutocompleteState = React.useCallback((
         value: string,
@@ -4972,8 +5032,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // The footer's objective counter shows only while a goal is armed; passing
     // the length otherwise would re-render the whole footer on every keystroke.
     const goalArmed = useSessionGoalArmStore((state) => state.armed);
-    // Set by the footer's desktop dictation; the mobile overlay lives outside the box.
-    const [desktopDictating, setDesktopDictating] = React.useState(false);
     const goalObjectiveLength = goalArmed ? message.length : 0;
     const waitingForOpenCode = useOpenCodeStartupStore((state) => state.waitingSends > 0);
 
@@ -5154,10 +5212,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 ) : null}
                 </>) : null}
                 <div
-                    // Desktop: layout-transparent. Mobile: positioning host for
-                    // the wrapper-level dictation overlay across pill/full states.
-                    data-dictation-host="true"
-                    // Mobile: the context-chip preview opens above this host.
+                    // Desktop: layout-transparent. Mobile: the context-chip
+                    // preview opens above this host.
                     ref={isMobile ? setContextPreviewHost : undefined}
                     className={cn(
                         !isMobile && 'contents',
@@ -5283,12 +5339,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         isDragging ? "ring-2 ring-primary ring-offset-2" : 'oc-glass-floating oc-composer-sheen',
                     )}
                     style={{ borderRadius: chatInputRadius }}
+                    // The dictation status is inline in the footer flow and never
+                    // covers the editor, so the box carries no dictating mark.
                     ref={dropZoneRef}
                     // The mobile pill morph measures and animates this box.
                     data-composer-box={isMobile ? 'true' : undefined}
-                    // The desktop dictation overlay is up: the box hides its
-                    // other contents (see design-system.css).
-                    data-dictating={desktopDictating && !isMobile && !isBtwActive ? 'true' : undefined}
                     onDropCapture={handleDropCapture}
                     onDragEnter={handleDragEnter}
                     onDragOver={handleDragOver}
@@ -5317,9 +5372,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         </div>
                     )}
 
-                    {/* Positioning context for the dictation overlay: covers the
-                        text area + footer exactly. */}
-                    <div className={cn('relative flex flex-col', isComposerExpanded && 'flex-1 min-h-0')} data-dictation-chain="true">
+                    {/* Composer body: text area + footer. */}
+                    <div className={cn('relative flex flex-col', isComposerExpanded && 'flex-1 min-h-0')}>
                     <div className={cn("overflow-hidden", isComposerExpanded && 'flex flex-1 min-h-0 flex-col')}>
                         {parallel.isActive ? <ParallelComposerStrip parallel={parallel} project={parallelProjectRef} /> : null}
                         {composerTopRows}
@@ -5341,14 +5395,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                             onDropCapture={handleDropCapture}
                             onDrop={handleDrop}
                             onDragEnd={handleDragEnd}
-                            style={dictationContentHeight !== null && !isComposerExpanded
-                                ? {
-                                    minHeight: `${Math.min(
-                                        dictationContentHeight,
-                                        dictationHeightLimit ?? dictationContentHeight,
-                                    )}px`,
-                                }
-                                : undefined}
                         >
                             <ComposerEditor
                                 ref={composerRef}
@@ -5429,8 +5475,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onDictationInsertAndSend={handleDictationInsertAndSend}
                         onDictationSendStart={handleDictationSendStart}
                         onDictationStart={markDictationStart}
-                        onDictationContentHeightChange={handleDictationContentHeightChange}
-                        onDictationActiveChange={setDesktopDictating}
+                        onDictationStatusChange={handleDictationStatusChange}
+                        dictationControllerRef={dictationControllerRef}
                         isBtw={isBtwActive}
                         modelSessionId={btwComposerSessionId}
                         btwSelection={effectiveBtwSelection}
@@ -5449,28 +5495,27 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 </div>
                 </>
                 )}
-                {/* Wrapper-level dictation engine + overlay: stays mounted across
+                {/* Wrapper-level dictation engine + inline status: stays mounted across
                     the pill ↔ composer swap so a recording started from the pill
-                    survives the morph. Its absolute overlay covers whichever
-                    shape the wrapper currently has. NOT mounted during comment
+                    survives the morph. Mounted in BTW too: the BTW question is
+                    edited in this same composer, so its dictation belongs here.
+                    NOT mounted during comment
                     mode: the comment shell runs its own comment-scoped engine,
                     so the form's dictation events belong to that engine.
                     An in-flight recording is discarded by the swap:
                     its transcript must never reach the normal draft. */}
-                {isMobile && !isBtwActive && !mobileCommentActive ? (
+                {isMobile && !mobileCommentActive ? (
                     <MemoComposerDictation
-                        radius={chatInputRadius}
                         isMobile={isMobile}
                         footerIconButtonClass={footerIconButtonClass}
-                        footerPaddingClass={footerPaddingClass}
                         iconSizeClass={iconSizeClass}
-                        sendIconSizeClass={sendIconSizeClass}
                         onInsert={handleDictationInsert}
                         onInsertAndSend={handleDictationInsertAndSend}
                         onSendStart={handleDictationSendStart}
                         onStart={markDictationStart}
                         onActiveChange={handleDictationActiveChange}
-                        onContentHeightChange={handleDictationContentHeightChange}
+                        onStatusChange={handleDictationStatusChange}
+                        controllerRef={dictationControllerRef}
                         renderTrigger={false}
                     />
                 ) : null}

@@ -794,21 +794,8 @@
   }
 }
 
-/* Voice overlay. While it is up, the composer's own contents (placeholder,
-   footer icons) go transparent so they never read through the overlay, and
-   exactly one surface remains. Desktop: the overlay is mounted inside the
-   box, so every box child off the overlay's ancestor chain hides and the box
-   stays the surface. The chain is marked with [data-dictation-chain] and the
-   box with [data-dictating] while the overlay is up: a `:has()` over the box
-   would be re-evaluated for every descendant on each editor keystroke.
-   Mobile: the overlay is mounted beside the pill/box in [data-dictation-host],
-   so those siblings hide and the overlay's inner [data-dictation-glass]
-   layer is the surface. */
-.oc-surface-floating[data-dictating] > :not([data-dictation-chain]),
-.oc-surface-floating[data-dictating] [data-dictation-chain] > :not([data-dictation-chain], .oc-dictation-overlay),
-[data-dictation-host]:has(> .oc-dictation-overlay) > :not(.oc-dictation-overlay) {
-  opacity: 0;
-}
+/* Voice dictation status is inline in the composer footer flow and never
+   covers the editor, so it needs no overlay hiding rules. */
 
 .oc-glass-backdrop {
   -webkit-backdrop-filter: blur(4px);
