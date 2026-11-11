@@ -26,6 +26,7 @@ import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { memoryDreamingI18n } from './memory-dreaming.i18n';
 import { usageToolI18n } from './usage-tool.i18n';
 import { openchamberToolsLayoutI18n } from './openchamber-tools-layout.i18n';
 import { openchamberToolOutputI18n } from './openchamber-tool-output.i18n';
@@ -731,8 +732,6 @@ export const dict = {
   'sessions.sidebar.session.menu.copyLink': 'نسخ الرابط',
   'sessions.sidebar.session.menu.unshare': 'إلغاء المشاركة',
   'sessions.sidebar.session.menu.exportMarkdown': 'تصدير Markdown',
-  'sessions.sidebar.session.menu.moveToWorktree': 'نقل إلى شجرة عمل جديدة',
-  'sessions.sidebar.session.menu.moveToWorktreeTargets': 'نقل إلى شجرة عمل',
   'sessions.sidebar.session.menu.newWorktree': 'شجرة عمل جديدة…',
   'sessions.sidebar.session.moveToWorktree.success': 'تم نقل الجلسة إلى شجرة عمل جديدة',
   'sessions.sidebar.session.moveToWorktree.failed': 'تعذّر نقل الجلسة إلى شجرة عمل جديدة',
@@ -742,7 +741,6 @@ export const dict = {
   'sessions.sidebar.session.moveToWorktree.current': 'شجرة العمل الحالية',
   'sessions.sidebar.session.moveToWorktree.existingSuccess': 'تم نقل الجلسة إلى شجرة العمل',
   'sessions.sidebar.session.moveToWorktree.existingFailed': 'تعذّر نقل الجلسة إلى شجرة العمل',
-  'sessions.sidebar.session.moveToWorktree.tooltip': 'ينشئ شجرة عمل جديدة من الفرع الحالي وينقل إليها هذه الجلسة وجلساتها الفرعية. تبقى التغييرات غير المودعة في شجرة العمل الأصلية.',
   'sessions.sidebar.session.moveToWorktree.tooltipBusy': 'متاح عندما تكون الجلسة خاملة. أوقف النشاط الحالي أو انتظر حتى ينتهي.',
   'sessions.sidebar.session.moveToWorktree.tooltipMoving': 'يجري نقل هذه الجلسة بالفعل إلى شجرة عمل جديدة.',
   'sessions.sidebar.session.menu.openInSidePanel': 'فتح في اللوحة الجانبية',
@@ -1982,8 +1980,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.todo.addAria': 'إضافة مهمة',
   'rightSidebar.contextNotesTodo.todo.empty': 'لا توجد مهام بعد. أضف قائمة تحقق صغيرة لهذا المشروع.',
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': "وضع علامة مكتملة على \"{text}\"",
-  'rightSidebar.contextNotesTodo.todo.actions.collapse': "طي المهمة \"{text}\"",
-  'rightSidebar.contextNotesTodo.todo.actions.expand': "توسيع المهمة \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.actions.send': "إرسال \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.actions.reorder': "إعادة ترتيب \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': 'إرسال إلى الجلسة الحالية',
@@ -2338,6 +2334,7 @@ export const dict = {
   'session.githubIntegration.validation.failed': 'تعذّر التحقق',
   'chat.fileAttachment.toast.attachFailed': 'تعذّر إرفاق الملف',
   'chat.fileAttachment.toast.tooLarge': '{name} كبير جدًا بحيث لا يمكن إرفاقه (أكثر من {size}). إذا كان ضمن المشروع، فاذكره باستخدام @.',
+  'chat.fileAttachment.toast.heicConversionFailed': 'تعذّر تحويل {name} من HEIC إلى JPEG، لذا لم يُرفق. احفظ الصورة بصيغة JPEG وأرفقها مرة أخرى.',
   'chat.fileAttachment.toast.overSendLimit': '{name} كبير جدًا بحيث لا يمكن إرفاقه (أكثر من {size}).',
   'chat.fileAttachment.toast.someFilesSkipped': "تم تخطي بعض الملفات:\n{summary}",
   'chat.fileAttachment.toast.vscodePickFailed': 'تعذّر اختيار الملفات في VS Code',
@@ -3946,6 +3943,7 @@ export const dict = {
   ...heapSnapshotI18n.ar,
   ...consoleBudgetsI18n.ar,
   ...imageToolI18n.ar,
+  ...memoryDreamingI18n.ar,
   ...usageToolI18n.ar,
   ...openchamberToolsLayoutI18n.ar,
   ...openchamberToolOutputI18n.ar,
@@ -4014,7 +4012,6 @@ export const dict = {
   'spaces.failure.loginNotSupported': 'لا يمكن استخدام تسجيل الدخول هذا إلى {name} في المساحات.',
   'chat.chatInput.waitingForOpenCode': 'بانتظار OpenCode…',
   'chat.chatInput.waitingForOpenCodeHint': 'ستُرسل الرسالة فور تشغيل OpenCode',
-  'sessions.sidebar.session.menu.openInMiniChat': 'فتح في المحادثة المصغّرة',
   'contextPanel.zone.moveLeft': 'نقل اللوحة إلى اليمين',
   'contextPanel.zone.moveBottom': 'نقل اللوحة إلى الأسفل',
   'contextPanel.zone.moveRight': 'نقل اللوحة إلى اليسار',

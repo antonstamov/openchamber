@@ -26,6 +26,7 @@ import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { memoryDreamingI18n } from './memory-dreaming.i18n';
 import { usageToolI18n } from './usage-tool.i18n';
 import { openchamberToolsLayoutI18n } from './openchamber-tools-layout.i18n';
 import { openchamberToolOutputI18n } from './openchamber-tool-output.i18n';
@@ -207,6 +208,7 @@ export const dict = {
   ...heapSnapshotI18n.ru,
   ...consoleBudgetsI18n.ru,
   ...imageToolI18n.ru,
+  ...memoryDreamingI18n.ru,
   ...usageToolI18n.ru,
   ...openchamberToolsLayoutI18n.ru,
   ...openchamberToolOutputI18n.ru,
@@ -767,7 +769,6 @@ export const dict = {
   'sessions.sidebar.project.actions.newDraftSession': 'Новая черновая сессия',
   'sessions.sidebar.session.menu.rename': 'Переименовать',
   'sessions.sidebar.session.menu.copyId': 'Скопировать ID сессии',
-  'sessions.sidebar.session.menu.openInMiniChat': 'Открыть в мини-чате',
   'sessions.sidebar.session.copyId.success': 'ID сессии скопирован',
   'sessions.sidebar.session.copyId.error': 'Не удалось скопировать ID сессии',
   'header.sessionActions.openAria': 'Открыть действия с сессией',
@@ -802,8 +803,6 @@ export const dict = {
   'sessions.sidebar.session.menu.copyLink': 'Копировать ссылку',
   'sessions.sidebar.session.menu.unshare': 'Отменить общий доступ',
   'sessions.sidebar.session.menu.exportMarkdown': 'Экспортировать Markdown',
-  'sessions.sidebar.session.menu.moveToWorktree': 'Переместить в новый worktree',
-  'sessions.sidebar.session.menu.moveToWorktreeTargets': 'Переместить в worktree',
   'sessions.sidebar.session.menu.newWorktree': 'Новый worktree...',
   'sessions.sidebar.session.moveToWorktree.success': 'Сессия перемещена в новый worktree',
   'sessions.sidebar.session.moveToWorktree.failed': 'Не удалось переместить сессию в новый worktree',
@@ -813,7 +812,6 @@ export const dict = {
   'sessions.sidebar.session.moveToWorktree.current': 'Текущий worktree',
   'sessions.sidebar.session.moveToWorktree.existingSuccess': 'Сессия перемещена в worktree',
   'sessions.sidebar.session.moveToWorktree.existingFailed': 'Не удалось переместить сессию в worktree',
-  'sessions.sidebar.session.moveToWorktree.tooltip': 'Создаёт новый worktree из текущей ветки и перемещает туда эту сессию и её подсессии. Незакоммиченные изменения остаются в исходном worktree.',
   'sessions.sidebar.session.moveToWorktree.tooltipBusy': 'Доступно, когда сессия простаивает. Остановите текущую активность или дождитесь её завершения.',
   'sessions.sidebar.session.moveToWorktree.tooltipMoving': 'Эта сессия уже перемещается в новый worktree.',
   'sessions.sidebar.session.menu.openInSidePanel': 'Открыть на боковой панели',
@@ -2072,8 +2070,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.todo.addAria': 'Добавить задачу',
   'rightSidebar.contextNotesTodo.todo.empty': 'Задач пока нет. Добавьте небольшой контрольный список для этого проекта.',
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': 'Отметить «{text}» выполненной',
-  'rightSidebar.contextNotesTodo.todo.actions.collapse': 'Свернуть задачу «{text}»',
-  'rightSidebar.contextNotesTodo.todo.actions.expand': 'Развернуть задачу «{text}»',
   'rightSidebar.contextNotesTodo.todo.actions.send': 'Отправить «{text}»',
   'rightSidebar.contextNotesTodo.todo.actions.reorder': 'Изменить порядок «{text}»',
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': 'Отправить в текущую сессию',
@@ -2428,6 +2424,7 @@ export const dict = {
   'session.githubIntegration.validation.failed': 'Проверка не удалась',
   'chat.fileAttachment.toast.attachFailed': 'Не удалось прикрепить файл',
   'chat.fileAttachment.toast.tooLarge': '{name} слишком велик для вложения (больше {size}). Упомяните его через @, если он есть в проекте.',
+  'chat.fileAttachment.toast.heicConversionFailed': '{name} не удалось преобразовать из HEIC в JPEG, поэтому файл не прикреплён. Сохраните фото как JPEG и прикрепите снова.',
   'chat.fileAttachment.toast.overSendLimit': '{name} слишком велик для вложения (больше {size}).',
   'chat.fileAttachment.toast.someFilesSkipped': 'Некоторые файлы были пропущены:\n{summary}',
   'chat.fileAttachment.toast.vscodePickFailed': 'Не удалось выбрать файлы в VS Code.',
