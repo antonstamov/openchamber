@@ -206,9 +206,13 @@ const resolveProjectDefaults = (settings, directory, projectId) => {
  * One snapshot for this directory. Unknown catalogues can validate an explicit
  * choice permissively, but cannot establish the defaults for a new session.
  */
-const fetchSelectionInputs = async ({ client, readSettingsFromDiskMigrated }) => {
+const SELECTION_READY_TIMEOUT_MS = 20_000;
+const SELECTION_READY_POLL_MS = 500;
+const SELECTION_FETCH_TIMEOUT_MS = 10_000;
+
+const fetchSelectionInputs = async ({ client, readSettingsFromDiskMigrated, timeoutMs = SELECTION_FETCH_TIMEOUT_MS }) => {
   const settings = await readSettingsFromDiskMigrated();
-  const options = { signal: AbortSignal.timeout(10_000) };
+  const options = { signal: AbortSignal.timeout(timeoutMs) };
   const [models, agents, configEntries] = await Promise.all([
     client.model.list(undefined, options).then((response) => asList(response?.data)).catch(() => []),
     // v2 agents carry `id` (`build`, what prompts and sessions refer to) and a
@@ -232,6 +236,36 @@ const fetchSelectionInputs = async ({ client, readSettingsFromDiskMigrated }) =>
   }
 
   return { settings, models, agents, config };
+};
+
+// A directory OpenCode has never served boots its location on the first
+// request, and `agent.list` answers the snapshot as it is then: empty until
+// the agents finish loading about a second later. A single read at that
+// moment looks exactly like an unavailable configuration, so the defaults
+// path polls until the snapshot the strict check below demands, then runs
+// every existing check unchanged. Past the deadline the last snapshot goes
+// through, and the same 503 answers as before.
+const waitForSelectionInputs = async ({
+  client,
+  readSettingsFromDiskMigrated,
+  timeoutMs = SELECTION_READY_TIMEOUT_MS,
+  pollMs = SELECTION_READY_POLL_MS,
+}) => {
+  const deadline = Date.now() + timeoutMs;
+  let inputs = await fetchSelectionInputs({ client, readSettingsFromDiskMigrated });
+  while (!inputs.agents?.length || inputs.config === null) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return inputs;
+    // The per-request deadline lives inside the poll budget, so a slow
+    // OpenCode cannot push the wait past it by a whole request.
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, remaining)));
+    inputs = await fetchSelectionInputs({
+      client,
+      readSettingsFromDiskMigrated,
+      timeoutMs: Math.max(1, Math.min(SELECTION_FETCH_TIMEOUT_MS, deadline - Date.now())),
+    });
+  }
+  return inputs;
 };
 
 const resolveDefaultSelection = ({ agents, models, settings, projectDefaults, config, autoAvailable, requireDefaultAgent }) => {
@@ -608,6 +642,10 @@ export const createOpenChamberSessionService = (dependencies) => {
     // A registered project's merged setup (`projectConfigRuntime.readProjectSetup`).
     // A new worktree runs its setup commands; without it, none.
     readProjectSetup = null,
+    // How long the defaults path waits for a cold location's selection inputs
+    // before answering not-ready. Overridden in tests so they stay fast.
+    selectionReadyTimeoutMs = SELECTION_READY_TIMEOUT_MS,
+    selectionReadyPollMs = SELECTION_READY_POLL_MS,
   } = dependencies;
 
   if ((!injectedArchiveStore || !injectedSessionMetadataStore) && !dataDir) {
@@ -838,7 +876,12 @@ export const createOpenChamberSessionService = (dependencies) => {
     let selectionInputs = null;
     const readSelectionInputs = async () => {
       if (!selectionInputs) {
-        selectionInputs = await fetchSelectionInputs({ client, readSettingsFromDiskMigrated });
+        selectionInputs = await waitForSelectionInputs({
+          client,
+          readSettingsFromDiskMigrated,
+          timeoutMs: selectionReadyTimeoutMs,
+          pollMs: selectionReadyPollMs,
+        });
       }
       return selectionInputs;
     };
@@ -898,13 +941,16 @@ export const createOpenChamberSessionService = (dependencies) => {
     // model's configured level, then the level it was last sent with.
     if (variant == null && !isAutoModel(model) && (!reuseSessionSelection || requestedModel)) {
       try {
-        const inputs = await readSelectionInputs();
+        // Single-shot: the remembered level is an enhancement, so a discovery
+        // outage must not stall an otherwise explicit dispatch the way the
+        // defaults path above waits for a cold location.
+        const ready = selectionInputs ?? await fetchSelectionInputs({ client, readSettingsFromDiskMigrated });
         variant = resolveSelectionVariant({
-          settings: inputs.settings,
-          projectDefaults: resolveProjectDefaults(inputs.settings, directory, projectId),
-          agents: inputs.agents,
+          settings: ready.settings,
+          projectDefaults: resolveProjectDefaults(ready.settings, directory, projectId),
+          agents: ready.agents,
           agentName: agent,
-          models: inputs.models,
+          models: ready.models,
           providerID: model.providerID,
           modelID: model.modelID,
         });
