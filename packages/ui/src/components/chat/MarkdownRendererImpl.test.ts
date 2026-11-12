@@ -6,7 +6,7 @@ import { getDefaultTheme } from '@/lib/theme/themes';
 import { legacyChatQuoteAnchor, resolveChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 
 const browser = new Window({ url: 'http://localhost/' });
-Object.assign(globalThis, { window: browser, document: browser.document, navigator: browser.navigator,
+Object.assign(globalThis, { window: browser, document: browser.document, CustomEvent: browser.CustomEvent, navigator: browser.navigator,
   localStorage: browser.localStorage, sessionStorage: browser.sessionStorage, HTMLElement: browser.HTMLElement,
   HTMLAnchorElement: browser.HTMLAnchorElement, Element: browser.Element, Node: browser.Node, Text: browser.Text,
   SVGElement: browser.SVGElement, MutationObserver: browser.MutationObserver, DOMParser: browser.DOMParser,
@@ -47,6 +47,14 @@ const render = async (content: string, isStreaming = false, allowRawHtml = false
   });
   void isStreaming;
 };
+
+test('chat prose resolves each paragraph, list item and quote by most of its words', async () => {
+  await render('- **nao** — رخصة Apache 2.0 مفتوحة المصدر\n- Run the tests first\n- 42\n\n> Lightdash بيان مفتوح المصدر مبني على dbt\n\nThe Arabic label is مرحبا, and this paragraph is English.');
+  expect(Array.from(host.querySelectorAll('li'), (item) => item.getAttribute('dir'))).toEqual(['rtl', 'ltr', 'auto']);
+  expect(host.querySelector('ul')?.getAttribute('dir')).toBeNull();
+  expect(host.querySelector('blockquote')?.getAttribute('dir')).toBe('rtl');
+  expect(Array.from(host.querySelectorAll('p'), (paragraph) => paragraph.getAttribute('dir'))).toContain('ltr');
+});
 
 test('renders semantic Markdown through native Streamdown code and table components', async () => {
   await render('**bold**\n\n`inline`\n\n```text\nfirst\nsecond\n```\n\n| name | value |\n| --- | --- |\n| [link](https://example.com) | 2 |');

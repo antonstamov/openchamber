@@ -15,6 +15,7 @@ import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useDirectorySync, useSessionMessages } from '@/sync/sync-context';
 import { useRunningShell } from '@/sync/background-shells';
+import { stopForegroundShell, useForegroundShellStopping } from './foregroundShellStop';
 import { findShellCancellation, findShellCompletion, readBackgroundShellID, readRunningShellID } from '@/lib/opencode/background-shell';
 import { opencodeClient } from '@/lib/opencode/client';
 import type { State } from '@/sync/types';
@@ -94,7 +95,9 @@ import {
     isQuestionTool,
     isShellTool,
     isSubagentTool,
+    isTodoWriteTool,
     isWebSearchTool,
+    todoWriteItems,
     subagentAgent,
     subagentDescription,
     isWriteTool,
@@ -117,6 +120,7 @@ import { hasOpenChamberView, openChamberVerbKey, parseOpenChamberEnvelope, secre
 import { Field, QuietAction } from './ToolResultParts';
 import { openApplyPatchFileInEditor } from './applyPatchEditorAction';
 import { WebSearchResults } from './WebSearchResults';
+import { TodoWriteList } from './TodoWriteList';
 import { toBackgroundShellPart, type BackgroundShellPhase } from './backgroundShellPart';
 import { toBackgroundSubagentPart, toStoppedSubagentPart, type BackgroundSubagentPhase } from './backgroundSubagentPart';
 import { findSubagentCancellation, findSubagentRun, readBackgroundSubagentChildID } from '@/lib/opencode/subagent-run';
@@ -500,6 +504,14 @@ const describeTool = (described: ToolDescription | null, currentDirectory: strin
         }
     }
 };
+
+/**
+ * The row's title. `todowrite` takes the Work Status section's localized name,
+ * since both show the same list side by side.
+ */
+const toolDisplayName = (toolName: string, t: DescriptionTranslate): string => (
+    isTodoWriteTool(toolName) ? t('chat.workStatus.section.tasks') : getToolMetadata(toolName).displayName
+);
 
 const getToolDescription = (part: ToolPartType, state: ToolStateUnion, currentDirectory: string, t: DescriptionTranslate, namespace?: string): string => {
     const stateWithData = state as ToolStateWithMetadata;
@@ -1206,10 +1218,18 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
         () => getDiffPatchEntries(metadata, diffContent ?? undefined, (path) => getRelativePath(path, currentDirectory)),
         [currentDirectory, diffContent, metadata]
     );
+    // The list a finished `todowrite` call set is its whole story; its text
+    // answer only counts the same items again.
+    const todoItems = React.useMemo(
+        () => (isTodoWriteTool(part.tool) && state.status === 'completed' ? todoWriteItems(input) : null),
+        [input, part.tool, state.status],
+    );
+    const showTodoList = todoItems !== null && todoItems.length > 0;
     // `execute` renders its script and its call list itself, below. An
     // OpenCode namespace view says what the call did; the raw answer and a
     // failed call keep the input beside it.
     const hideToolInputPreview = isOpenChamberTool(part.tool)
+        || showTodoList
         || (opencodeResult !== null && !showRawToolAnswer)
         || isPatchTool(part.tool)
         || isEditTool(part.tool)
@@ -1508,6 +1528,10 @@ const ToolExpandedContent: React.FC<ToolExpandedContentProps> = React.memo(({
 
         if (isWriteLikeTool) {
             return null;
+        }
+
+        if (showTodoList && todoItems) {
+            return renderScrollableBlock(<TodoWriteList items={todoItems} />, { maxHeightClass: 'max-h-[40vh]', disableHorizontal: true });
         }
 
         if (webSearchOutput) {
@@ -1894,7 +1918,7 @@ const ToolPartContent: React.FC<ToolPartProps & { header?: ToolRowHeader; subage
     );
     const description = guestHeader?.subtitle ?? builtInDescription;
     const rowTool = scriptNamespace ?? (normalizedPartTool || part.tool);
-    const displayName = guestHeader?.title ?? getToolMetadata(rowTool).displayName;
+    const displayName = guestHeader?.title ?? toolDisplayName(rowTool, t);
 
     // Opened, the body already carries the whole error and output.
     const failureDetail = isError && !isExpanded ? failureReason : undefined;
@@ -2374,6 +2398,8 @@ const BackgroundShellToolPartContent: React.FC<ToolPartProps & { shellID: string
     const isRunning = !completion && running !== undefined;
     const liveOutput = useShellOutput(shellID, running?.directory, isRunning && props.isExpanded);
     const [stopping, setStopping] = React.useState(false);
+    // The Stop of the row this call was, while the turn still waited for it.
+    const stoppedFromForeground = useForegroundShellStopping(shellID);
 
     // A stop the user asked for wins over the error OpenCode reports for it,
     // but not over a command that is somehow still running.
@@ -2406,7 +2432,7 @@ const BackgroundShellToolPartContent: React.FC<ToolPartProps & { shellID: string
             header={{
                 label: phase.kind === 'stopped' ? 'stopped' : 'background',
                 durationUnknown: phase.kind === 'unknown',
-                stop: isRunning && !stopping ? { onStop: stop, ariaLabel: t('chat.toolPart.background.stop') } : undefined,
+                stop: isRunning && !stopping && !stoppedFromForeground ? { onStop: stop, ariaLabel: t('chat.toolPart.background.stop') } : undefined,
             }}
         />
     );
@@ -2418,8 +2444,11 @@ const BackgroundShellToolPartContent: React.FC<ToolPartProps & { shellID: string
  * as a background row does, until the call settles with its final output.
  */
 const ShellToolPartContent: React.FC<ToolPartProps> = (props) => {
+    const { t } = useI18n();
+    const directory = useEffectiveDirectory();
     const shellID = readRunningShellID(props.part);
     const running = useRunningShell(shellID);
+    const stopping = useForegroundShellStopping(shellID);
     const liveOutput = useShellOutput(shellID ?? '', running?.directory, shellID !== undefined && props.isExpanded);
     const part = React.useMemo((): ToolPartType => {
         const { state } = props.part;
@@ -2427,7 +2456,25 @@ const ShellToolPartContent: React.FC<ToolPartProps> = (props) => {
         return { ...props.part, state: { ...state, metadata: { ...state.metadata, output: liveOutput } } };
     }, [liveOutput, props.part]);
 
-    return <ToolPartContent {...props} part={part} />;
+    // Stopped through the background (see `foregroundShellStop.ts`). The
+    // index's `background` flag is not checked: a list read sets it for a
+    // command this call may still wait for.
+    const stop = React.useCallback(() => {
+        if (!running) return;
+        stopForegroundShell({
+            sessionID: props.part.sessionID,
+            sessionDirectory: directory,
+            shell: { shellID: running.id, shellDirectory: running.directory, command: running.command },
+        }).catch(() => {
+            toast.error(t('chat.toolPart.background.stopFailed'));
+        });
+    }, [directory, props.part.sessionID, running, t]);
+
+    const header: ToolRowHeader | undefined = running && !stopping
+        ? { stop: { onStop: stop, ariaLabel: t('chat.toolPart.background.stop') } }
+        : undefined;
+
+    return <ToolPartContent {...props} part={part} header={header} />;
 };
 
 /**
@@ -2522,7 +2569,7 @@ const ToolPart: React.FC<ToolPartProps> = (incoming) => {
     const part = useShownToolPart(incoming.part);
     const props = part === incoming.part ? incoming : { ...incoming, part };
     const toolName = normalizeToolName(props.part.tool) || 'tool';
-    const displayName = getToolMetadata(toolName).displayName;
+    const displayName = toolDisplayName(toolName, t);
     const backgroundShellID = isShellTool(toolName) ? readBackgroundShellID(props.part) : undefined;
 
     return (

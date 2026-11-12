@@ -30,6 +30,7 @@ import {
     useMobileCommentComposerController,
     useMobileCommentDraft,
 } from '../composer/comment/MobileCommentComposerContext';
+import { appendWithLineBreaks } from '../composer/text';
 import { SelectionApprovalButton } from './SelectionApprovalButton';
 import { GUEST_ITEM_MESSAGE_TEXT_MAX } from '@openchamber/sdk';
 import { GuestIcon } from '@/components/layout/GuestRailIcon';
@@ -658,7 +659,7 @@ const TextSelectionMenuImpl: React.FC<TextSelectionMenuProps> = ({ containerRef,
     if (!currentSessionId || !selectedTextMarkdown) return;
     requestBtwComposer({
       parentSessionId: currentSessionId,
-      text: wrapMarkdownSelectionForChat(selectedTextMarkdown),
+      text: appendWithLineBreaks('', wrapMarkdownSelectionForChat(selectedTextMarkdown)),
     });
     hideMenu();
     window.getSelection()?.removeAllRanges();
