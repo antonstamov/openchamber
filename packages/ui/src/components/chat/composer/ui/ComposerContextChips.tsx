@@ -94,6 +94,15 @@ const basename = (path: string): string => {
 const PREVIEW_CLOSE_DELAY_MS = 500;
 
 /**
+ * A blur in the first moments after an edit opens cannot be the user leaving:
+ * React StrictMode (dev only) remounts a freshly mounted editor, and the
+ * simulated unmount destroys the just-focused view, whose blur would commit
+ * and close the edit before it can be used. Ignore such blurs; a real user
+ * cannot act this fast.
+ */
+const EDIT_COMMIT_GRACE_MS = 350;
+
+/**
  * Hover opens and closes the preview for a mouse only. A tap (finger or a pen
  * without hover) fires its enter right before its click, so a hover handler
  * would open the preview and the click would close it again in the same tap.
@@ -128,12 +137,16 @@ const DraftPreviewEntry: React.FC<{
     const editBaseRef = React.useRef(draft.text);
     // Images pasted while editing join the composer's attachments on save.
     const imagePaste = useCommentImagePaste();
+    // When the edit opened: a blur inside the grace window is the mount
+    // remount cycle, not the user leaving, so it must not commit.
+    const editOpenedAtRef = React.useRef(0);
     // A late transcript from an attach-while-busy outlives the field that
     // recorded it; the chips preview stays mounted and shows it pending.
     const dictationPending = useCommentDictationPendingStore((state) => Boolean(state.pending[draft.id]));
 
     React.useEffect(() => {
         if (!editing) return;
+        editOpenedAtRef.current = Date.now();
         setEditText(draft.text);
         editBaseRef.current = draft.text;
         // The draft text at edit start is the baseline; later store updates are
@@ -312,7 +325,11 @@ const DraftPreviewEntry: React.FC<{
                                     onChange={setEditText}
                                     onSubmit={commitEdit}
                                     onCancel={cancelEdit}
-                                    onBlur={commitEdit}
+                                    onBlur={() => {
+                                        // See EDIT_COMMIT_GRACE_MS above.
+                                        if (Date.now() - editOpenedAtRef.current < EDIT_COMMIT_GRACE_MS) return;
+                                        commitEdit();
+                                    }}
                                     enterSubmits
                                     imagePaste={imagePaste}
                                     placeholder={t('chat.textSelection.comment.placeholder')}
