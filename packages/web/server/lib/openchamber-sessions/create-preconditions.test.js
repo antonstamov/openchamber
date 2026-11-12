@@ -54,6 +54,10 @@ const fixture = (overrides = {}) => {
     worktreeBootstrapStore: { read: async () => null, write: async () => {} },
     hydrateWorktreeCheckout: async () => {},
     resolveWorktreeTopLevel: async () => ({ prefix: '' }),
+    // Cold locations publish their agents within about a second; the suite
+    // uses a short window so persistent failures stay fast.
+    selectionReadyTimeoutMs: 60,
+    selectionReadyPollMs: 5,
     ...overrides,
   });
   return { service, sdk, records, delivered, createWorktree, createClient };
@@ -85,26 +89,48 @@ describe('session creation preconditions', () => {
   it.each(['empty agents', 'failed agents', 'failed config', 'missing default agent'])(
     'creates nothing after %s and lets the caller retry the checkout', async (failure) => {
       const f = fixture();
-      if (failure === 'empty agents') f.sdk.agent.list.mockResolvedValueOnce({ data: [] });
-      else if (failure === 'failed agents') f.sdk.agent.list.mockRejectedValueOnce(new Error('starting'));
-      else if (failure === 'failed config') f.sdk.config.get.mockRejectedValueOnce(new Error('starting'));
+      if (failure === 'empty agents') f.sdk.agent.list.mockResolvedValue({ data: [] });
+      else if (failure === 'failed agents') f.sdk.agent.list.mockRejectedValue(new Error('starting'));
+      else if (failure === 'failed config') f.sdk.config.get.mockRejectedValue(new Error('starting'));
       else f.sdk.agent.list.mockResolvedValueOnce({ data: [agents[1]] });
 
       await expect(f.service.create(request)).rejects.toMatchObject({
         statusCode: 503, partial: true, partialAction: 'worktree-created', directory,
       });
-      expect(f.sdk.agent.list).toHaveBeenCalledTimes(1);
-      expect(f.sdk.config.get).toHaveBeenCalledTimes(1);
+      expect(f.sdk.agent.list).toHaveBeenCalled();
+      expect(f.sdk.config.get).toHaveBeenCalled();
       expect(f.records.size).toBe(0);
       expect(f.sdk.session.switchModel).not.toHaveBeenCalled();
       expect(f.delivered).toEqual([]);
 
+      f.sdk.agent.list.mockResolvedValue({ data: agents });
+      f.sdk.config.get.mockResolvedValue([{ info: { default_agent: 'plan' } }]);
       const result = await f.service.create({ directory, prompt: request.prompt });
       expect(result).toMatchObject({ agent: 'build', variant: 'high', promptDispatched: true });
       expect(f.delivered).toMatchObject([{ agent: 'build', model: bound }]);
       expect(f.createWorktree).toHaveBeenCalledTimes(1);
-      expect(f.sdk.agent.list).toHaveBeenCalledTimes(2);
       expect(f.createClient.mock.calls.every(([options]) => options.directory === directory)).toBe(true);
+    },
+  );
+
+  it.each(['empty agents then published', 'failed reads then recovered'])(
+    'waits out a cold location %s before creating the session', async (recovery) => {
+      const f = fixture();
+      if (recovery === 'empty agents then published') {
+        f.sdk.agent.list
+          .mockResolvedValueOnce({ data: [] })
+          .mockResolvedValueOnce({ data: [] })
+          .mockResolvedValue({ data: agents });
+      } else {
+        f.sdk.agent.list.mockRejectedValueOnce(new Error('starting'));
+        f.sdk.config.get.mockRejectedValueOnce(new Error('starting'));
+      }
+
+      const result = await f.service.create(request);
+      expect(result).toMatchObject({ agent: 'build', variant: 'high', promptDispatched: true });
+      expect(f.delivered).toMatchObject([{ agent: 'build', model: bound }]);
+      expect(f.createWorktree).toHaveBeenCalledTimes(1);
+      expect(f.sdk.agent.list.mock.calls.length).toBeGreaterThan(1);
     },
   );
 
@@ -185,5 +211,21 @@ describe('session creation preconditions', () => {
     expect(f.delivered).toMatchObject([{ agent: 'build', model: bound }]);
     // The existing explicit-choice validation still runs once in the source directory.
     expect(f.sdk.agent.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an explicit model and agent without variant on single-shot reads when discovery fails', async () => {
+    const f = fixture();
+    f.sdk.agent.list.mockRejectedValue(new Error('unavailable'));
+    f.sdk.config.get.mockRejectedValue(new Error('unavailable'));
+    f.sdk.model.list.mockRejectedValue(new Error('unavailable'));
+    // The remembered variant is an enhancement: its lookup stays single-shot
+    // and must not wait out the cold-location window the defaults path gets.
+    const result = await f.service.create({ ...request, agent: 'build', model: 'example/build-model' });
+    expect(result).toMatchObject({ agent: 'build', promptDispatched: true });
+    expect(result.variant).toBeUndefined();
+    expect(f.delivered).toMatchObject([{ agent: 'build', model: { providerID: 'example', id: 'build-model' } }]);
+    // Once for the explicit-choice validation, once for each variant lookup
+    // around the session creation, with no polling in between.
+    expect(f.sdk.agent.list).toHaveBeenCalledTimes(3);
   });
 });

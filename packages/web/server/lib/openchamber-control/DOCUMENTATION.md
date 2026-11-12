@@ -343,10 +343,14 @@ other.
   and effort preferences survive missing catalog entries rather than silently
   dispatching with a different model.
 - A create with a prompt resolves its selection in the target directory before
-  creating an OpenCode session. It reads discovery once with a 10-second request
-  deadline. Unavailable agent/config reads, an empty agent list, or a configured
-  agent absent from the list produce 503; no fallback model is dispatched from
-  those snapshots. A missing saved default agent is named in the error with a
+  creating an OpenCode session. A directory OpenCode never served boots its
+  location on the first request, and the agent list reads empty until the
+  agents finish loading about a second later, so discovery polls every half
+  second up to twenty seconds for a snapshot with agents and config, with a
+  10-second deadline on each request. Past that, unavailable agent/config
+  reads, an empty agent list, or a configured agent absent from the list
+  produce 503; no fallback model is dispatched from those snapshots.
+  A missing saved default agent is named in the error with a
   hint to update the default or pass an explicit agent; it never silently picks
   another agent. An explicit agent that needs only a model does not require the
   saved default agent to exist. Model precedence stays unchanged.
