@@ -38,7 +38,7 @@ interface UpdateDialogProps {
   runtimeType?: 'desktop' | 'web' | 'vscode' | 'mobile' | null;
 }
 
-const GITHUB_RELEASES_URL = 'https://github.com/openchamber/openchamber/releases';
+const GITHUB_RELEASES_URL = 'https://github.com/antonstamov/openchamber/releases';
 
 type NotesGroup = { heading: string; bullets: string[] };
 
