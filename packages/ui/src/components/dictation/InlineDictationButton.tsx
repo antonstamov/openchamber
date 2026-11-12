@@ -4,7 +4,7 @@
  * spinner while the server transcribes. The transcript goes to `onTranscript`;
  * the host decides where it lands in its field.
  *
- * Unlike ComposerDictation there is no overlay and no global shortcut: the
+ * Unlike ComposerDictation there is no global shortcut: the
  * toggle_dictation shortcut belongs to the chat composer, and a second listener
  * would start two recordings from one key press.
  */

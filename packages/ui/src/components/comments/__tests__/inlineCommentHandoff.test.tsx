@@ -9,28 +9,31 @@ import { useInlineCommentDraftStore } from '@/stores/useInlineCommentDraftStore'
 import { useCommentDictationPendingStore } from '@/stores/useCommentDictationPendingStore';
 import type { DictationStatus, UseDictationOptions } from '@/hooks/useDictation';
 
+const Passthrough = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 const engines: Array<{
   getOptions: () => UseDictationOptions;
   setStatus: (status: DictationStatus) => void;
+  setPartial: (text: string) => void;
 }> = [];
 let confirmed = 0;
 
 mock.module('@/hooks/useDictation', () => ({
   useDictation: (options: UseDictationOptions) => {
     const [status, setStatus] = React.useState<DictationStatus>('idle');
+    const [partialTranscript, setPartial] = React.useState('');
     const statusRef = React.useRef(status);
     statusRef.current = status;
     const optionsRef = React.useRef(options);
     optionsRef.current = options;
     React.useEffect(() => {
-      engines.push({ getOptions: () => optionsRef.current, setStatus });
+      engines.push({ getOptions: () => optionsRef.current, setStatus, setPartial });
     }, []);
     return {
       status,
       getStatus: () => statusRef.current,
       isRecording: status === 'recording',
       isProcessing: status === 'uploading',
-      partialTranscript: '',
+      partialTranscript,
       subscribeLevel: () => () => {},
       duration: 0,
       error: null,
@@ -53,7 +56,7 @@ mock.module('@/hooks/useDurationTicker', () => ({ useWaitingBlink: () => '' }));
 mock.module('@/components/dictation/DictationWaveform', () => ({ DictationWaveform: () => null }));
 mock.module('@/components/icon/Icon', () => ({ Icon: () => null }));
 mock.module('@/components/ui/action-toolbar', () => ({ ButtonTooltip: Passthrough, TooltipLabelWithShortcut: () => null }));
-const Passthrough = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
+mock.module('@/components/ui', () => ({ toast: { error: () => undefined, info: () => undefined, success: () => undefined } }));
 mock.module('@/components/ui/tooltip', () => ({ Tooltip: Passthrough, TooltipTrigger: Passthrough, TooltipContent: () => null }));
 mock.module('@/components/ui/spinner', () => ({ Spinner: () => null }));
 
@@ -166,6 +169,28 @@ describe('attach while dictation is still transcribing', () => {
     await act(async () => { engines[0].getOptions().onTranscript?.('late words'); });
 
     expect(useInlineCommentDraftStore.getState().getDrafts(target).map((draft) => draft.text)).toEqual(['late words ']);
+    expect(useCommentDictationPendingStore.getState().pending).toEqual({});
+  });
+
+  test('a post-close transcription failure salvages the partial and clears the pending mark', async () => {
+    const draftId = useInlineCommentDraftStore.getState().addDraft(target, { ...draftSeed, id: 'draft-1' });
+    expect(draftId).toBe('draft-1');
+    await mount();
+    expect(engines).toHaveLength(1);
+
+    // The session is still transcribing when the user attaches.
+    await act(async () => { engines[0].setStatus('uploading'); });
+    await pressEnter();
+    expect(useCommentDictationPendingStore.getState().pending['draft-1']).toBe(true);
+
+    // The parent unmounts the field on save; transcription fails after.
+    // The partial arrives while the field is still mounted, the failure after.
+    await act(async () => { engines[0].setPartial('salvage me'); });
+    await act(async () => root.unmount());
+    await act(async () => { engines[0].getOptions().onError?.(new Error('boom')); });
+
+    // The salvage lands in the draft and the pending indicator goes away.
+    expect(useInlineCommentDraftStore.getState().getDrafts(target).map((draft) => draft.text)).toEqual(['salvage me ']);
     expect(useCommentDictationPendingStore.getState().pending).toEqual({});
   });
 

@@ -4,6 +4,7 @@ import { useCommentDictationPendingStore } from '@/stores/useCommentDictationPen
 import {
   mergeExternalDraftAppend,
   routeTranscriptToDraft,
+  waitForCommentDictationSettled,
 } from './commentDictationHandoff';
 
 const comment = {
@@ -105,5 +106,31 @@ describe('merging a late transcript into a comment being edited', () => {
 
   test('a non-append outside change favors the edited text', () => {
     expect(mergeExternalDraftAppend('base', 'rewritten', 'edited')).toBe('edited');
+  });
+});
+
+describe('waiting for pending transcripts before a send', () => {
+  afterEach(() => {
+    useCommentDictationPendingStore.setState({ pending: {} });
+  });
+
+  test('resolves settled at once when nothing is pending', async () => {
+    expect(await waitForCommentDictationSettled(10)).toBe('settled');
+  });
+
+  test('resolves settled once the last pending mark clears', async () => {
+    pending().markPending('draft-1');
+    pending().markPending('draft-2');
+    const waited = waitForCommentDictationSettled(1000);
+    pending().clearPending('draft-1');
+    await Promise.resolve();
+    pending().clearPending('draft-2');
+    expect(await waited).toBe('settled');
+  });
+
+  test('resolves timeout when a transcript never arrives', async () => {
+    pending().markPending('draft-1');
+    expect(await waitForCommentDictationSettled(10)).toBe('timeout');
+    expect(pending().pending).toEqual({ 'draft-1': true });
   });
 });

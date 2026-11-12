@@ -39,12 +39,9 @@ const commentLanguageContext = (knownSnippetTriggers: ReadonlySet<string>): Comp
     attachmentFilenames: [],
 });
 
-const MOBILE_COMMENT_RADIUS = '1.25rem';
 const MOBILE_COMMENT_MAX_LINES = 6;
 const FOOTER_ICON_BUTTON_CLASS = 'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-foreground outline-none focus:outline-none';
-const FOOTER_PADDING_CLASS = 'px-1.5 py-1.5';
 const ICON_SIZE_CLASS = 'h-[18px] w-[18px]';
-const SEND_ICON_SIZE_CLASS = 'h-4 w-4';
 /** Width of the trailing fade on the quote preview. */
 const PREVIEW_FADE_PX = 20;
 
@@ -177,12 +174,9 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
                 />
                 <div className="mb-1 flex h-9 shrink-0 items-center">
                     <ComposerDictation
-                        radius={MOBILE_COMMENT_RADIUS}
                         isMobile
                         footerIconButtonClass={FOOTER_ICON_BUTTON_CLASS}
-                        footerPaddingClass={FOOTER_PADDING_CLASS}
                         iconSizeClass={ICON_SIZE_CLASS}
-                        sendIconSizeClass={SEND_ICON_SIZE_CLASS}
                         onInsert={handlers.onDictationInsert}
                         onInsertAndSend={handlers.onDictationInsertAndSend}
                         onActiveChange={handlers.onDictationActiveChange}

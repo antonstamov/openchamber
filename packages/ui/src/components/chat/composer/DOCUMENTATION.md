@@ -330,14 +330,19 @@ mobile keyboard choreography is unchanged: the form inside the slot is still
 the keyboard mover and the column shrinks around it at settle.
 
 The box clips its contents, so popups anchor to the wrapper outside it. The
-dictation overlay (`.oc-dictation-overlay`) never shows the composer's own
-contents through it: a CSS rule in `design-system.css` hides them while it is
-up, leaving the box as the single surface on desktop and the overlay itself on
-mobile. On desktop the footer's
-dictation reports its state and the box carries `data-dictating`; the
-elements between the box and the overlay carry `data-dictation-chain`, so the
-rule only targets their other children. A `:has()` over the box was
-re-evaluated for every descendant on each editor mutation.
+composer dictation status is inline in the footer flow and never covers the
+editor: recording, transcribing and failed states render beside the mic as a
+compact status plus explicit cancel/confirm actions, the way the comment
+dictation button already behaves. The composer's own send stays the single
+send action: dictation confirms with insert, and record-and-send stays on the
+toggle shortcut when auto-send is on. A Send or Enter during recording or
+transcription confirms the dictation and queues the send instead: the
+transcript lands through the normal insert path and the message goes out
+whole. While a send is queued, further sends are ignored; cancel, discard,
+or an engine unmount drops the queue, while a failure keeps it armed so a
+retry still sends. Typing, autocomplete, sending and the
+toggle shortcut keep working throughout; there is no overlay, no
+`data-dictating` mark and no Enter/Escape capture.
 
 Typing re-renders `ChatInput` and its editor, nothing else. The children that
 do not depend on the draft text (footer, autocomplete popups, docks, BTW
@@ -1217,8 +1222,13 @@ on the main chat's. The agent shortcut stays off in BTW. Files attach as in the 
 (picker, paste, drop) and live in the BTW draft identity's attachment slot,
 so they never mix with the main draft's files; the attach control offers
 only local files. Goals, expansion, shell, linked context (issues, PRs,
-guests) and file/agent mention autocomplete are unavailable. Auto-accept is
-applied before the first send.
+guests) and file/agent mention autocomplete are unavailable. Dictation is
+available: it inserts through the same composer text and draft identity the
+BTW question is edited in, so the origin tracking, the fork-creating send
+and the pending transcript fallback work as in the normal composer: a Send or
+Enter during recording confirms the dictation and the fork goes out with the
+transcript included.
+Auto-accept is applied before the first send.
 On mobile, the model, effort and agent controls take the main composer's
 bottom row below the footer, drawn the same way, and open the same bottom
 sheets; the footer holds the files-only attach, auto-accept and send/stop
@@ -1635,7 +1645,11 @@ draft) only clears the mark; a bounds refusal toasts once. Blocking the send
 until transcription finished kept the field open on every slow network and
 still lost the text when the user closed it first. Editing a comment that is
 still expecting a transcript shows the same pending mark, and saving merges the
-late text instead of overwriting it (`mergeExternalDraftAppend`). Review-server
+late text instead of overwriting it (`mergeExternalDraftAppend`). An attached
+draft that is still expecting its transcript shows the pending mark on its chip
+and in its preview, including when its text is still empty, so the incoming
+text never reads as lost; the transcript replaces the placeholder when it
+lands, and a post-close failure clears the mark after salvaging. Review-server
 comments are outside this path: they have no draft to append to.
 
 The comment editor reuses `ComposerEditor` with `dataChatInput="comment"` so

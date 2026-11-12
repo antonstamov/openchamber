@@ -8,16 +8,23 @@ const settings = { dictationEnabled: true, dictationAutoSend: true };
 const starts: number[] = [];
 const completions: Array<() => void> = [];
 let nextEngine = 0;
+const Passthrough = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 
 mock.module('@/hooks/useDictation', () => ({
     useDictation: (options: UseDictationOptions) => {
         const [id] = React.useState(() => nextEngine++);
         const [status, setStatus] = React.useState<DictationStatus>('idle');
+        const statusRef = React.useRef(status);
+        React.useEffect(() => {
+            statusRef.current = status;
+        }, [status]);
         return {
             status, partialTranscript: '', duration: 0, error: null, errorReason: null,
             subscribeLevel: () => () => {},
+            getStatus: () => statusRef.current,
             startDictation: async () => { starts.push(id); setStatus('recording'); },
             confirmDictation: async () => {
+                if (statusRef.current !== 'recording') return null;
                 setStatus('uploading');
                 completions.push(() => { setStatus('idle'); options.onTranscript?.('transcript'); });
                 return null;
@@ -42,7 +49,6 @@ mock.module('@/components/dictation/DictationWaveform', () => ({ DictationWavefo
 mock.module('@/components/icon/Icon', () => ({ Icon: () => null }));
 mock.module('@/lib/shortcuts', () => ({ formatShortcutForDisplay: () => '', getEffectiveShortcutCombo: () => '' }));
 mock.module('@/components/ui/action-toolbar', () => ({ ButtonTooltip: Passthrough, TooltipLabelWithShortcut: () => null }));
-const Passthrough = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 mock.module('@/components/ui/tooltip', () => ({ Tooltip: Passthrough, TooltipTrigger: Passthrough, TooltipContent: () => null }));
 
 const { ComposerDictation } = await import('./ComposerDictation');
@@ -50,6 +56,11 @@ let root: Root;
 let dom: Window;
 const messages: Array<{ session: string; text: string }> = [];
 const insertions: Array<{ session: string; text: string }> = [];
+const controllers: Record<string, { current: { confirmInsert: () => void; getStatus: () => DictationStatus } | null }> = {
+    main: { current: null },
+    pinned: { current: null },
+};
+const statusLog: Record<string, DictationStatus[]> = { main: [], pinned: [] };
 
 const Composer = ({ session }: { session: string }) => (
     <section data-chat-column={session}>
@@ -57,9 +68,11 @@ const Composer = ({ session }: { session: string }) => (
             <div data-chat-input="true"><div className="cm-content" tabIndex={0} /></div>
             <ComposerDictation
                 isMobile={false}
-                footerIconButtonClass="" footerPaddingClass="" iconSizeClass="" sendIconSizeClass=""
+                footerIconButtonClass="" iconSizeClass=""
                 onInsert={(text) => insertions.push({ session, text })}
                 onInsertAndSend={(text) => messages.push({ session, text: `${session} draft ${text}` })}
+                onStatusChange={(status) => { statusLog[session].push(status); }}
+                controllerRef={controllers[session]}
             />
         </form>
     </section>
@@ -79,6 +92,10 @@ beforeEach(async () => {
     nextEngine = 0;
     settings.dictationAutoSend = true;
     settings.dictationEnabled = true;
+    controllers.main.current = null;
+    controllers.pinned.current = null;
+    statusLog.main.length = 0;
+    statusLog.pinned.length = 0;
     const host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -112,13 +129,17 @@ for (const session of ['main', 'pinned']) {
     });
 }
 
-test('Enter confirms only the recording owner and does not submit the other form', async () => {
+test('Enter no longer confirms the recording: the field stays live for typing', async () => {
     focus('pinned');
     await toggle();
     focus('main');
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     await act(async () => document.activeElement!.dispatchEvent(enter));
-    expect(enter.defaultPrevented).toBe(true);
+    // Non-blocking dictation never captures Enter: the composer keeps its own
+    // submit behavior, and the recording stays active until explicit confirm.
+    expect(enter.defaultPrevented).toBe(false);
+    expect(completions).toHaveLength(0);
+    await toggle();
     await finish();
     expect(messages).toEqual([{ session: 'pinned', text: 'pinned draft transcript' }]);
 });
@@ -156,14 +177,52 @@ test('a mic in another composer cannot start or confirm the owned recording', as
     expect(messages).toEqual([{ session: 'pinned', text: 'pinned draft transcript' }]);
 });
 
-test('cancel releases ownership so the next shortcut can record in the other composer', async () => {
+test('Escape no longer cancels the recording: ownership stays until explicit confirm', async () => {
     focus('pinned');
     await toggle();
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    // The inline status never captures Escape, so the recording is still live
+    // and a shortcut in the other composer cannot steal it.
+    focus('main');
+    await toggle();
+    expect(starts).toEqual([1]);
+    expect(completions).toHaveLength(1);
+    await finish();
+    expect(messages).toEqual([{ session: 'pinned', text: 'pinned draft transcript' }]);
     focus('main');
     await toggle();
     expect(starts).toEqual([1, 0]);
-    expect(messages).toEqual([]);
+    expect(messages).toEqual([{ session: 'pinned', text: 'pinned draft transcript' }]);
+});
+
+test('recording renders a compact inline status, not a blocking overlay', async () => {
+    focus('main');
+    await toggle();
+    // No dialog/overlay covers the field: the editor stays in the document and
+    // the only live region is the compact inline status.
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('.oc-dictation-overlay')).toBeNull();
+    const inline = document.querySelector('#main [data-testid="composer-dictation-inline"]');
+    expect(inline).not.toBeNull();
+    expect(inline!.querySelector('[role="status"]')).not.toBeNull();
+    // The field the recording started in is still mounted and focusable.
+    expect(document.querySelector('#main .cm-content')).not.toBeNull();
+    await toggle();
+    await finish();
+});
+
+test('transcribing renders a compact processing status with cancel, still no overlay', async () => {
+    focus('pinned');
+    await toggle();
+    // Confirm moves this engine to uploading; the transcript resolves later.
+    await toggle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('.oc-dictation-overlay')).toBeNull();
+    const inline = document.querySelector('#pinned [data-testid="composer-dictation-inline"]');
+    expect(inline).not.toBeNull();
+    expect(inline!.textContent).toContain('chat.dictation.processing');
+    await finish();
+    expect(messages).toEqual([{ session: 'pinned', text: 'pinned draft transcript' }]);
 });
 
 test('auto-send disabled inserts only in the selected composer', async () => {
@@ -175,4 +234,41 @@ test('auto-send disabled inserts only in the selected composer', async () => {
     await finish();
     expect(messages).toEqual([]);
     expect(insertions).toEqual([{ session: 'pinned', text: 'transcript' }]);
+});
+
+test('the host sees every status change and the live status', async () => {
+    expect(controllers.main.current).not.toBeNull();
+    expect(controllers.main.current?.getStatus()).toBe('idle');
+    focus('main');
+    await toggle();
+    expect(controllers.main.current?.getStatus()).toBe('recording');
+    // Confirm through the toggle (auto-send inserts-and-sends here).
+    await toggle();
+    expect(controllers.main.current?.getStatus()).toBe('uploading');
+    await finish();
+    expect(controllers.main.current?.getStatus()).toBe('idle');
+    expect(statusLog.main).toEqual(['idle', 'recording', 'uploading', 'idle']);
+});
+
+test('the controller confirms a recording for insert', async () => {
+    // Idle confirm is a no-op: nothing is queued and nothing resolves.
+    await act(async () => { controllers.main.current?.confirmInsert(); });
+    expect(completions).toHaveLength(0);
+    focus('main');
+    await toggle();
+    await act(async () => { controllers.main.current?.confirmInsert(); });
+    expect(completions).toHaveLength(1);
+    await finish();
+    expect(messages).toEqual([]);
+    expect(insertions).toEqual([{ session: 'main', text: 'transcript' }]);
+});
+
+test('unmount while recording reports idle so the host drops a queued send', async () => {
+    focus('main');
+    await toggle();
+    expect(statusLog.main).toEqual(['idle', 'recording']);
+    const calls = statusLog.main.length;
+    // Unmount the engines without finishing: the transcript will never arrive.
+    await act(async () => root.render(<></>));
+    expect(statusLog.main.slice(calls)).toEqual(['idle']);
 });
