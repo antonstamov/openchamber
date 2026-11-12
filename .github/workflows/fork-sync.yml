@@ -122,29 +122,54 @@ jobs:
           bun check -b
 
       - name: Fix the merged tree with the agent
-        # Any red verify gets a fix pass, not just clean merges: a
+        # Any red verify gets fix passes, not just clean merges: a
         # conflict merge the agent already resolved can still leave the tree
         # red (e.g. missing translations for new upstream strings), and
         # without this the run dies at the final verify with no recovery.
+        # Up to FIX_ROUNDS agent passes: an early exit that fixes nothing
+        # just triggers another round with the failing output attached.
         if: steps.merge.outputs.status != 'up-to-date' && steps.verify1.outcome == 'failure'
         env:
           PROMPT_FILE: .github/fork-merge-prompt.md
+          FIX_ROUNDS: 2
+          FIX_AGENT_TIMEOUT: 25m
         run: |
           set -euo pipefail
           if [ -z "${MODEL:-}" ]; then
             echo 'No model configured: set the FORK_MERGE_MODEL repo variable or pass the model input.' >&2
             exit 1
           fi
-          prompt="$(cat "$PROMPT_FILE")"
-          prompt="$prompt
+          base_prompt="$(cat "$PROMPT_FILE")"
+          base_prompt="$base_prompt
 
-          FIX MODE, not a fresh merge: upstream/main is already merged into the worktree (check git status), the tests above it are red. Do not start a new merge. Run the i18n suite and bun check, fix what is red following the same rules, stage the fixes with explicit git add paths, and commit. If everything is already green without changes from you (flaky check), just commit the merge. Do not push, do not tag."
-          timeout --signal=TERM --kill-after=60s 45m \
-            opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
-            | tee "$RUNNER_TEMP/fork-merge-fix.jsonl" \
-            | jq -r 'if .type == "text" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] \(.part.text // "")"
-                     elif .type == "tool_use" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] -> \(.part.tool // "tool"): \(((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))"
-                     else empty end'
+          FIX MODE, not a fresh merge: upstream/main is already merged into the worktree (check git status), the tests above it are red. Do not start a new merge. Run the i18n suite and bun check, fix what is red following the same rules, stage the fixes with explicit git add paths, and commit. If everything is already green without changes from you (flaky check), just commit the merge. Do not push, do not tag.
+          Work the FULL failure list the suite prints (dozens of missing keys and stale keys are normal after a big upstream batch): translate every missing key, delete every stale key. Re-run the suite yourself until it passes; ending the run with red tests and no changes fails loudly instead of silently."
+          green=0
+          for round in $(seq 1 "${FIX_ROUNDS:-2}"); do
+            if bun test packages/ui/src/lib/i18n/ >"$RUNNER_TEMP/fix-check-r$round.log" 2>&1; then
+              if bun check -b >>"$RUNNER_TEMP/fix-check-r$round.log" 2>&1; then
+                echo "fix-check green on round $round"
+                green=1
+                break
+              fi
+            fi
+            echo "fix-check red on round $round, invoking the fix agent"
+            failures="$(tail -n 60 "$RUNNER_TEMP/fix-check-r$round.log")"
+            prompt="$base_prompt
+
+          Failures this round:
+          $failures"
+            timeout --signal=TERM --kill-after=60s "${FIX_AGENT_TIMEOUT:-25m}" \
+              opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
+              | tee "$RUNNER_TEMP/fork-merge-fix-r$round.jsonl" \
+              | jq -r 'if .type == "text" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] \(.part.text // "")"
+                       elif .type == "tool_use" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] -> \(.part.tool // "tool"): \(((.part.state.input.command // .part.state.input.filePath // "") | tostring | .[0:160]))"
+                       else empty end'
+          done
+          if [ "$green" != 1 ]; then
+            echo "fix agent did not reach green in ${FIX_ROUNDS:-2} rounds; see the fork-merge-agent-logs artifact on this run" >&2
+            exit 1
+          fi
 
       - name: Verify the final tree
         id: verify-final
@@ -196,4 +221,15 @@ jobs:
           set -euo pipefail
           gh issue create --repo antonstamov/openchamber \
             --title "Fork sync failed: ${{ github.run_id }}" \
-            --body "The scheduled merge of upstream/main into main-ru failed. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            --body "The scheduled merge of upstream/main into main-ru failed. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} — agent logs: fork-merge-agent-logs artifact on that page."
+
+      - name: Upload merge agent logs
+        # The agent's full JSONL: without it an early or silent agent exit
+        # is undebuggable (the stdout tail shows only text and tool calls).
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4.3.0
+        with:
+          name: fork-merge-agent-logs
+          path: ${{ runner.temp }}/fork-merge*.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
