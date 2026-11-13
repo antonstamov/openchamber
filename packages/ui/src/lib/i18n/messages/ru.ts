@@ -19,6 +19,7 @@ import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
+import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
@@ -203,6 +204,7 @@ export const dict = {
   ...updateCheckErrorsI18n.ru,
   ...secretRequestI18n.ru,
   ...sessionNoticesI18n.ru,
+  ...settingsHintsI18n.ru,
   ...usageStatsI18n.ru,
   ...webSearchI18n.ru,
   ...sessionWarmingI18n.ru,
@@ -684,7 +686,6 @@ export const dict = {
   'sessions.sidebar.header.projectSort.recent': 'Недавние',
   'sessions.sidebar.header.search.matchCountSingle': '{count} совпадение',
   'sessions.sidebar.header.search.matchCountPlural': '{count} совпадений',
-  'sessions.sidebar.header.search.escapeHint': 'Esc, чтобы очистить',
   'sessions.sidebar.header.search.placeholder': 'Поиск сессий...',
   'sessions.sidebar.header.search.clear': 'Очистить поиск',
   'sessions.sidebar.footer.actions.settings': 'Настройки',
@@ -694,9 +695,10 @@ export const dict = {
   'sessions.sidebar.footer.actions.updateApp': 'Обновить приложение',
   'sessions.sidebar.empty.noSessions.title': 'Сессий пока нет',
   'sessions.sidebar.empty.noSessions.description': 'Создайте свою первую сессию, чтобы начать программировать.',
+  'sessions.sidebar.empty.noProjects.title': 'Проектов пока нет',
+  'sessions.sidebar.empty.noProjects.description': 'Добавьте проект, чтобы начать программировать.',
   'sessions.sidebar.empty.noMatches.title': 'Нет подходящих сессий',
   'sessions.sidebar.empty.noMatches.description': 'Попробуйте другой заголовок, ветку, папку или путь.',
-  'sessions.sidebar.empty.noMatches.searchArchive': 'Искать в архиве',
   'sessions.sidebar.activity.chatsTitle': 'Чаты',
   'sessions.sidebar.activity.chatsEmpty': 'Чатов пока нет.',
   'chat.chatInput.chooseProject': 'Выбрать проект',
@@ -1875,6 +1877,7 @@ export const dict = {
   'contextUsage.tooltip.outputLimit': 'Предел вывода: {tokens}',
   'contextUsage.tooltip.cost': 'Стоимость: {cost}',
   'contextUsage.compacted.description': 'Контекст сжат. Использование обновится после следующего ответа.',
+  'contextUsage.compacted.short': 'Сжато. Обновится после следующего ответа.',
   'contextSidebar.session.untitled': 'Безымянная сессия',
   'contextSidebar.empty.openSession': 'Откройте сессию, чтобы проверить контекст.',
   'contextSidebar.section.context': 'Контекст',
@@ -2407,6 +2410,7 @@ export const dict = {
   'session.newWorktree.fromSource': 'от {source}',
   'session.newWorktree.actions.cancel': 'Отмена',
   'session.newWorktree.actions.creating': 'Создание...',
+  'session.newWorktree.creatingWithCommand': 'Выполняется ваша команда создания…',
   'session.newWorktree.actions.createWorktree': 'Создать worktree',
   'session.newWorktree.actions.reset': 'Сбросить',
   'session.newWorktree.actions.unlink': 'Отвязать',
@@ -2482,6 +2486,8 @@ export const dict = {
   'chat.draftStarters.sharedTitle': 'Закреплено в конфигурации репозитория; измените там',
   'chat.draftStarters.share': 'Переместить в конфигурацию репозитория',
   'chat.draftStarters.makePersonal': 'Переместить в мои настройки',
+  'chat.draftStarters.sectionPinned': 'Ваши стартеры',
+  'chat.draftStarters.moveToFront': 'Переместить в начало',
   'chat.scrollToBottom.aria': 'Прокрутить вниз',
   'chat.promptNavigator.aria': 'Навигация по промптам',
   'chat.promptNavigator.currentPrompt': 'Текущий промпт',
@@ -2604,7 +2610,6 @@ export const dict = {
   'sessions.sidebar.group.empty.initializationFailed': 'Не удалось инициализировать рабочее пространство.',
   'sessions.sidebar.group.empty.trustPaused': 'Агенты приостановлены, пока вы не доверите эту папку.',
   'sessions.sidebar.group.empty.reviewTrust': 'Проверить и доверить',
-  'sessions.search.submitHint': 'Нажмите Enter для поиска',
   'sessions.sidebar.group.empty.retry': 'Попробовать снова',
   'sessions.sidebar.group.empty.permissionDenied': 'Требуется доступ к папке.',
   'sessions.sidebar.group.empty.grantAccess': 'Предоставить доступ',
@@ -2781,6 +2786,7 @@ export const dict = {
   'chat.chatInput.draftPicker.searchProjects': 'Поиск проектов...',
   'chat.chatInput.draftPicker.searchBranches': 'Поиск веток...',
   'chat.chatInput.draftPicker.noProjectsFound': 'Проекты не найдены.',
+  'chat.chatInput.draftPicker.addProject': 'Добавить проект…',
   'chat.chatInput.worktrees': 'Worktree',
   'chat.chatInput.worktreeQuick': 'Быстрый worktree',
   'chat.chatInput.worktreeCustom': 'Новый worktree…',
@@ -2905,6 +2911,7 @@ export const dict = {
   'chat.modelControls.addNewProvider': 'Добавить нового провайдера',
   'chat.modelControls.noAgentSelected': 'Агент не выбран.',
   'chat.modelControls.agentUnavailable': 'Агент «{agent}» недоступен в папке этой сессии. Выберите другого агента.',
+  'chat.modelControls.modelUnavailable': 'Модель «{model}» больше недоступна. Её провайдер удалён или выключен. Выберите другую модель.',
   'chat.modelControls.searchModels': 'Поиск моделей',
   'chat.modelControls.modelListAria': 'Модели',
   'chat.modelControls.searchAgents': 'Поиск агентов',
@@ -3435,6 +3442,8 @@ export const dict = {
   'vscodeLayout.actions.cancel': 'Отмена',
   'vscodeLayout.actions.newSessionAria': 'Новая сессия',
   'vscodeLayout.actions.resizeSessionsSidebarAria': 'Изменение размера боковой панели сессий',
+  'vscodeLayout.actions.showSessionsAria': 'Показать сессии',
+  'vscodeLayout.actions.hideSessionsAria': 'Скрыть сессии',
   'vscodeLayout.actions.settingsAria': 'Настройки',
   'updateDialog.header.updateAvailable': 'Доступно обновление',
   'updateDialog.header.updating': 'Обновление OpenChamber...',

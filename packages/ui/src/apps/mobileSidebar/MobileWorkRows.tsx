@@ -7,10 +7,14 @@ import { ContextMenuItem } from '@/components/ui/context-menu';
 import { CollapsedActivityIndicator } from '@/components/session/sidebar/sessions/collapsedActivityIndicator';
 import { useCollapsedSessionActivityState } from '@/components/session/sidebar/sessions/collapsedActivityState';
 import { DirectoryActionIndicator } from '@/components/session/sidebar/sessions/DirectoryActionIndicator';
+import { TimelineProjectName } from '@/components/session/sidebar/sessions/SessionTimelineRowBody';
+import { useZoneProjectNames } from '@/components/session/sidebar/sessions/useZoneProjectNames';
 import { useRunWork } from '@/components/session/sidebar/sessions/useRunWork';
 import { isPinnedZoneRowKey, type SessionSidebarRow } from '@/components/session/sidebar/sessionSidebarRowModel';
 import { useSessionDraftRow } from '@/components/session/sidebar/works/useSessionDraftRow';
 import { useWorktreeWork } from '@/components/session/sidebar/works/useWorktreeWork';
+import { useWorkRowGuestMarks } from '@/components/session/sidebar/sessions/useRowGuestMarks';
+import { MobileGuestMarks } from './MobileGuestMarks';
 import { SessionActivityDuration } from '@/components/session/SessionActivityDuration';
 import { SpaceStatusMark } from '@/components/session/spaces/SpaceStatus';
 import { useSpacesStore } from '@/lib/spaces/spaces-store';
@@ -61,10 +65,13 @@ export const MobileWorktreeRow: React.FC<{
   const { revealed, renaming } = useMobileRowSwipe(row.key);
   const work = useWorktreeWork({ group: row.group, projectId: row.projectId, collapsed: row.collapsed, onNavigate: actions.close });
   const { worktree, space, spaceName, project, projectLabel, refs, label, secondName, branch, title, inWork, selected, finishing, worktreeRemoving, activityState } = work;
+  const guestMarks = useWorkRowGuestMarks({ space: Boolean(space), projectId: project?.id ?? row.projectId ?? null, directory: work.directory, branch });
+  const marks = <MobileGuestMarks marks={guestMarks} onOpenRow={() => work.open()} />;
+  const projectNamed = useZoneProjectNames();
   const mixedProject = useMixedRowProject(row.projectId, row.mixed && row.detailed);
   const expandable = !row.empty;
-  const expanded = row.forceExpanded || !row.collapsed;
-  const toggle = expandable && !row.forceExpanded ? () => onToggle(row.groupKey) : undefined;
+  const expanded = !row.collapsed;
+  const toggle = expandable ? () => onToggle(row.groupKey) : undefined;
   const setRevealed = (next: boolean) => useMobileSidebarRowsStore.getState().setRevealed(row.key, next);
   const after = (action: () => void) => () => {
     setRevealed(false);
@@ -162,10 +169,11 @@ export const MobileWorktreeRow: React.FC<{
           : <>{titleText}{missing}{pinMark}{directoryIndicator}{stateMark}{duration}</>}
         secondLine={<>
           {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
-          {mixedProject && projectLabel?.trim() ? <span dir="auto" title={projectLabel.trim()} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{projectLabel.trim()}</span> : null}
+          {mixedProject && projectNamed ? <TimelineProjectName project={mixedProject} fallback={projectLabel?.trim() || null} separated={false} /> : null}
           {branchMark}
-          {secondName ? <span dir="auto" className="block min-w-0 truncate typography-micro">{secondName}</span> : null}
-          <span className="ms-auto flex shrink-0 items-center">{ref}</span>
+          {/* Beside the project's name the task's name is left out, as on the desktop. */}
+          {secondName && !(mixedProject && projectNamed && secondName === title) ? <span dir="auto" className="block min-w-0 truncate typography-micro">{secondName}</span> : null}
+          <span className="ms-auto flex shrink-0 items-center gap-1.5">{ref}{marks}</span>
         </>}
       />
     );
@@ -187,6 +195,7 @@ export const MobileWorktreeRow: React.FC<{
           {missing}
           {pinMark}
           {ref}
+          {marks}
           {directoryIndicator}
           {stateMark}
           {duration}
@@ -322,9 +331,10 @@ export const MobileRunRow: React.FC<{
   const activityNodes = React.useMemo(() => [...row.laneNodes], [row.laneNodes]);
   const activityState = useCollapsedSessionActivityState({ nodes: activityNodes, blockingSessionIds: row.blockingSessionIds });
   const activity = activityState ? <CollapsedActivityIndicator state={activityState} /> : null;
+  const projectNamed = useZoneProjectNames();
   const mixedProject = useMixedRowProject(row.projectId, row.detailed && row.renderContext === 'timeline-mixed');
-  const expanded = row.forceExpanded || row.expanded;
-  const toggle = row.laneNodes.length > 0 && !row.forceExpanded ? () => toggleParent(row.expansionKey) : undefined;
+  const expanded = row.expanded;
+  const toggle = row.laneNodes.length > 0 ? () => toggleParent(row.expansionKey) : undefined;
   const laneCount = run.lanes.length;
   const setRevealed = (next: boolean) => useMobileSidebarRowsStore.getState().setRevealed(row.key, next);
   const after = (action: () => void) => () => {
@@ -373,9 +383,10 @@ export const MobileRunRow: React.FC<{
           : <>{titleText}{activity}</>}
         secondLine={<>
           {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
-          {mixedProject && row.projectLabel?.trim() ? <span dir="auto" title={row.projectLabel.trim()} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{row.projectLabel.trim()}</span> : null}
+          {mixedProject && projectNamed ? <TimelineProjectName project={mixedProject} fallback={row.projectLabel?.trim() || null} separated={false} /> : null}
           {runMark}
-          <span className="block min-w-0 flex-1 truncate typography-micro">
+          {/* Its own width as the basis, so the project's name gives way first. */}
+          <span className="block min-w-0 flex-auto truncate typography-micro">
             {laneCount === 1
               ? t('sessions.sidebar.run.laneCountSingle', { count: laneCount })
               : t('sessions.sidebar.run.laneCountPlural', { count: laneCount })}
@@ -447,6 +458,7 @@ export const MobileDraftRow: React.FC<{
   const { draft } = row;
   const { revealed } = useMobileRowSwipe(row.key);
   const { isOpen, firstLine, attachmentCount, label, open, discard } = useSessionDraftRow(draft, actions.close);
+  const projectNamed = useZoneProjectNames();
   const mixedProject = useMixedRowProject(draft.projectId ?? null, row.detailed && row.mixed);
   const branch = useGitBranchLabel(row.detailed ? draft.directory : null);
   const setRevealed = (next: boolean) => useMobileSidebarRowsStore.getState().setRevealed(row.key, next);
@@ -460,7 +472,6 @@ export const MobileDraftRow: React.FC<{
   const pen = <Icon name="edit" className="size-3 shrink-0 text-muted-foreground" />;
   const attachment = firstLine && attachmentCount > 0 ? <Icon name="attachment-2" className="size-3 shrink-0 text-muted-foreground" /> : null;
   const detailed = row.detailed && Boolean(mixedProject || branch || attachment);
-  const mixedProjectName = mixedProject ? (mixedProject.label?.trim() || mixedProject.path) : null;
   const titleText = (
     <span dir="auto" className={cn('block min-w-0 flex-1 truncate oc-ui-start-align typography-ui-label italic', isOpen ? MOBILE_ACTIVE_TITLE_CLASS : 'oc-title-rest')}>
       {label}
@@ -497,7 +508,7 @@ export const MobileDraftRow: React.FC<{
           firstLine={titleText}
           secondLine={<>
             {mixedProject ? <MobileProjectIcon project={mixedProject} size="xs" /> : null}
-            {mixedProjectName ? <span dir="auto" title={mixedProjectName} className="block min-w-0 max-w-[45%] shrink truncate typography-micro text-muted-foreground">{mixedProjectName}</span> : null}
+          {mixedProject && projectNamed ? <TimelineProjectName project={mixedProject} fallback={mixedProject?.path ?? null} separated={false} /> : null}
             {pen}
             {branch ? <span className="block min-w-0 truncate typography-micro">{branch}</span> : null}
             {attachment ? <span className="ms-auto flex shrink-0 items-center">{attachment}</span> : null}
