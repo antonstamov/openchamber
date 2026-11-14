@@ -5321,6 +5321,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         draft={mobileComment.draft}
                         theme={currentTheme}
                         handlers={mobileComment.handlers}
+                        shellAttachRef={mobileComment.shellAttachRef}
                     />
                 ) : isMobile && !mobileComposerExpanded && !isBtwActive ? (
                     <MobilePillComposer

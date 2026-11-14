@@ -444,7 +444,7 @@ describe('applyMobileCommentAttach', () => {
             target,
             draft: { source: 'chat-quote', fileLabel: '', startLine: 1, endLine: 1, code: 'quote', language: '', text: '' },
         };
-        expect(applyMobileCommentAttach(stalePlan)).toBe(false);
+        expect(applyMobileCommentAttach(stalePlan)).toBeNull();
 
         const key = getInlineCommentDraftKey(getRuntimeKey(), target.directory, target.sessionKey);
         const bucket = key ? useInlineCommentDraftStore.getState().drafts[key] : null;

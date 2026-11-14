@@ -148,4 +148,34 @@ describe('mobile comment composer integration', () => {
         expect(useInlineCommentDraftStore.getState().drafts).toEqual({});
         expect(expansions).toBe(0);
     });
+
+    test('handlers.onAttach returns the stored plan with its draft id', async () => {
+        await render('parent');
+        await open();
+        let plan: unknown = null;
+        await act(async () => {
+            plan = currentMode().handlers.onAttach();
+        });
+        expect(plan).toMatchObject({ target: { directory: '/repo', sessionKey: 'parent' } });
+        expect((plan as { draftId?: string }).draftId).toBeTruthy();
+        expect(currentMode().active).toBe(false);
+        expect(expansions).toBe(1);
+    });
+
+    test('submit delegates to the shell attach when registered', async () => {
+        await render('parent');
+        await open();
+        let shellCalls = 0;
+        await act(async () => {
+            currentMode().shellAttachRef.current = () => {
+                shellCalls += 1;
+                return null;
+            };
+        });
+        await act(async () => currentMode().submit());
+        expect(shellCalls).toBe(1);
+        // The shell stayed open: the registered attach decided to keep it.
+        expect(currentMode().active).toBe(true);
+        expect(expansions).toBe(0);
+    });
 });
