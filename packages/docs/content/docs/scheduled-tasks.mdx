@@ -23,6 +23,8 @@ You can run any task immediately with **run now** to check it does what you expe
 
 Check **Run as goal** to make the run pursue its prompt to completion instead of stopping after one reply — see [Session Goals](/session-goals/).
 
+Keep **Run if the time is missed** on to run a slot once when the computer slept or was off at the scheduled time — for example, a morning digest that fires right after you open the lid. Turn it off for tasks that must not run late, like a reminder for a meeting that already started. When off, a missed slot is skipped silently and the task arms the next one.
+
 ## Loops: scheduled tasks as markdown files
 
 A **loop** is a scheduled task defined as a portable markdown file you can commit to your repo. Drop a file into `.agents/loops/` and open the Scheduled Tasks list to sync it — no server restart needed:
@@ -57,6 +59,7 @@ If a project loop and a user loop share a name, the project loop wins.
 | `agent` | Agent to use (optional). |
 | `timezone` | IANA timezone (optional, defaults to the server zone). |
 | body | The execution prompt (required). Can be a slash command, like `/review src/`. |
+| `runIfMissed` | `true`/`false` (optional, defaults to catching up): whether a missed slot still runs once on wake or start. |
 
 ### How loops behave
 
@@ -72,6 +75,10 @@ After a run, the task shows when it last ran, whether it succeeded, and a link t
 ## Keep in mind
 
 Tasks only fire while the OpenChamber server is running. If you close it, scheduled runs are paused until it's back up.
+
+## Missed time slots
+
+If the computer slept or was off when a task was due, the missed run starts once on the next wake or launch — a daily task still runs that day, just late. Uncheck **Run if the time is missed** in the task editor for tasks that must not run late (a reminder for a meeting that already started).
 
 ## Related
 

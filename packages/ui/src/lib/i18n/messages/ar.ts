@@ -3878,6 +3878,8 @@ export const dict = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'تُحذف شجرة العمل وفرعها عند انتهاء التشغيل.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'تبقى شجرة العمل وفرعها بعد التشغيل لتراجع النتيجة.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'مجلد المشروع ليس مستودع git؛ ستستخدم التشغيلات الخروج الحالي كما هو.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'تشغيل إذا فات الموعد',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'يُشغَّل مرة واحدة عند بدء التشغيل التالي أو الاستيقاظ إذا مر الموعد أثناء نوم الكمبيوتر أو إيقاف تشغيله.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'الإعدادات الافتراضية للجلسة',
   'sessions.moveSession.menu': 'نقل الجلسة…',
   'sessions.moveSession.hint': 'تبقى الملفات في المجلد القديم',

@@ -3971,6 +3971,8 @@ export const dict = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'Worktree und Branch werden entfernt, wenn der Lauf endet.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'Worktree und Branch bleiben nach dem Lauf, damit du das Ergebnis prüfen kannst.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'Der Projektordner ist kein Git-Repository; Ausführungen nutzen den Checkout unverändert.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Bei verpasstem Zeitpunkt ausführen',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Wird einmalig beim Aufwachen oder Start ausgeführt, wenn der Zeitpunkt im Schlaf oder bei ausgeschaltetem Computer verstrichen ist.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Sitzungsstandards',
   'sessions.moveSession.menu': 'Sitzung verschieben…',
   'sessions.moveSession.hint': 'Dateien bleiben im alten Ordner',

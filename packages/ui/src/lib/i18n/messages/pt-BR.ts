@@ -3974,6 +3974,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'O worktree e seu branch são removidos quando a execução termina.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'O worktree e seu branch permanecem após a execução para você revisar o resultado.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'A pasta do projeto não é um repositório git; as execuções usarão o checkout como está.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Executar se o horário for perdido',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Executa uma vez na próxima inicialização ou ao acordar se o horário passou enquanto o computador dormia ou estava desligado.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Padrões de sessão',
   'sessions.moveSession.menu': 'Mover sessão…',
   'sessions.moveSession.hint': 'Os arquivos ficam na pasta antiga',

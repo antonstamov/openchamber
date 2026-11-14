@@ -921,6 +921,16 @@ export function ScheduledTaskEditorDialog(props: {
 
           <label className="inline-flex cursor-pointer items-center gap-2">
             <Checkbox
+              checked={draft.runIfMissed}
+              onChange={(runIfMissed) => setDraft((prev) => ({ ...prev, runIfMissed }))}
+              ariaLabel={t('sessions.scheduledTasks.editor.runIfMissed.label')}
+            />
+            <span className="typography-meta">{t('sessions.scheduledTasks.editor.runIfMissed.label')}</span>
+          </label>
+          <p className="typography-meta text-muted-foreground">{t('sessions.scheduledTasks.editor.runIfMissed.hint')}</p>
+
+          <label className="inline-flex cursor-pointer items-center gap-2">
+            <Checkbox
               checked={draft.execution.useDefaults}
               onChange={(useDefaults) => setDraft((prev) => ({
                 ...prev,

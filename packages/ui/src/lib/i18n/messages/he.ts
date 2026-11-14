@@ -3878,6 +3878,8 @@ export const dict = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'ה-worktree והענף שלו מוסרים עם סיום ההרצה.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'ה-worktree והענף שלו נשארים לאחר ההרצה כדי שתוכל לבדוק את התוצאה.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'תיקיית הפרויקט אינה מאגר git; ההרצות ישתמשו ב-checkout הקיים כמות שהוא.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'הפעל אם המועד חלף',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'מופעל פעם אחת בהפעלה או ביקיצה הבאה אם המועד חלף בזמן שהמחשב ישן או היה כבוי.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'ברירות המחדל של ההפעלה',
   'sessions.moveSession.menu': 'העברת הסשן…',
   'sessions.moveSession.hint': 'הקבצים נשארים בתיקייה הישנה',

@@ -34,6 +34,8 @@ export type ScheduledTaskDraft = {
   baseBranch: string;
   /** Remove the run's worktree and branch when it ends; off keeps them. */
   cleanupWorktree: boolean;
+  /** Run the slot once when it was missed while the host slept or was down. */
+  runIfMissed: boolean;
   state?: ScheduledTask['state'];
 };
 
@@ -92,6 +94,7 @@ export const toDraft = (
       runInWorktree: false,
       baseBranch: '',
       cleanupWorktree: true,
+      runIfMissed: true,
     };
   }
 
@@ -138,6 +141,7 @@ export const toDraft = (
     runInWorktree: task.runInWorktree === true,
     baseBranch: task.baseBranch || '',
     cleanupWorktree: task.cleanupWorktree !== false,
+    runIfMissed: task.runIfMissed !== false,
     state: task.state,
   };
 };
@@ -233,6 +237,7 @@ export const buildScheduledTaskPayload = (draft: ScheduledTaskDraft): Partial<Sc
     payload.baseBranch = draft.baseBranch.trim();
     payload.cleanupWorktree = draft.cleanupWorktree;
   }
+  payload.runIfMissed = draft.runIfMissed;
   return payload;
 };
 

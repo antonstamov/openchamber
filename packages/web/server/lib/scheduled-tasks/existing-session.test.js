@@ -172,14 +172,16 @@ describe('existing session scheduling', () => {
       await vi.advanceTimersByTimeAsync(65_000);
       expect(warn).toHaveBeenCalledWith('[scheduled-tasks] admission failure state write failed:', 'project lock timeout');
       expect(schedulerWarn).not.toHaveBeenCalled();
-      expect(vi.getTimerCount()).toBe(1);
+      // The armed scheduled timer plus the suspend-detection heartbeat.
+      expect(vi.getTimerCount()).toBe(2);
       expect(messageQueueRuntime.enqueue).toHaveBeenCalledOnce();
       releaseAdmission();
       await expect(first).resolves.toMatchObject({ ok: true });
       await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
       expect(messageQueueRuntime.enqueue).toHaveBeenCalledTimes(2);
       expect(schedulerWarn).not.toHaveBeenCalled();
-      expect(vi.getTimerCount()).toBe(1);
+      // The armed scheduled timer plus the suspend-detection heartbeat.
+      expect(vi.getTimerCount()).toBe(2);
     } finally {
       releaseAdmission();
       await first;

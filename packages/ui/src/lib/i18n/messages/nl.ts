@@ -3973,6 +3973,8 @@ export const dict = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'De worktree en zijn branch worden verwijderd als de run eindigt.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'De worktree en zijn branch blijven na de run staan, zodat je het resultaat kunt bekijken.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'De projectmap is geen git-repository; uitvoeringen gebruiken de checkout zoals die is.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Uitvoeren als het tijdstip is gemist',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Wordt eenmaal uitgevoerd bij de volgende start of ontwaken als het tijdstip tijdens slaap of uitschakeling is verstreken.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Standaarden voor sessies',
   'sessions.moveSession.menu': 'Sessie verplaatsen…',
   'sessions.moveSession.hint': 'Bestanden blijven in de oude map',

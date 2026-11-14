@@ -3973,6 +3973,8 @@ export const dict = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'Worktree и его ветка удаляются по завершении запуска.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'Worktree и его ветка остаются после запуска, чтобы можно было проверить результат.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'Папка проекта не является Git-репозиторием; запуски будут использовать текущий worktree как есть.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Запускать, если время пропущено',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Однократно запускается при пробуждении или старте, если время прошло, пока компьютер спал или был выключен.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Настройки сессии по умолчанию',
   'sessions.moveSession.menu': 'Переместить сессию…',
   'sessions.moveSession.hint': 'Файлы остаются в старой папке',
