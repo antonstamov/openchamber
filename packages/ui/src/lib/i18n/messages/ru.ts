@@ -343,7 +343,7 @@ export const dict = {
   'mobile.connect.password.placeholder': 'Пароль OpenChamber',
   'mobile.connect.connectButton': 'Подключить',
   'mobile.connect.unlockButton': 'Разблокировать и подключить',
-  'mobile.connect.cancelPassword': 'Использовать другой сервер',
+  'mobile.connect.cancelPassword': 'Другой сервер',
   'mobile.connect.connecting': 'Подключение...',
   'mobile.connect.notice.unreachable': 'Не удалось соединиться с {label}. Проверьте, что сервер запущен.',
   'mobile.connect.notice.relayLimit': 'Ретранслятор отклонил подключение к {label}: слишком много устройств или переподключений. Закройте OpenChamber на другом устройстве или подождите минуту, затем нажмите {label}, чтобы повторить.',
