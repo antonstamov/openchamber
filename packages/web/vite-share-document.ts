@@ -28,10 +28,17 @@ type Options = {
 
 const stripExtension = (file: string) => file.replace(/\.(tsx?|jsx?)$/, '');
 
+// Vite ids use forward slashes on every platform, while path.join uses
+// backslashes on Windows: without normalizing, no shim matches there and the
+// real app modules stay in the graph. Those carry dynamic imports and
+// `?worker&url` workers, which an IIFE bundle cannot hold, so only the
+// Windows build failed while Linux (forward slashes on both sides) passed.
+const normalizeSlashes = (file: string) => file.replace(/\\/g, '/');
+
 function shimPlugin(uiSource: string): Plugin {
   const shims = new Map(Object.entries(SHARE_DOCUMENT_SHIMS).map(([target, shim]) => [
-    path.join(uiSource, target),
-    path.join(uiSource, shim),
+    normalizeSlashes(path.join(uiSource, target)),
+    normalizeSlashes(path.join(uiSource, shim)),
   ]));
   return {
     name: 'openchamber-share-document-shims',
@@ -39,7 +46,7 @@ function shimPlugin(uiSource: string): Plugin {
     async resolveId(source, importer, options) {
       const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
       if (!resolved) return null;
-      return shims.get(stripExtension(resolved.id.split('?')[0])) ?? null;
+      return shims.get(normalizeSlashes(stripExtension(resolved.id.split('?')[0]))) ?? null;
     },
   };
 }
@@ -56,6 +63,11 @@ async function buildShareDocument({ uiSource, aliases, react }: Options): Promis
     mode,
     plugins: [shimPlugin(uiSource), react()],
     resolve: { alias: aliases },
+    // Like the app's own build in vite.config.ts: workers are ES modules,
+    // which is also what the worker call sites construct (`type: 'module'`).
+    // The shimmed graph currently holds no workers; this keeps the sub-build
+    // from inheriting the IIFE format if one ever lands in it again.
+    worker: { format: 'es' },
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env': {},
