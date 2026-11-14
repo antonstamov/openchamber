@@ -18,6 +18,7 @@ import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
+import { questionsInChatI18n } from './questions-in-chat.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
@@ -206,6 +207,7 @@ export const dict = {
   ...aboutReleaseNotesI18n.nl,
   ...updateCheckErrorsI18n.nl,
   ...secretRequestI18n.nl,
+  ...questionsInChatI18n.nl,
   ...sessionNoticesI18n.nl,
   ...settingsHintsI18n.nl,
   ...usageStatsI18n.nl,
@@ -846,7 +848,7 @@ export const dict = {
   'sessions.sidebar.session.status.backgroundCommand': 'Opdracht draait op de achtergrond',
   'sessions.sidebar.session.status.backgroundImage': 'Afbeelding wordt op de achtergrond gemaakt',
   'sessions.sidebar.session.status.waitingOnPullRequest': 'Wacht op controles of een review',
-  'sessions.sidebar.session.status.waitingOnExtension': 'Wacht op een extensie',
+  'sessions.sidebar.session.status.waitingOnExtension': 'Wacht op een timer of een extensie',
   'sessions.sidebar.session.status.pinned': 'Vastgezette sessie',
   'sessions.sidebar.session.status.movingToWorktree': 'Sessie wordt verplaatst naar een nieuwe worktree',
   'sessions.sidebar.session.status.permissionRequired': 'Toestemming vereist',

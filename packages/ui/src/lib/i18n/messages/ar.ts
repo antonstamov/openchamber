@@ -18,6 +18,7 @@ import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
+import { questionsInChatI18n } from './questions-in-chat.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
@@ -774,7 +775,7 @@ export const dict = {
   'sessions.sidebar.session.status.backgroundCommand': 'أمر يعمل في الخلفية',
   'sessions.sidebar.session.status.backgroundImage': 'صورة قيد الإنشاء في الخلفية',
   'sessions.sidebar.session.status.waitingOnPullRequest': 'بانتظار الفحوصات أو مراجعة',
-  'sessions.sidebar.session.status.waitingOnExtension': 'بانتظار إضافة',
+  'sessions.sidebar.session.status.waitingOnExtension': 'بانتظار مؤقّت أو إضافة',
   'sessions.sidebar.session.status.pinned': 'جلسة مثبّتة',
   'sessions.sidebar.session.status.movingToWorktree': 'جارٍ نقل الجلسة إلى شجرة عمل جديدة',
   'sessions.sidebar.session.status.permissionRequired': 'مطلوب إذن',
@@ -3937,6 +3938,7 @@ export const dict = {
   ...aboutReleaseNotesI18n.ar,
   ...updateCheckErrorsI18n.ar,
   ...secretRequestI18n.ar,
+  ...questionsInChatI18n.ar,
   ...sessionNoticesI18n.ar,
   ...settingsHintsI18n.ar,
   ...usageStatsI18n.ar,

@@ -6,7 +6,7 @@ import { OpenChamberControlError, asControlError } from './error.js';
 import { OPENCHAMBER_ALL_ACTIONS, OPENCHAMBER_KNOWLEDGE_ACTIONS } from './actions.js';
 import { writeScreenshot } from './screenshots.js';
 import { createProjectKnowledgeActions } from './project-knowledge.js';
-import { createPageAnswers, createRenderPageAction } from './render-page.js';
+import { createPageAnswers, createRenderPageAction, isAgentPrompt } from './render-page.js';
 import { completeFormAnswer } from './form-answer.js';
 import { createImageGenerationAction } from './generate-image.js';
 import { createSecretRequests } from './secret-request.js';
@@ -331,6 +331,9 @@ export const createOpenChamberControlService = (dependencies) => {
     // Waits extensions offer agents (../extension-waits); absent means the
     // server cannot offer them.
     extensionWaits = null,
+    // Pages kept open for a later answer (render.page with answerLater,
+    // ./later-pages.js); absent means the server cannot keep them.
+    laterPages = null,
     // Agent workflows (../workflows/runtime.js); absent means the server
     // cannot offer them.
     workflowRuntime = null,
@@ -455,20 +458,21 @@ export const createOpenChamberControlService = (dependencies) => {
 
   // A message the user steered into the turn stays in OpenCode's inbox until
   // a step ends. A queued one waits for the turn to end, so the page's call
-  // returning would not deliver it. A failed read counts as none, so the page
-  // waits as it did before this check.
+  // returning would not deliver it, and one another agent sent is not the
+  // user writing. A failed read counts as none, so the page waits as it did
+  // before this check.
   const hasUnreadChat = async (sessionID) => {
     try {
       const client = await getClient();
       const items = await client.session.inbox.list({ sessionID });
-      return items.some((item) => item.type === 'user' && item.delivery === 'steer');
+      return items.some((item) => item.type === 'user' && item.delivery === 'steer' && !isAgentPrompt(item.payload?.metadata));
     } catch (error) {
       console.warn('[render.page] could not read the session inbox:', error?.message ?? error);
       return false;
     }
   };
   const pageAnswers = createPageAnswers({ onWaitChange: onPageWaitChange });
-  const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled, pageAnswers, hasUnreadChat, sharePages });
+  const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled, pageAnswers, hasUnreadChat, laterPages, sharePages });
   const secretRequests = createSecretRequests({ isEnabled: isSecretToolEnabled, files: secretFiles, onWaitChange: onPageWaitChange, hasUnreadChat });
   const generateImage = createImageGenerationAction({
     getClient,
@@ -1537,15 +1541,27 @@ export const createOpenChamberControlService = (dependencies) => {
   // (v2 dropped `context.directory` from a tool call), so it sends the session
   // id and the directory is resolved here, where it is authoritative.
   // `answerPage` is the chat's side of a page that waits (render.page with
-  // awaitAnswer), `answerSecret` the chat's side of a secret.request card.
+  // awaitAnswer) or stays open for a later answer (answerLater),
+  // `answerSecret` the chat's side of a secret.request card.
   const releaseAnswerWaits = (sessionId) => {
     pageAnswers.release(sessionId);
     secretRequests.release(sessionId);
   };
+  // A call that waits wins, answered at once; a page kept open for a later
+  // answer otherwise, answered once its answer is saved. The turn's end never
+  // releases the later ones: their call has ended.
+  const answerPage = (input) => {
+    try {
+      return pageAnswers.answer(input);
+    } catch (error) {
+      if (!laterPages || error?.statusCode !== 404) throw error;
+      return laterPages.answer(input);
+    }
+  };
   return {
     execute,
     resolveSessionDirectory,
-    answerPage: pageAnswers.answer,
+    answerPage,
     answerSecret: secretRequests.answer,
     secretFields: secretRequests.fields,
     releaseAnswerWaits,

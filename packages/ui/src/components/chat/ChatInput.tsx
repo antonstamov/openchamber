@@ -440,6 +440,8 @@ interface ChatInputProps {
     scrollToLatest?: () => void;
     active?: boolean;
     draftPresentationExiting?: boolean;
+    /** The chat shows waiting questions as cards; the dock only points at them. */
+    formsInChat?: boolean;
 }
 
 // A new Chat's working directory moves from the Chats root to a prepared
@@ -502,6 +504,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     scrollToLatest,
     active = true,
     draftPresentationExiting = false,
+    formsInChat = false,
 }) => {
     const { t } = useI18n();
     // The session this composer belongs to: its column's (see
@@ -2402,7 +2405,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // queues if the fork's own turn is busy).
         if (currentSessionId && !queuedOnly && !isBtwActive && !commandPlan) {
             // Sending is authoritative for blocking prompts: deny pending
-            // permissions and dismiss open forms for the session subtree. The
+            // permissions and dismiss the open forms that hold a turn in the
+            // session subtree (a form whose tool call ended stays). The
             // deny/clear vanishes the card instantly (optimistic); rejecting
             // unblocks the agent's tool but does NOT end its turn.
             const [deniedPermissions, dismissedForms] = await Promise.all([
@@ -5004,7 +5008,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     // session, as the commands below, so an expanded list collapses on a
     // switch; the prefix keeps the two keys of this fragment apart.
     const prWatchRow = !isBtwActive && !newSessionDraftOpen ? <PullRequestWatchStrip key={`pr-watch:${currentSessionId ?? ''}`} sessionId={currentSessionId} /> : null;
-    // The agent waits on something an extension follows; the server wakes it.
+    // The agent waits on a timer or on something an extension follows; the server wakes it.
     const extensionWaitRow = !isBtwActive && !newSessionDraftOpen ? <ExtensionWaitStrip sessionId={currentSessionId} /> : null;
     // The session's goal, then what is still running, then what waits for it.
     const goalRow = !isBtwActive ? (
@@ -5641,6 +5645,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 sessionId={currentSessionId}
                 directory={currentSessionDirectoryForSync ?? currentDirectory ?? undefined}
                 hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible || hasPendingPermission || isPromptHistorySearchOpen}
+                inChat={formsInChat}
             />
             {currentSessionId ? <BtwPanel parentSessionId={currentSessionId} panel={btwPanel} hidden={!isBtwPanelVisible} onExit={handleExitBtw} /> : null}
         </form>

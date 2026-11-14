@@ -19,6 +19,7 @@ import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
+import { questionsInChatI18n } from './questions-in-chat.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
@@ -207,6 +208,7 @@ export const dict: Record<I18nKey, string> = {
   ...aboutReleaseNotesI18n.ja,
   ...updateCheckErrorsI18n.ja,
   ...secretRequestI18n.ja,
+  ...questionsInChatI18n.ja,
   ...sessionNoticesI18n.ja,
   ...settingsHintsI18n.ja,
   ...usageStatsI18n.ja,
@@ -852,7 +854,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.status.backgroundCommand': 'コマンドがバックグラウンドで実行中',
   'sessions.sidebar.session.status.backgroundImage': 'バックグラウンドで画像を生成中',
   'sessions.sidebar.session.status.waitingOnPullRequest': 'チェックまたはレビューを待機中',
-  'sessions.sidebar.session.status.waitingOnExtension': '拡張機能を待機中',
+  'sessions.sidebar.session.status.waitingOnExtension': 'タイマーまたは拡張機能を待機中',
   'sessions.sidebar.session.status.pinned': 'ピン留めされたセッション',
   'sessions.sidebar.session.status.movingToWorktree': 'セッションを新しいworktreeへ移動中',
   'sessions.sidebar.session.status.permissionRequired': '権限が必要です',

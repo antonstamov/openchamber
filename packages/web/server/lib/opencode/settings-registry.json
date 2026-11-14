@@ -1037,6 +1037,10 @@
       "scope": "device",
       "local": true
     },
+    "questionsInChat": {
+      "scope": "device",
+      "local": true
+    },
     "agentMemoryViewedAt": {
       "scope": "device",
       "local": true

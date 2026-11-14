@@ -18,6 +18,7 @@ import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
+import { questionsInChatI18n } from './questions-in-chat.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
@@ -774,7 +775,7 @@ export const dict = {
   'sessions.sidebar.session.status.backgroundCommand': 'פקודה פועלת ברקע',
   'sessions.sidebar.session.status.backgroundImage': 'תמונה נוצרת ברקע',
   'sessions.sidebar.session.status.waitingOnPullRequest': 'ממתין לבדיקות או לסקירה',
-  'sessions.sidebar.session.status.waitingOnExtension': 'ממתין להרחבה',
+  'sessions.sidebar.session.status.waitingOnExtension': 'ממתין לטיימר או להרחבה',
   'sessions.sidebar.session.status.pinned': 'הפעלה מוצמדת',
   'sessions.sidebar.session.status.movingToWorktree': 'ההפעלה מועברת לעץ עבודה חדש',
   'sessions.sidebar.session.status.permissionRequired': 'נדרשת הרשאה',
@@ -3937,6 +3938,7 @@ export const dict = {
   ...aboutReleaseNotesI18n.he,
   ...updateCheckErrorsI18n.he,
   ...secretRequestI18n.he,
+  ...questionsInChatI18n.he,
   ...sessionNoticesI18n.he,
   ...settingsHintsI18n.he,
   ...usageStatsI18n.he,

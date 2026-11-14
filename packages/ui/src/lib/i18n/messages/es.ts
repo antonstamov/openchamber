@@ -19,6 +19,7 @@ import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
+import { questionsInChatI18n } from './questions-in-chat.i18n';
 import { sessionNoticesI18n } from './session-notices.i18n';
 import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
@@ -217,6 +218,7 @@ export const dict: Record<I18nKey, string> = {
   ...aboutReleaseNotesI18n.es,
   ...updateCheckErrorsI18n.es,
   ...secretRequestI18n.es,
+  ...questionsInChatI18n.es,
   ...sessionNoticesI18n.es,
   ...settingsHintsI18n.es,
   ...usageStatsI18n.es,
@@ -856,7 +858,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.status.backgroundCommand": "Comando en ejecución en segundo plano",
   "sessions.sidebar.session.status.backgroundImage": "Imagen generándose en segundo plano",
   'sessions.sidebar.session.status.waitingOnPullRequest': 'Esperando comprobaciones o una revisión',
-  'sessions.sidebar.session.status.waitingOnExtension': 'Esperando una extensión',
+  'sessions.sidebar.session.status.waitingOnExtension': 'Esperando un temporizador o una extensión',
   "sessions.sidebar.session.status.pinned": "Sesión anclada",
   "sessions.sidebar.session.status.movingToWorktree": "Moviendo la sesión a un worktree nuevo",
   "sessions.sidebar.session.status.permissionRequired": "Permiso requerido",
