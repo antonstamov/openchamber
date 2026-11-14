@@ -548,6 +548,12 @@
         "desktop"
       ]
     },
+    "agentBrowserSharesLogins": {
+      "scope": "profile",
+      "surfaces": [
+        "desktop"
+      ]
+    },
     "openTrackerLinksOnBoard": {
       "scope": "profile",
       "surfaces": [

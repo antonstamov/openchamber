@@ -27,12 +27,15 @@ import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
 import { consoleBudgetsI18n } from './console-budgets.i18n';
 import { imageToolI18n } from './image-tool.i18n';
+import { sharePagesI18n } from './share-pages.i18n';
+import { receivedPagesI18n } from './received-pages.i18n';
 import { memoryDreamingI18n } from './memory-dreaming.i18n';
 import { usageToolI18n } from './usage-tool.i18n';
 import { openchamberToolsLayoutI18n } from './openchamber-tools-layout.i18n';
 import { openchamberToolOutputI18n } from './openchamber-tool-output.i18n';
 import { opencodeToolOutputI18n } from './opencode-tool-output.i18n';
 import { agentStatusI18n } from './agent-status.i18n';
+import { androidWidgetsI18n } from './android-widgets.i18n';
 import { selectionApprovalI18n } from './selection-approval.i18n';
 import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
@@ -212,12 +215,15 @@ export const dict = {
   ...heapSnapshotI18n.ru,
   ...consoleBudgetsI18n.ru,
   ...imageToolI18n.ru,
+  ...sharePagesI18n.ru,
+  ...receivedPagesI18n.ru,
   ...memoryDreamingI18n.ru,
   ...usageToolI18n.ru,
   ...openchamberToolsLayoutI18n.ru,
   ...openchamberToolOutputI18n.ru,
   ...opencodeToolOutputI18n.ru,
   ...agentStatusI18n.ru,
+  ...androidWidgetsI18n.ru,
   ...snippetsI18n.ru,
   ...sidebarWorkI18n.ru,
   ...sidebarSectionsI18n.ru,
@@ -1622,6 +1628,7 @@ export const dict = {
   'contextPanel.browser.device.schemeSystem': 'Авто',
   'contextPanel.browser.device.schemeLight': 'Светлая',
   'contextPanel.browser.device.schemeDark': 'Тёмная',
+  'contextPanel.browser.device.scheme': 'Оформление страницы',
   'contextPanel.browser.device.schemeFailed': 'Не удалось изменить оформление страницы',
   'contextPanel.browser.frameTitle': 'Браузер',
   'contextPanel.browser.loadFailed': 'Не удалось загрузить эту страницу',
@@ -1650,7 +1657,6 @@ export const dict = {
   'contextPanel.browser.annotate.tool.draw': 'Рисование',
   'contextPanel.browser.annotate.commentPlaceholder': 'Опишите изменение...',
   'contextPanel.browser.annotate.submit': 'Добавить',
-  'contextPanel.browser.trustNotice': 'Открытые здесь страницы запускаются с полным доступом к OpenChamber — необходимо для проверки и создания снимков экрана. Открывайте только сайты, которым вы доверяете: вредоносная страница может прочитать ваши данные или действовать от вашего имени.',
   'contextPanel.tab.closeTabAria': 'Закрыть вкладку {label}',
   'contextPanel.tab.menu.close': 'Закрыть',
   'contextPanel.tab.menu.closeOthers': 'Закрыть остальные',
@@ -2537,6 +2543,7 @@ export const dict = {
   'chat.toast.opencodeRestartInterrupted.description': 'OpenCode перезапустился, пока ответ ещё формировался. Отправьте сообщение, чтобы продолжить.',
   'chat.toast.opencodeRestartInterrupted.autoResumeDescription': 'OpenCode перезапустился, пока ответ ещё выполнялся. Чат продолжит автоматически; если нет — отправьте сообщение.',
   'chat.toast.opencodeRestartInterrupted.openSession': 'Открыть сессию',
+  'chat.toast.shareAnswer.openSession': 'Открыть сессию',
   'chat.errorBoundary.title': 'Ошибка чата',
   'chat.errorBoundary.description': 'В интерфейсе чата произошла ошибка. Это может быть связано с временной проблемой сети или повреждением данных сообщения.',
   'chat.errorBoundary.sessionLabel': 'Сессия',
@@ -3121,6 +3128,12 @@ export const dict = {
   'projects.opencodeTrust.kind.lsp': 'Языковой сервер {name}',
   'projects.opencodeTrust.kind.formatter': 'Форматтер {name}',
   'projects.opencodeTrust.kind.shell': 'Оболочка',
+  'projects.opencodeTrust.kind.env': 'Переменная окружения {name}',
+  'projects.opencodeTrust.kind.file': 'Файл {path}',
+  'projects.opencodeTrust.values': 'Значения с вашей машины, которые он может отправлять наружу',
+  'projects.opencodeTrust.permissions': 'Разрешения, которые он даёт',
+  'projects.opencodeTrust.permission.agent': 'Агент {name}',
+  'projects.opencodeTrust.permission.everyAgent': 'Каждый агент',
   'projects.opencodeTrust.paused': 'Без доверия агенты не смогут работать в этой папке, но вы по-прежнему можете просматривать её файлы и изменения Git.',
   'projects.opencodeTrust.skip': 'Не сейчас',
   'projects.opencodeTrust.trust': 'Доверить и открыть',
@@ -3683,6 +3696,8 @@ export const dict = {
   'chat.workStatus.telemetry.toolDurationDescription': 'Время выполнения инструментов, включая неудачные вызовы. Инструменты, работающие одновременно, считаются один раз, а не суммируются.',
   'chat.workStatus.telemetry.ttft': 'Среднее TTFT',
   'chat.workStatus.telemetry.ttftDescription': 'Среднее ожидание до начала первого текста или рассуждения на каждом шаге модели. Скрыто, если у созданного шага нет отметки начала — это часто бывает у шагов только с инструментами и у частей, помеченных при создании.',
+  'chat.workStatus.telemetry.firstOutput': 'Первый вывод',
+  'chat.workStatus.telemetry.firstOutputDescription': 'Среднее ожидание от начала каждого шага модели до первого вывода: текста, рассуждения или вызова инструмента. В отличие от TTFT, шаги, которые начинаются с вызова инструмента, тоже учитываются. Скрыто для шагов из OpenCode старше 2.3.0.',
   'chat.workStatus.telemetry.steps': 'Шаги',
   'chat.workStatus.telemetry.stepsDescription': 'Сколько раз модель вызывалась для этого запроса. Чтение результатов инструментов и решение, что делать дальше, обычно занимает ещё один шаг.',
   'chat.workStatus.telemetry.tokens': 'Токены',
