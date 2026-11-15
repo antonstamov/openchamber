@@ -17,6 +17,14 @@ import { flushSync } from 'react-dom';
 
 import { CommentTextEditor } from '@/components/comments/CommentTextEditor';
 import { useCommentImagePaste } from '@/components/comments/useCommentImagePaste';
+import { InlineDictationButton, type InlineDictationController } from '@/components/dictation/InlineDictationButton';
+import { appendInlineText } from '@/components/chat/composer/text';
+import {
+    mergeExternalDraftAppend,
+    routeTranscriptToDraft,
+} from '@/components/dictation/commentDictationHandoff';
+import type { DictationCompletionHandoff, DictationStatus } from '@/hooks/useDictation';
+import { useCommentDictationPendingStore } from '@/stores/useCommentDictationPendingStore';
 import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { toast } from '@/components/ui';
@@ -103,6 +111,7 @@ const location = (file: string, start: number, end: number): string => {
 
 const DraftRow: React.FC<{
     draft: InlineCommentDraft;
+    target: InlineCommentDraftTarget | null;
     view: RowView;
     open: boolean;
     /** Desktop: an open editable row is an open editor. */
@@ -122,12 +131,91 @@ const DraftRow: React.FC<{
     attachmentFilenames: readonly string[];
     /** Opens the annotation's screenshot; absent when the row has none. */
     onOpenScreenshot: (() => void) | null;
-}> = ({ draft, view, open, editsInPlace, phoneLayout, onToggle, onClose, onRemove, onSaveComment, onFocusQuote, onRevealQuote, attachmentFilenames, onOpenScreenshot }) => {
+}> = ({ draft, target, view, open, editsInPlace, phoneLayout, onToggle, onClose, onRemove, onSaveComment, onFocusQuote, onRevealQuote, attachmentFilenames, onOpenScreenshot }) => {
     const { t } = useI18n();
     const [editText, setEditText] = React.useState(view.comment);
     // Images pasted while editing join the composer's attachments on save.
     const imagePaste = useCommentImagePaste();
     const editing = open && editsInPlace && view.editable;
+    // A late transcript from an attach-while-busy outlives the field that
+    // recorded it; the open row stays mounted and shows it pending.
+    const dictationPending = useCommentDictationPendingStore((state) => Boolean(state.pending[draft.id]));
+    // The draft text the edit started from: a late transcript landing in the
+    // store meanwhile is merged into the save, not overwritten by it.
+    const editBaseRef = React.useRef(view.comment);
+    const editDictationRef = React.useRef<InlineDictationController | null>(null);
+    const editHandoffMarkerRef = React.useRef<DictationCompletionHandoff | null>(null);
+    const editPartialRef = React.useRef('');
+    const editSettledRef = React.useRef(false);
+    const mountedRef = React.useRef(true);
+    // Set while a save closes the row with a transcript still on its way: the
+    // unmount cleanup then keeps the pending mark instead of clearing it.
+    const expectLateTranscriptRef = React.useRef(false);
+    React.useEffect(() => () => {
+        mountedRef.current = false;
+        if (expectLateTranscriptRef.current) return;
+        try {
+            const status = editDictationRef.current?.getStatus?.();
+            if (status === 'recording' || status === 'uploading') editDictationRef.current?.cancel();
+        } catch {
+            // A controller that never mounted has nothing to cancel.
+        }
+        useCommentDictationPendingStore.getState().clearPending(draft.id);
+    }, [draft.id]);
+
+    const disarmEditHandoff = React.useCallback(() => {
+        editHandoffMarkerRef.current = null;
+        useCommentDictationPendingStore.getState().clearPending(draft.id);
+    }, [draft.id]);
+
+    const armEditHandoff = React.useCallback(() => {
+        if (!target) return;
+        useCommentDictationPendingStore.getState().markPending(draft.id);
+        editHandoffMarkerRef.current = {
+            draftId: draft.id,
+            onEmpty: () => disarmEditHandoff(),
+        };
+    }, [disarmEditHandoff, draft.id, target]);
+
+    const handleEditDictationStatus = React.useCallback((status: DictationStatus) => {
+        if (status === 'recording' || status === 'uploading') {
+            editSettledRef.current = false;
+            armEditHandoff();
+        } else if (editHandoffMarkerRef.current && !editSettledRef.current) {
+            disarmEditHandoff();
+        }
+    }, [armEditHandoff, disarmEditHandoff]);
+
+    const handleEditTranscript = React.useCallback((spoken: string) => {
+        editSettledRef.current = true;
+        if (!target) {
+            const trimmed = spoken.trim();
+            if (trimmed) setEditText((prev) => appendInlineText(prev, trimmed));
+            disarmEditHandoff();
+            return;
+        }
+        const routed = routeTranscriptToDraft({ target, draftId: draft.id }, spoken);
+        if (routed === 'refused') {
+            toast.error(t('inlineComment.toast.noRoom'));
+        } else if (routed === 'appended') {
+            const trimmed = spoken.trim();
+            setEditText((prev) => appendInlineText(prev, trimmed));
+            editBaseRef.current = appendInlineText(editBaseRef.current, trimmed);
+        }
+        disarmEditHandoff();
+    }, [disarmEditHandoff, draft.id, t, target]);
+
+    const handleEditDictationError = React.useCallback((error: Error) => {
+        if (mountedRef.current) return;
+        editSettledRef.current = true;
+        disarmEditHandoff();
+        if (target && editPartialRef.current.trim()) {
+            if (routeTranscriptToDraft({ target, draftId: draft.id }, editPartialRef.current) === 'refused') {
+                toast.error(t('inlineComment.toast.noRoom'));
+            }
+        }
+        toast.error(t('chat.dictation.failed'), { description: error.message });
+    }, [disarmEditHandoff, draft.id, t, target]);
 
     // Set once the edit is saved, dropped or the item removed, so a blur that
     // follows (the field unmounting) does nothing more.
@@ -135,23 +223,50 @@ const DraftRow: React.FC<{
     React.useEffect(() => {
         if (!editing) return;
         settledRef.current = false;
+        editSettledRef.current = false;
+        expectLateTranscriptRef.current = false;
         setEditText(view.comment);
+        editBaseRef.current = view.comment;
         // The comment at edit start is the baseline; later store updates are our own saves.
         // oxlint-disable-next-line react-hooks/exhaustive-deps
     }, [editing]);
 
     const commitEdit = () => {
         if (settledRef.current) return;
-        if (editText !== view.comment && !onSaveComment(editText)) {
+        const merged = mergeExternalDraftAppend(editBaseRef.current, draft.text, editText);
+        if (merged !== view.comment && !onSaveComment(merged)) {
             toast.error(t('inlineComment.toast.noRoom'));
             return;
         }
         settledRef.current = true;
-        void imagePaste.attachCitedImages(editText);
+        // Saving never waits for dictation: a busy session is finalized in
+        // the background and its late transcript lands in the draft afterwards.
+        let busy = false;
+        try {
+            const status = editDictationRef.current?.getStatus?.();
+            busy = status === 'recording' || status === 'uploading';
+        } catch {
+            busy = false;
+        }
+        if (busy) {
+            editSettledRef.current = true;
+            expectLateTranscriptRef.current = true;
+            armEditHandoff();
+            editDictationRef.current?.confirm();
+            void imagePaste.attachCitedImages(merged);
+            onClose();
+            return;
+        }
+        editSettledRef.current = true;
+        disarmEditHandoff();
+        void imagePaste.attachCitedImages(merged);
         onClose();
     };
     const cancelEdit = () => {
         settledRef.current = true;
+        editSettledRef.current = true;
+        editDictationRef.current?.cancel();
+        disarmEditHandoff();
         imagePaste.discardPastedImages();
         onClose();
     };
@@ -209,6 +324,9 @@ const DraftRow: React.FC<{
                         event.stopPropagation();
                         if (editing) {
                             settledRef.current = true;
+                            editSettledRef.current = true;
+                            editDictationRef.current?.cancel();
+                            disarmEditHandoff();
                             imagePaste.discardPastedImages();
                         }
                         onRemove();
@@ -234,6 +352,7 @@ const DraftRow: React.FC<{
 
     if (!open) {
         const hasComment = view.comment.trim().length > 0;
+        const showPending = !hasComment && dictationPending;
         return (
             <div
                 className="group/row flex h-7 min-w-0 cursor-pointer items-center gap-2 rounded-lg px-1.5 text-sm hover:bg-interactive-hover pointer-coarse:h-9"
@@ -269,6 +388,11 @@ const DraftRow: React.FC<{
                                     ? <span key={node.key ?? `chip-${index}`} className="flex min-w-[2.5rem] shrink">{node}</span>
                                     : <span key={`text-${index}`} className="min-w-0 truncate" style={index < nodes.length - 1 ? LEADING_TEXT_STYLE : TEXT_RUN_STYLE}>{node}</span>
                             ))}
+                        </span>
+                    ) : showPending ? (
+                        <span dir="auto" className="flex min-w-0 flex-1 items-center gap-1.5 text-muted-foreground" role="status">
+                            <Icon name="loader-4" className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                            <span className="min-w-0 truncate">{t('chat.dictation.processing')}</span>
                         </span>
                     ) : (
                         <span className="min-w-0 flex-1 truncate text-muted-foreground">{t('chat.textSelection.comment.placeholder')}</span>
@@ -340,21 +464,42 @@ const DraftRow: React.FC<{
                 </button>
             ) : null}
             {editing ? (
-                <CommentTextEditor
-                    value={editText}
-                    onChange={setEditText}
-                    onSubmit={commitEdit}
-                    onCancel={cancelEdit}
-                    enterSubmits
-                    imagePaste={imagePaste}
-                    placeholder={t('chat.textSelection.comment.placeholder')}
-                    aria-label={view.title}
-                    // The comment turns editable where it sits, with no field around it.
-                    className="mx-1.5 mt-1.5 text-sm leading-5 text-foreground"
-                />
+                <div className="mx-1.5 mt-1.5 flex items-end gap-1">
+                    <CommentTextEditor
+                        value={editText}
+                        onChange={setEditText}
+                        onSubmit={commitEdit}
+                        onCancel={cancelEdit}
+                        enterSubmits
+                        imagePaste={imagePaste}
+                        placeholder={t('chat.textSelection.comment.placeholder')}
+                        aria-label={view.title}
+                        // The comment turns editable where it sits, with no field around it.
+                        className="min-w-0 flex-1 text-sm leading-5 text-foreground"
+                    />
+                    {/* preventDefault keeps the editor focused so the blur
+                        commit does not close the edit under the mic press. */}
+                    <span onPointerDown={(event) => event.preventDefault()} className="inline-flex shrink-0">
+                        <InlineDictationButton
+                            onTranscript={handleEditTranscript}
+                            onError={handleEditDictationError}
+                            onStatusChange={handleEditDictationStatus}
+                            onPartialTranscript={(text) => { editPartialRef.current = text; }}
+                            controllerRef={editDictationRef}
+                            handoffRef={editHandoffMarkerRef}
+                            buttonClassName={ROW_ACTION_CLASS}
+                            iconClassName="h-3.5 w-3.5"
+                        />
+                    </span>
+                </div>
             ) : view.comment.trim() ? (
                 <div dir="auto" className="mx-1.5 mt-1.5 whitespace-pre-wrap break-words text-sm text-foreground">
                     {withAttachmentChips(view.comment, attachmentFilenames, `row-${draft.id}`)}
+                </div>
+            ) : dictationPending ? (
+                <div dir="auto" className="mx-1.5 mt-1.5 flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground" role="status">
+                    <Icon name="loader-4" className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                    <span className="min-w-0 truncate">{t('chat.dictation.processing')}</span>
                 </div>
             ) : null}
         </div>
@@ -557,6 +702,7 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
             <DraftRow
                 key={draft.id}
                 draft={draft}
+                target={draftTarget}
                 view={view}
                 open={openId === draft.id}
                 editsInPlace={editsInPlace}
