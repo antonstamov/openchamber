@@ -35,3 +35,19 @@ test('the icon sprite stays out of rendering, its paint servers stay reachable',
   });
   expect(unreachable).toEqual([]);
 });
+
+// A curated extension icon wins over the generic language icon: sbt files
+// highlight as Scala and gradle files as Groovy, but both keep the build
+// tool's own icon. Extensions without a curated entry keep the language
+// icon (vue stays html, h stays c).
+test('curated extension icons win over language icons', () => {
+  expect(getFileTypeIconHref('build.sbt')).toBe('#sbt');
+  expect(getFileTypeIconHref('project/plugins.sbt')).toBe('#sbt');
+  expect(getFileTypeIconHref('Main.scala')).toBe('#scala');
+  expect(getFileTypeIconHref('build.gradle')).toBe('#gradle');
+  expect(getFileTypeIconHref('page.mdx')).toBe('#mdx');
+  expect(getFileTypeIconHref('app.env')).toBe('#settings');
+  expect(getFileTypeIconHref('logo.svg')).toBe('#svg');
+  expect(getFileTypeIconHref('App.vue')).toBe('#html');
+  expect(getFileTypeIconHref('header.h')).toBe('#c');
+});
