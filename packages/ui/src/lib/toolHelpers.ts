@@ -543,6 +543,7 @@ export function getLanguageFromExtension(filePath: string): string | null {
     'kts': 'kotlin',
     'scala': 'scala',
     'sc': 'scala',
+    'sbt': 'scala',
     'groovy': 'groovy',
     'gradle': 'groovy',
     'gvy': 'groovy',
