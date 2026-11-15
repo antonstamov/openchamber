@@ -105,14 +105,18 @@ export interface MobileCommentDraftController {
     /**
      * Store the open comment exactly once and close only after acceptance.
      * Rejection returns null and preserves the comment for editing or retry.
+     * `onStored` runs after the draft is written but before the shell closes,
+     * so an attach-while-busy can arm its dictation handoff while the engine
+     * is still mounted; the unmount then keeps the stream instead of
+     * cancelling it.
      */
-    attach(generation: number): MobileCommentAttachPlan | null;
+    attach(generation: number, onStored?: (plan: MobileCommentAttachPlan) => void): MobileCommentAttachPlan | null;
     /**
      * Dictation's insert-and-attach, atomic under one generation check: a
      * stale completion neither appends its text nor attaches the newer
      * comment that replaced the caller's.
      */
-    insertAndAttach(text: string, generation: number): MobileCommentAttachPlan | null;
+    insertAndAttach(text: string, generation: number, onStored?: (plan: MobileCommentAttachPlan) => void): MobileCommentAttachPlan | null;
 }
 
 export function createMobileCommentDraftController(): MobileCommentDraftController {
@@ -147,7 +151,7 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
     const canOpen = (current: MobileCommentScope | null): current is MobileCommentScope =>
         Boolean(current && current.runtimeKey === getRuntimeKey() && current.directory && current.sessionKey);
 
-    const attach = (atGeneration: number, text?: string): MobileCommentAttachPlan | null => {
+    const attachInner = (atGeneration: number, text?: string, onStored?: (plan: MobileCommentAttachPlan) => void): MobileCommentAttachPlan | null => {
         if (state.status !== 'open' || state.generation !== atGeneration) return null;
         if (!scope || scope.runtimeKey !== getRuntimeKey() || !isSameMobileCommentScope(scope, state.scope)) {
             update(CLOSED_MOBILE_COMMENT_DRAFT);
@@ -160,12 +164,15 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
             update(CLOSED_MOBILE_COMMENT_DRAFT);
             return null;
         }
-        if (!applyMobileCommentAttach(plan)) {
+        const storedId = applyMobileCommentAttach(plan);
+        if (!storedId) {
             update(pending);
             return null;
         }
+        const storedPlan = storedId === plan.draftId ? plan : { ...plan, draftId: storedId };
+        onStored?.(storedPlan);
         update(CLOSED_MOBILE_COMMENT_DRAFT);
-        return plan;
+        return storedPlan;
     };
 
     return {
@@ -214,9 +221,9 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
             if (next === state.text) return;
             update({ ...state, text: next });
         },
-        attach,
-        insertAndAttach(text, atGeneration) {
-            return attach(atGeneration, text);
+        attach: (generation, onStored) => attachInner(generation, undefined, onStored),
+        insertAndAttach(text, atGeneration, onStored) {
+            return attachInner(atGeneration, text, onStored);
         },
     };
 }
@@ -227,10 +234,11 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
  * runtime, so a plan from before a runtime switch must be dropped, not filed
  * under the new runtime's namespace. Directory and session are written exactly
  * as captured from the visible composer. An edit plan updates only the text.
+ * Returns the draft id the transcript handoff routes to, or null when refused.
  */
-export function applyMobileCommentAttach(plan: MobileCommentAttachPlan): boolean {
-    if (plan.scope.runtimeKey !== getRuntimeKey()) return false;
+export function applyMobileCommentAttach(plan: MobileCommentAttachPlan): string | null {
+    if (plan.scope.runtimeKey !== getRuntimeKey()) return null;
     const store = useInlineCommentDraftStore.getState();
-    if (plan.draftId) return store.updateDraft(plan.target, plan.draftId, { text: plan.draft.text });
-    return store.addDraft(plan.target, plan.draft) !== null;
+    if (plan.draftId) return store.updateDraft(plan.target, plan.draftId, { text: plan.draft.text }) ? plan.draftId : null;
+    return store.addDraft(plan.target, plan.draft);
 }

@@ -1746,9 +1746,10 @@ through its existing highlight overlay (rAF on scroll/resize, no polling); the
 Range lives in that menu component only and is released when the comment
 ends or the message unmounts.
 
-Voice: the comment shell mounts its own `ComposerDictation` whose insert
-callbacks target the comment draft (insert-and-send attaches; it never sends).
-While it is mounted, the composer's wrapper-level dictation engine is not:
+Voice: the comment shell mounts its own `InlineDictationButton` on the same
+`useCommentDictationHandoff` as the desktop comment inputs, whose insert
+callback targets the comment draft. While it is mounted, the composer's
+wrapper-level dictation engine is not:
 the comment engine takes the form's addressed dictation events, and a
 transcript meant for one editor must not reach the other. A
 recording in flight when comment mode opens is discarded by that swap.
@@ -1770,7 +1771,18 @@ draft that is still expecting its transcript shows the pending mark on its chip
 and in its preview, including when its text is still empty, so the incoming
 text never reads as lost; the transcript replaces the placeholder when it
 lands, and a post-close failure clears the mark after salvaging. Review-server
-comments are outside this path: they have no draft to append to.
+comments are outside this path: they have no draft to append to. The mobile
+shell takes the same route: its attach arms the handoff before the shell
+closes, and the form submit delegates to the shell's attach so both paths
+share one route.
+
+### Why the mobile shell uses the inline dictation button
+
+The shell first mounted `ComposerDictation`, whose engine has no handoff slot:
+unmounting mid-transcription cancelled the stream and the transcript never
+reached the attached draft. `InlineDictationButton` carries the handoff through
+unmount and has no window-local capture owner, so parallel comment dictations
+stay separate. The shell keys on generation, so each open owns its route.
 
 The comment editor reuses `ComposerEditor` with `dataChatInput="comment"` so
 the `data-chat-input="true"` helpers (`focusChatInput`, shortcut guards) keep

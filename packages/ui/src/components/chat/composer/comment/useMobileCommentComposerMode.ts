@@ -12,7 +12,7 @@ import { useI18n } from '@/lib/i18n';
 import type { MobileComposerShell } from '../state/useMobileComposerShell';
 import { useMobileCommentComposerController, useMobileCommentDraft } from './MobileCommentComposerContext';
 import type { MobileCommentComposerHandlers } from './MobileCommentComposer';
-import type { MobileCommentScope } from './mobileCommentDraft';
+import type { MobileCommentAttachPlan, MobileCommentScope } from './mobileCommentDraft';
 
 export interface MobileCommentModeOptions {
     isMobile: boolean;
@@ -30,6 +30,9 @@ export interface MobileCommentMode {
     handlers: MobileCommentComposerHandlers;
     /** Attach whatever comment is open right now (form submit path). */
     submit(): void;
+    /** The shell's handoff-aware attach; the form submit delegates to it so a
+     * busy dictation takes the same route as the attach button. */
+    shellAttachRef: React.MutableRefObject<(() => MobileCommentAttachPlan | null) | null>;
 }
 
 export function useMobileCommentComposerMode(options: MobileCommentModeOptions): MobileCommentMode {
@@ -69,15 +72,18 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
     // Attach inside the tap: expand() flushes the shell swap and focuses the
     // restored composer in the same call stack, as iOS requires for the soft
     // keyboard. A stale or scope-mismatched open restores nothing.
-    const attach = React.useCallback((generation: number, text?: string) => {
-        if (!controller) return;
-        let attached = false;
+    // `onStored` runs after the draft is written but before the shell closes,
+    // so an attach-while-busy can arm its dictation handoff while the engine
+    // is still mounted.
+    const attach = React.useCallback((generation: number, text?: string, onStored?: (plan: MobileCommentAttachPlan) => void) => {
+        if (!controller) return null;
+        let plan: MobileCommentAttachPlan | null = null;
         flushSync(() => {
-            attached = (text === undefined
-                ? controller.attach(generation)
-                : controller.insertAndAttach(text, generation)) !== null;
+            plan = (text === undefined
+                ? controller.attach(generation, onStored)
+                : controller.insertAndAttach(text, generation, onStored));
         });
-        if (attached) {
+        if (plan) {
             mobileShell.expand();
         } else {
             const open = controller.getState();
@@ -85,6 +91,7 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
                 toast.error(t('inlineComment.toast.noRoom'));
             }
         }
+        return plan;
     }, [controller, mobileShell, t]);
 
     const cancel = React.useCallback((generation: number) => {
@@ -96,7 +103,15 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
         if (closed) mobileShell.expand();
     }, [controller, mobileShell]);
 
+    // The shell registers its handoff-aware attach (confirm + arm around the
+    // raw attach above); the form submit delegates to it so both paths share
+    // one route. Without a shell (or before it registers) fall back to raw.
+    const shellAttachRef = React.useRef<(() => MobileCommentAttachPlan | null) | null>(null);
     const submit = React.useCallback(() => {
+        if (shellAttachRef.current) {
+            shellAttachRef.current();
+            return;
+        }
         if (!controller) return;
         const open = controller.getState();
         if (open.status === 'open') attach(open.generation);
@@ -105,12 +120,13 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
     const handlers = React.useMemo<MobileCommentComposerHandlers>(() => {
         if (draft.status !== 'open') {
             const noop = () => undefined;
+            const noopAttach = () => null;
             return {
                 onTextChange: noop,
                 onCancel: noop,
-                onAttach: noop,
+                onAttach: noopAttach,
                 onDictationInsert: noop,
-                onDictationInsertAndSend: noop,
+                onDictationInsertAndSend: noopAttach,
                 onEditorFocus: noop,
                 onEditorBlur: noop,
                 onDictationActiveChange: noop,
@@ -120,14 +136,14 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
         return {
             onTextChange: (text) => controller?.setText(text, generation),
             onCancel: () => cancel(generation),
-            onAttach: () => attach(generation),
+            onAttach: (onStored) => attach(generation, undefined, onStored),
             onDictationInsert: (text) => controller?.insertText(text, generation),
-            onDictationInsertAndSend: (text) => attach(generation, text),
+            onDictationInsertAndSend: (text, onStored) => attach(generation, text, onStored),
             onEditorFocus: mobileShell.onEditorFocus,
             onEditorBlur: mobileShell.onEditorBlur,
             onDictationActiveChange: mobileShell.onDictationActiveChange,
         };
     }, [attach, cancel, controller, draft, mobileShell]);
 
-    return { active, draft, handlers, submit };
+    return { active, draft, handlers, submit, shellAttachRef };
 }

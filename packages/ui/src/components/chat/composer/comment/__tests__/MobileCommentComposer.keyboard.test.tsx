@@ -26,12 +26,13 @@ describe('mobile comment composer return key', () => {
 
     const handlers = (): MobileCommentComposerHandlers => {
         const noop = () => undefined;
+        const noopAttach = () => null;
         return {
             onTextChange: noop,
             onCancel: noop,
-            onAttach: () => { attached += 1; },
+            onAttach: () => { attached += 1; return null; },
             onDictationInsert: noop,
-            onDictationInsertAndSend: noop,
+            onDictationInsertAndSend: noopAttach,
             onEditorFocus: noop,
             onEditorBlur: noop,
             onDictationActiveChange: noop,

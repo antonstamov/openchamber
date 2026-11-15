@@ -11,7 +11,9 @@ import React from 'react';
 
 import { useCommentEnterSubmit } from '@/components/comments/useCommentEnterSubmit';
 import { useCommentFieldPicker } from '@/components/comments/useCommentFieldPicker';
-import { ComposerDictation } from '@/components/dictation/ComposerDictation';
+import { InlineDictationButton } from '@/components/dictation/InlineDictationButton';
+import { useCommentDictationHandoff } from '@/components/dictation/useCommentDictationHandoff';
+import type { DictationStatus } from '@/hooks/useDictation';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/icon/Icon';
 import { useI18n } from '@/lib/i18n';
@@ -22,7 +24,7 @@ import type { Theme } from '@/types/theme';
 import { composerAutoCorrect } from '../editor/autocorrect';
 import { ComposerEditor, type ComposerEditorHandle } from '../editor/ComposerEditor';
 import type { ComposerLanguageContext } from '../language/tokenize';
-import { mobileCommentQuotePreview, type MobileCommentDraft } from './mobileCommentDraft';
+import { mobileCommentQuotePreview, type MobileCommentAttachPlan, type MobileCommentDraft } from './mobileCommentDraft';
 
 const EMPTY_NAMES: ReadonlySet<string> = new Set();
 
@@ -53,10 +55,10 @@ const previewFadeStyle = (): React.CSSProperties => ({
 export interface MobileCommentComposerHandlers {
     onTextChange(text: string): void;
     onCancel(): void;
-    onAttach(): void;
+    onAttach(onStored?: (plan: MobileCommentAttachPlan) => void): MobileCommentAttachPlan | null;
     onDictationInsert(text: string): void;
     /** Insert-and-send in comment mode attaches the comment; it never sends. */
-    onDictationInsertAndSend(text: string): void;
+    onDictationInsertAndSend(text: string, onStored?: (plan: MobileCommentAttachPlan) => void): MobileCommentAttachPlan | null;
     onEditorFocus(): void;
     onEditorBlur(): void;
     onDictationActiveChange(active: boolean): void;
@@ -66,9 +68,11 @@ export interface MobileCommentComposerProps {
     draft: Extract<MobileCommentDraft, { status: 'open' }>;
     theme: Theme;
     handlers: MobileCommentComposerHandlers;
+    /** The mode hook's form-submit path delegates to the shell's attach. */
+    shellAttachRef?: React.MutableRefObject<(() => MobileCommentAttachPlan | null) | null>;
 }
 
-export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: MobileCommentComposerProps) {
+export function MobileCommentComposer({ draft, theme: currentTheme, handlers, shellAttachRef }: MobileCommentComposerProps) {
     const { t } = useI18n();
     const editorRef = React.useRef<ComposerEditorHandle>(null);
     const snippets = useSnippetsStore((state) => state.snippets);
@@ -89,12 +93,44 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
     const caretCoords = React.useCallback((position: number) => editorRef.current?.caretCoords(position) ?? null, []);
     const fieldPicker = useCommentFieldPicker({ text: draft.text, getCaret, replaceRange, caretCoords });
 
+    // Attaching never waits for dictation: a busy session is finalized in the
+    // background and its late transcript is appended to the attached draft.
+    const {
+        confirmIfBusy: confirmDictationIfBusy,
+        armHandoff,
+        dictationProps,
+    } = useCommentDictationHandoff({ onLocalTranscript: (spoken) => handlers.onDictationInsert(spoken) });
+
+    const handleAttach = React.useCallback((): MobileCommentAttachPlan | null => {
+        const busy = confirmDictationIfBusy();
+        return handlers.onAttach((storedPlan) => {
+            if (busy && storedPlan.draftId) {
+                armHandoff({ target: storedPlan.target, draftId: storedPlan.draftId });
+            }
+        });
+    }, [armHandoff, confirmDictationIfBusy, handlers]);
+
+    // The form submit path (ChatInput) delegates to this same attach so a
+    // busy dictation takes one route no matter how the attach was triggered.
+    React.useEffect(() => {
+        if (!shellAttachRef) return;
+        shellAttachRef.current = handleAttach;
+        return () => {
+            if (shellAttachRef.current === handleAttach) shellAttachRef.current = null;
+        };
+    }, [handleAttach, shellAttachRef]);
+
+    const handleDictationStatus = React.useCallback((status: DictationStatus) => {
+        dictationProps.onStatusChange(status);
+        handlers.onDictationActiveChange(status !== 'idle');
+    }, [dictationProps, handlers]);
+
     const handleKeyDown = (event: KeyboardEvent): boolean => {
         if (isIMECompositionEvent(event)) return false;
         if (fieldPicker.handleKeyDown(event)) return true;
         if (event.key === 'Enter' && commentKeys.shouldSubmit(event)) {
             event.preventDefault();
-            handlers.onAttach();
+            handleAttach();
             return true;
         }
         return false;
@@ -173,13 +209,11 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
                     className="min-h-[44px] flex-1 px-2.5 py-2 typography-markdown"
                 />
                 <div className="mb-1 flex h-9 shrink-0 items-center">
-                    <ComposerDictation
-                        isMobile
-                        footerIconButtonClass={FOOTER_ICON_BUTTON_CLASS}
-                        iconSizeClass={ICON_SIZE_CLASS}
-                        onInsert={handlers.onDictationInsert}
-                        onInsertAndSend={handlers.onDictationInsertAndSend}
-                        onActiveChange={handlers.onDictationActiveChange}
+                    <InlineDictationButton
+                        {...dictationProps}
+                        onStatusChange={handleDictationStatus}
+                        buttonClassName={FOOTER_ICON_BUTTON_CLASS}
+                        iconClassName={ICON_SIZE_CLASS}
                     />
                 </div>
                 <Button
@@ -187,7 +221,7 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
                     size="icon"
                     className="mb-1 shrink-0 rounded-full border-0 [corner-shape:round] transition-opacity hover:opacity-90 active:opacity-80"
                     style={{ backgroundColor: 'var(--primary-base)', color: 'var(--primary-foreground)' }}
-                    onClick={handlers.onAttach}
+                    onClick={handleAttach}
                     title={primaryLabel}
                     aria-label={primaryLabel}
                 >
