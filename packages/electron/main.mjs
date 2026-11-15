@@ -136,6 +136,7 @@ import {
   shouldAllowBrowserPanelCertificateError,
   shouldAllowBrowserPanelPermission,
 } from './browser-panel-security.mjs';
+import { browserPanelKeyAction, browserPanelMouseAction, runBrowserPanelAction } from './browser-panel-navigation.mjs';
 import { isSpaceId, spaceIdOfPreviewPartition, spacePreviewPartition, spacePreviewProxyConfig } from './space-preview.mjs';
 import { shouldBlockGuestFrameNavigation } from './guest-frame-navigation.mjs';
 import { createRelayDevTunnelBridge } from './relay-dev-tunnel.mjs';
@@ -3447,11 +3448,6 @@ const createMiniChatWindow = async ({ mode, sessionId = '', directory = '', proj
     browserWindow.on('focus', refreshTrafficLights);
   }
 
-  browserWindow.once('ready-to-show', () => {
-    showWindow(browserWindow);
-    browserWindow.focus();
-  });
-
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url).catch(() => {});
     return { action: 'deny' };
@@ -3472,6 +3468,11 @@ const createMiniChatWindow = async ({ mode, sessionId = '', directory = '', proj
       void browserWindow.webContents.executeJavaScript(initScript).catch(() => {});
     }
   });
+
+  // Shown at once in the theme colour, as the main window is, so the window is
+  // on screen while its document loads.
+  showWindow(browserWindow);
+  browserWindow.focus();
 
   await navigateWindow(browserWindow, buildMiniChatUrl({ mode, sessionId, directory, projectId }));
   return browserWindow;
@@ -5917,6 +5918,19 @@ app.on('web-contents-created', (_event, contents) => {
   // on white, as in a browser, rather than on the app behind the view.
   browserPanelDriver.run(contents, 'emulate', { pageBackground: true }).catch((error) => {
     log.warn(`[electron] could not give a panel page its default background: ${error?.message || error}`);
+  });
+
+  contents.on('before-input-event', (event, input) => {
+    const action = browserPanelKeyAction(input, process.platform);
+    if (!action) return;
+    event.preventDefault();
+    runBrowserPanelAction(contents, action);
+  });
+  contents.on('before-mouse-event', (event, mouse) => {
+    const action = browserPanelMouseAction(mouse);
+    if (!action) return;
+    event.preventDefault();
+    if (mouse.type === 'mouseUp') runBrowserPanelAction(contents, action);
   });
 
   // Pages of a space keep everything in their own view: a window or tab of

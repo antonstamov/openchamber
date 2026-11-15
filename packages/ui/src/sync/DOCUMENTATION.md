@@ -678,7 +678,7 @@ Session message loads use runtime, normalized directory, session ID, SDK epoch, 
 
 An authoritative `session.deleted` event also clears persisted UI state before routing metadata can be removed. Confirmed local deletion and accepted `404` deletion do the same directly instead of depending on the event echo. Cleanup is identity-owned by runtime, normalized directory, and session ID: queued messages, persisted todos, composer drafts, per-session input-history buckets, inline-comment drafts, and pins clear only that tuple, while the active runtime's folder store removes the session from every active or archived folder scope. Stale-runtime events and unresolved/global directory identities do not mutate persisted state.
 
-Persisted sidebar state is never reconciled destructively from the first successful startup list. That list establishes an authoritative active+archived baseline. Only a session present in that baseline and omitted from a later complete snapshot is treated as a missed external deletion, and that judgment commits the same reconciliation as a confirmed deletion through `reconcileExternallyDeletedSession`: the session leaves every live store and the global cache, the current-session pointer clears when it pointed there, and `cleanupPersistedSessionState` runs. Clearing only persisted state was the earlier behavior, and it left the session in every live store, in the sidebar, and as the open chat still prompting an id the server no longer has when the `session.deleted` event was lost. The reconciliation is rechecked against the captured runtime before it mutates the non-runtime-scoped live, global, and UI stores. Archive and directory moves retain the session ID across snapshots and are not deletion cleanup. The judgment runs in `MainLayout` and `VSCodeLayout` through `useSessionListSync` and in the mobile shell's `MobileAppContent`. Both consume `authoritativeSessions`, published only by complete global loads. Head checks never advance this baseline. Full app roots sweep on startup, return from hidden state, and every 10 minutes while visible. Mobile has no poller and sees a snapshot whenever the sessions sheet opens or the last session is restored. This favors harmless hidden stale metadata over irreversible user-state loss when startup data is incomplete.
+Persisted sidebar state is never reconciled destructively from the first successful startup list. That list establishes an authoritative active+archived baseline. Only a session present in that baseline and omitted from a later complete snapshot is treated as a missed external deletion, and that judgment commits the same reconciliation as a confirmed deletion through `reconcileExternallyDeletedSession`: the session leaves every live store and the global cache, the current-session pointer clears when it pointed there, and `cleanupPersistedSessionState` runs. Clearing only persisted state was the earlier behavior, and it left the session in every live store, in the sidebar, and as the open chat still prompting an id the server no longer has when the `session.deleted` event was lost. The reconciliation is rechecked against the captured runtime before it mutates the non-runtime-scoped live, global, and UI stores. Archive and directory moves retain the session ID across snapshots and are not deletion cleanup. The judgment runs in `MainLayout` and `VSCodeLayout` through `useSessionListSync` and in the mobile shell's `MobileAppContent`. Both consume `authoritativeSessions`, published only by complete global loads. Head checks never advance this baseline. Full app roots sweep on startup, return from hidden state, and every 10 minutes while visible. Mobile has no poller: the sessions sheet and the session switcher read the list when they open, its head while the complete snapshot is under ten minutes old and the complete snapshot otherwise (`refreshGlobalSessionsWhenShown`), and the last-session restore reads a complete one. A deletion whose event was missed therefore stays listed for up to ten minutes there, as on desktop. This favors harmless hidden stale metadata over irreversible user-state loss when startup data is incomplete.
 
 Session materialization recency is keyed by runtime and directory. Foreground loads promote navigation recency. Prefetch reserves only unused per-directory capacity before HTTP starts and inserts speculative entries behind visited sessions. A prefetch cache hit does not promote recency, and a full cache skips uncached speculation. Otherwise the sidebar's neighbor prefetch displaces visited sessions and causes repeated HTTP on every navigation cycle near the limit. Prefetch pagination metadata has a global count ceiling and is removed with session eviction, directory disposal, loader runtime reconfiguration, and loader disposal.
 
@@ -686,7 +686,7 @@ Session materialization recency is keyed by runtime and directory. Foreground lo
 
 Selection changes and directory message/status/blocking-request publications schedule one coalesced retention pass per directory, and one timer per directory wakes the pass when the earliest idle grace expires. Part-only streaming updates do not schedule retention. Switching runtimes and disposing directories cancel the old cleanup ownership. Eviction resets the loader entry and marks it evicted: messages that later arrive by event for that session are renderable but are not history coverage, so the next navigation fetches the transcript again and merges it with those events instead of presenting them as the whole history.
 
-A viewed transcript is never evicted, so someone working in one chat would keep every turn since they opened it, and every timeline pass (turn projection, record snapshots, timeline rows, the part map clone per event batch) walks all of them. Measured with `profile:session --grow` on a CPU slowed four times: one agentic turn kept the main thread 14% busy with 10 turns in memory and 26% with 100, with 28 long tasks instead of 5. `SessionMessageLoader.trimHistory` therefore cuts a transcript that outgrew the cold-navigation window back to that window (ten prompts, or 300 records once the newest prompt is in), at the prompt that starts it (with the `synthetic` context carriers sent right before it, which its chips and a revert or fork of it need), and moves coverage to a cursor below the first kept record (`olderMessagesCursor` in `@/lib/opencode/messageCursor`, OpenCode's own `next` cursor shape), so loading older history reads the dropped turns again. `ChatContainer` asks for it 3 s after a turn starts or ends, only while the reader is pinned to the end, where removing rows above moves nothing on screen. The timer keys on the newest turn id so prepending older history does not schedule a cut. It cuts nothing while a load runs, while an export or title read holds the transcript, while any timeline showing the session is scrolled away from its end or has its prompt navigator panel open, while the session timeline dialog is open (both surfaces hold the transcript with `retainSessionHistory(..., "browsing")`), while a revert is pending (its marker hides the tail, and a cut counted over hidden turns could drop the marker), after a stream gap the transcript was not confirmed since, or at an unconfirmed record. Browser find in page does not see dropped turns; the in-chat search is server-indexed and loads history itself. Readouts that sum the loaded records describe the loaded window, as for a session opened cold: the Context panel's message counts drop at a cut, while its total cost comes from the session record (`Session.cost`).
+A viewed transcript is never evicted, so someone working in one chat would keep every turn since they opened it, and every timeline pass (turn projection, record snapshots, timeline rows, the part map clone per event batch) walks all of them. Measured with `profile:session --grow` on a CPU slowed four times: one agentic turn kept the main thread 14% busy with 10 turns in memory and 26% with 100, with 28 long tasks instead of 5. `SessionMessageLoader.trimHistory` therefore cuts a transcript that outgrew the cold-navigation window back to that window (ten prompts, or 300 records once the newest prompt is in), at the prompt that starts it (with the `synthetic` context carriers sent right before it, which its chips and a revert or fork of it need), and moves coverage to a cursor below the first kept record (`olderMessagesCursor` in `@/lib/opencode/messageCursor`, OpenCode's own `next` cursor shape), so loading older history reads the dropped turns again. `ChatContainer` asks for it 3 s after a turn starts or ends, only while the reader is pinned to the end, where removing rows above moves nothing on screen. The timer keys on the newest turn id so prepending older history does not schedule a cut. It cuts nothing while a load runs, while an export or title read holds the transcript, while any timeline showing the session is scrolled away from its end or has its prompt navigator panel open, while the session timeline dialog is open, while a timeline searches older history for a linked message or a remembered position (all of these hold the transcript with `retainSessionHistory(..., "browsing")`), while a revert is pending (its marker hides the tail, and a cut counted over hidden turns could drop the marker), after a stream gap the transcript was not confirmed since, or at an unconfirmed record. Browser find in page does not see dropped turns; the in-chat search is server-indexed and loads history itself. Readouts that sum the loaded records describe the loaded window, as for a session opened cold: the Context panel's message counts drop at a cut, while its total cost comes from the session record (`Session.cost`).
 
 ### Why the viewed transcript is cut back and not kept whole
 
@@ -699,8 +699,9 @@ Cold navigation and prefetch request 100 records (50 on constrained surfaces) an
 Use `useGlobalSessionsStore` when the UI needs a **shared global session cache**.
 
 Each full app root owns one global polling lifecycle through
-`useGlobalSessionsPolling`. The web/desktop root, the desktop Mini Chat window
-root, and the VS Code chat root load a complete snapshot when mounted. After
+`useGlobalSessionsPolling`. The web/desktop root and the VS Code chat root load
+a complete snapshot when mounted; the desktop Mini Chat window does not
+(see *Why Mini Chat reads the newest page and not the complete list*). After
 that the live event stream keeps the list current: it is one global stream,
 and `session.created` reaches the client for every directory, opened or not.
 The list is read again only where the stream cannot answer: a complete
@@ -721,7 +722,7 @@ visible takes one. On desktop the document stays `visible` while the window
 is hidden, minimized or closed to the tray, because windows run with
 background throttling off, so the hook reads the shell's
 `openchamber:window-visibility` instead. A window the shell sends no
-visibility to (Mini Chat) counts as visible.
+visibility to counts as visible.
 The sidebar and tray consume the same store and must not start their own
 full-list timers. The tray renders only the sessions the sidebar can place — a
 configured project or worktree, a managed chat, or an isolated space — because
@@ -746,6 +747,25 @@ had left, so every check republished the store and rebuilt the sidebar
 projection over every session. A gap is the one time the stream may have
 missed a creation, so the head check runs once after it, and the complete
 snapshot every 10 minutes stays the baseline for deletions missed meanwhile.
+
+### Why Mini Chat reads the newest page and not the complete list
+
+The Mini Chat header switcher shows the ten most recent root sessions, and
+nothing else in that window needs every session: the open session is read by
+id, and its directory comes from the window URL. Polling the complete list
+there cost each new window nine requests and 3.3 MB at about 4,000 sessions. The
+window calls `refreshRecentGlobalSessions` when it mounts and each time the
+switcher opens (`SessionSwitcherDropdown` with `recentOnly`): one page of 50
+records, newest first, merged like the first page of a complete load, so
+`hasLoaded` stays false, `authoritativeSessions` stays null and nothing is
+persisted from it. Fifty and not ten because sub-agent sessions and archived
+records share the page with the roots. The rows below the page come from the
+persisted snapshot the main window wrote and from live events. A failed read
+leaves the lists untouched, and a change made while the page was in flight
+wins over it. When something in the window has loaded the complete list (the
+`@` session picker, a due retention run), the same call checks its head.
+Consumers that need a complete list already wait for `hasLoaded` and load it
+themselves.
 
 ### Why head checks and complete snapshots have separate authority
 
@@ -1050,7 +1070,7 @@ Each discovery pass lists the children of every live session in the directory wi
 `useGlobalSessionsStore` is kept correct by:
 
 1. shared global fetch/reconciliation via `loadSessions()` / `refreshGlobalSessions()`
-2. session create/update/delete events; recency-only updates for existing sessions are retained latest-per-session and committed once on `session.idle`/`session.error`, while structural updates and create/delete remain immediate and runtime switching discards pending updates. Display ordering reacts separately to active/settled lifecycle transitions, not to these recency publications
+2. session create/update/delete events; updates that change only `time.updated` and spend (`cost`, `tokens`) for existing sessions are retained latest-per-session and committed once on `session.idle`/`session.error`, while structural updates and create/delete remain immediate and runtime switching discards pending updates. A patch arriving while an update is pending applies to the pending record, so a turn's later patches keep what its earlier ones carried, and a structural patch publishes them together. Display ordering reacts separately to active/settled lifecycle transitions, not to these recency publications
 3. direct mutation from session actions after successful SDK calls:
    - create
    - title update
@@ -1069,7 +1089,11 @@ Live activity/status indicators must not depend on this cache. They must use the
 
 `session-unread.ts` owns the unread mark, and OpenCode owns the state behind it. A session record carries `time.idle` (when its last turn ended, whatever the outcome) and `time.viewed` (a watermark of the last turn end a viewer saw, which OpenCode keeps monotone). A top-level, unarchived session whose `idle` is past its `viewed` is unread. Rows, tabs, switchers, collapsed aggregates, run overviews, the tray, the dock badge and the iOS widget all read that one rule from the global sessions store. OpenCode stamps `idle` when a session only idles on background work, so the sidebar's user sections, the tray and the dock badge also leave out a session whose turn is still open (`collectOpenTurnSessionIds`: the running sessions, their ancestors, and sessions waiting on a workflow run, a background command or image, or a pull request). It counts once that work ends, with no change to its record, which is why the tray hook subscribes to those stores even with the tray off. The tray and the dock badge also require a sidebar row (`sessionHasSidebarRow`): an unread session the user cannot see or open would hold a dock count nothing clears. The badge counts a session that only the Chats, Pinned or In work section lists while that section is shown; the tray list keeps it with the section hidden, because a tray row opens the session directly.
 
-Marking a session seen (`markSessionViewed` in `notification-store.ts`, which also clears its native notifications) writes the watermark locally at once and sends `POST /api/session/:id/view` with the `idle` it saw; a failed write restores the previous watermark unless a newer record replaced it. OpenCode announces the view as `session.viewed` to every client, so a session seen on one device stops being unread on the others. The global store's change signatures include `idle` and `viewed`, so these updates publish immediately instead of waiting with recency-only updates. The signatures also carry the usage and selection fields a `session.patched` can change without advancing `updated` (cost, tokens, model, permissions, outcome, revert, subpath): a patch touching only those fields would otherwise read as no change and be dropped by the store's same-record filter, and a deferred usage record rebuilt from the record the deferral started from would drop what an earlier patch in the same stream carried, so usage fields publish at once rather than waiting with recency-only updates.
+Marking a session seen (`markSessionViewed` in `notification-store.ts`, which also clears its native notifications) writes the watermark locally at once and sends `POST /api/session/:id/view` with the `idle` it saw; a failed write restores the previous watermark unless a newer record replaced it. OpenCode announces the view as `session.viewed` to every client, so a session seen on one device stops being unread on the others. The global store's change signatures include `idle` and `viewed`, so these updates publish immediately instead of waiting with recency-only updates. The signatures also carry the usage and selection fields a `session.patched` can change without advancing `updated` (cost, tokens, model, permissions, outcome, revert, subpath): a patch touching only those fields would otherwise read as no change and be dropped by the store's same-record filter. Spend (`cost`, `tokens`) waits with the recency updates: OpenCode reports usage after every step of a turn, the sidebar paints none of it, and publishing it rebuilt the whole sidebar once per step (24 rebuilds and about 2 GB of allocation in one 21-step turn with 3,700 sessions; 4 rebuilds once deferred). Live usage readouts read the directory stores, which apply every step (Work status, subagent cost); a run lane in a folder no store holds gets its spend from the deferred records (`useDeferredGlobalSessions`), which `useMultiRunSessions` lays over the global list. The selection fields (model, permissions, outcome, revert, subpath) still publish at once.
+
+### Why session metadata is parsed once per object
+
+Metadata predicates the sidebar asks of every session (in work, pinned, multi-run lane, workflow agent) go through `parseMetadata` (`lib/metadataParse.ts`), which keeps one zod result per metadata object and schema. A failed `safeParse` builds a `ZodError` with its formatted message, and the sidebar asked thousands of sessions on every rebuild: that was the largest single source of the window's garbage. Metadata objects are replaced, never mutated, so the cache needs no invalidation; a write path that builds new metadata keeps calling zod directly.
 
 The user can also mark a session unread from its menu (rows, work rows, tabs, the mobile long-press menu) or with Alt+click to come back to it. That mark is `metadata.openchamber.markedUnread: { at }` on the session record, written through the OpenChamber metadata route as a merge patch, so OpenCode persists it and every client, VS Code included, gets it with the record. `isSessionUnread` is true for an unseen turn or a mark; `isSessionMarkedUnread` is the mark alone, and rows show it even on the open session, where an unseen turn never shows. Opening the session clears it like a view does, with one exception: a mark made in this window stays while the user is still on the session it was made from, because the open session is marked seen on every record change and on window focus. `releaseKeptUnreadMarks` ends that when `setCurrentSession` moves to another session, so the mark clears on the next visit. Mark as read and Mark all as read (`markSessionRead`, `markAllSessionsViewed`) clear a kept mark at once. A failed write takes the change back, unless something else replaced the metadata meanwhile. On a work row, Mark as unread marks the session whose turn ended last, and Mark as read clears every unread session of the work.
 
@@ -1096,6 +1120,23 @@ The event pipeline's reconnect callback carries `replayReset`. A global WS
 covers the client cursor. The pipeline clears that cursor and the sync provider
 runs normal authoritative gap repair even during early boot. Ordinary reconnects
 retain their existing startup grace period.
+
+`replayed` on that callback means the server found the cursor and sent every
+event after it. The stream then has no gap, so the repair reads only what the
+server announces live and replay does not carry: session statuses, pending
+forms and permissions, and the global active list (`"stream-replayed"`). It
+reads no session record and no transcript tail, and marks no cached transcript
+stale. A full repair asked for while that one runs is queued behind it. A
+`ready` frame without `replayed` names the server's cursor, which the pipeline
+adopts, so a client that received no event can still resume.
+
+The pipeline moves to SSE for 60 s when a WebSocket fails before `ready`. Once
+a WebSocket has been ready in this pipeline the route is known to carry it, so
+a failed open is the network or the server being away: the pipeline retries
+the WebSocket, with its cursor, and falls back only after three failed opens
+in a row while the browser reports online. The SSE stream has no cursor, and
+its first event (`server.connected`) starts a bootstrap of the current
+directory.
 
 While `useAuthSessionStore` says the OpenChamber session is not usable
 (confirmed expiry, or a login in progress), the event pipeline and the
@@ -1174,6 +1215,23 @@ A successful local session creation publishes its session record and calls `Sess
 
 Initial loads use smaller requests on constrained VS Code/mobile surfaces and publish the cursor-extended ten-turn window described above. The mounted chat timeline requests one history batch when its pinned viewport is underfilled, when the user scrolls toward history, or when load older is pressed; mobile uses the explicit button. Timeline caches, pending work, prepend snapshots, and stale checks use runtime + directory + session identity so equal session IDs in different worktrees cannot share lifecycle state. Older pages are fetched through the same loader and merged with optimistic records before publication. The same chronology contract applies in the VS Code webview because it consumes this shared loader and sync store; the extension bridge must transport OpenCode records without introducing its own ID-based ordering.
 
+### Why Mini Chat asks for its transcript before the provider mounts
+
+A Mini Chat window knows its session from its URL as soon as its script runs,
+before the first effects of the React tree, where the open used to start the
+read. Asking then puts the request 85 ms earlier and the transcript on screen
+about 70 ms sooner (a 492-message session, median of 8 interleaved opens; 426
+against 494 ms). `prefetchSessionBeforeMount` (`sync-context.tsx`) creates
+the child store manager and the message loader early and runs the loader's
+ordinary `prefetch`; `SyncProvider` adopts those same objects when it mounts,
+so the page lands in the directory store the timeline reads and the open that
+follows joins the request or finds it done. The alternative, a one-off fetch
+whose result is handed to the loader, would need its own rules for failure,
+staleness and the optimistic shadow; the prefetch already has them. A failed
+prefetch leaves the entry in `error`, and the open reads again. A window whose
+URL carries no directory, or whose session has moved to another directory,
+gets no benefit: the open resolves the real directory and reads there.
+
 ## Failed-turn diagnostics
 
 Successful HTML responses and the packaged protocol's `runtime-unavailable` response are definite routing failures. The SDK boundary rejects them before decoding and marks the normalized error through `lib/relay/transport-error.ts`. Send-failure classification uses that authority before HTTP timeout heuristics, so even the packaged `503` uses normal optimistic rollback. These failures do not count against a model provider's circuit. Requests whose outcome the transport cannot confirm remain ambiguous and are not retried as definite rejections.
@@ -1222,9 +1280,8 @@ Markdown renderer. The existing visibility/commit layer controls when source
 is shown; Streamdown owns parsing and React block updates after that boundary.
 The renderer adds no character-pacing timer or application HTML block cache.
 Native code components own their shell, line numbers and application-owned
-highlighting: Highlights on the main thread for the languages it has a lexer
-for, the Shiki worker for the rest. Non-Markdown code views and CodeMirror use
-the same split independently of Markdown rendering.
+highlighting: Highlights on the main thread. Non-Markdown code views and
+CodeMirror use it too, independently of Markdown rendering.
 
 The event pipeline delivers each ordered per-directory flush as one reducer batch. Events retain their individual notifications, cleanup, routing, materialization, and debug side effects, while directory mutations accumulate in order and publish one store transaction per touched directory. Global session mutations and live status, ordering, and timing transitions also accumulate in event order and each owner publishes at most once for the flush. Each top-level state slice is cloned lazily at most once in that batch; no-op events do not change references.
 
@@ -1645,9 +1702,10 @@ and its transcript back into it.
 
 A session whose messages are not in memory at the click keeps the previous
 timeline on screen while they load (up to 400ms), then swaps straight to the
-finished view; the skeleton appears only when loading takes longer. A session
-the user waited for fades in (100ms); one that was ready appears in the same
-frame. The sidebar prefetches the row on either side of the open session shortly
+finished view; the skeleton appears only when loading takes longer. The
+finished view appears without a fade, whether it was waited for or ready: it is
+already in place, and a fade only delayed the moment it could be read (about
+100 ms of a 210 ms switch). The sidebar prefetches the row on either side of the open session shortly
 after it settles, and a row the mouse rests on or keyboard focus reaches for
 180ms (`useSessionHoverPrefetch`), so most switches are warm. Both share one
 queue with a concurrency cap; VS Code does neither.
@@ -1657,8 +1715,8 @@ the session the timeline shows (`components/chat/chatColumnSession.ts`), not
 the live selection: read live, they re-shaped a commit ahead of the swap
 (a taller draft, chips, a working chip) and the outgoing timeline, pinned to
 its end, jumped before it was replaced. The reveal effect below runs once per
-gate for the same reason — `revealWaited` flips for the outgoing session at
-the click, and re-running on it hid that timeline before the next one mounted.
+gate for the same reason: re-running it for the outgoing session hid that
+timeline before the next one mounted.
 
 The timeline's first paint for a session is atomic. `ChatContainer` owns a
 `TimelineRevealGate` per session key (`components/chat/timelineRevealGate.ts`).
@@ -1671,13 +1729,18 @@ and avoid moving unrelated rows. Layout parity and large-input costs require
 renderer/browser evidence; the shared worker's tests do not establish them.
 The timeline root stays at
 opacity 0 until every hold releases (capped at 250ms) and the content height
-has held still for two frames, then fades in once as a whole. The gate stops
+has held still for two frames, then appears as a whole. The gate stops
 accepting holds after the opening commit so rows mounting during scroll never
 hide the timeline. Once the lazy markdown
 module has loaded, `MarkdownRenderer` mounts it synchronously instead of
 through `Suspense`: a suspended boundary shows its fallback for a tick and
 React then throttles later-resolving boundaries by ~300ms, which staggered
-user and assistant text on a cold open.
+user and assistant text on a cold open. Since markdown does not hold the gate,
+an entry that can open on a transcript starts loading the module at boot
+(`preloadMarkdownRenderer` in `main.tsx`, `renderMobileApp.tsx` and
+`renderElectronMiniChatApp.tsx`). The mini chat window, opened on a session
+without it, revealed the timeline with empty message bodies and the text
+arrived about 250ms later, moving every row (layout shift 0.6).
 
 An opened session is shown already in place: at its end, or where the reader
 left it. Before KeepAlive hides a list on a session switch, and again on list
@@ -1739,6 +1802,17 @@ server's (`packages/web/server/lib/message-search`). A linked message outside th
 loaded window is first checked with one `session.message.get` request: a 404
 shows a "not in this session" toast, anything else loads older history until
 the message or the start of the history, on every runtime including mobile.
+"Loaded" for this search means the message has a row in the timeline
+(`MessageListHandle.hasMessageRow`), which is more than being in the store: a
+batch of older history can end inside a turn, and a reply whose prompt is
+still unloaded is kept without a row, so the search loads on until the prompt
+arrives. When the search stopped at store presence, a link to such a reply
+found the message, could not align it, and left the reader at the end of the
+chat with no toast; whether a link hit that depended only on where the batch
+boundaries fell. The search also holds the history as a browsing reader does
+(`retainSessionHistory(..., "browsing")`): the reader is still pinned to the
+end while it runs, and the 3 s history trim would otherwise cut what it has
+loaded and send it back to the start of the window.
 Chat markdown keeps `openchamber://` hrefs only for session links and turns
 pasted ones into links; pairing and other routes stay stripped. A web session
 link opens in place when it points at the page's origin or at the instance
@@ -1781,7 +1855,10 @@ On launch the app reopens the session that was open when it closed
 (`sync/last-session-restore.ts`, used by `App` for web and desktop and by the
 Capacitor shell). `setCurrentSession` persists the pointer per runtime and a
 user-opened draft clears it, so the pointer names exactly what was on screen;
-without one the launch stays on the automatic draft. The shell shows before
+without one the launch stays on the automatic draft. The desktop Mini Chat
+shares that storage with the main window and neither writes nor clears the
+pointer (`leaveLastActiveSessionToMainWindow`): what a Mini Chat has open is
+not what the main window reopens. The shell shows before
 OpenCode is ready, so `App` selects the session in a layout effect
 (`beginLastSessionRestore`), before any passive effect of the tree runs;
 ChatContainer's passive effect would otherwise open the automatic draft first

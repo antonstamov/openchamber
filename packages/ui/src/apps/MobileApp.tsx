@@ -54,7 +54,7 @@ import { subscribeActiveRelayTunnelStatus } from '@/lib/relay/runtime-tunnel';
 import { isRelayLimitReached } from '@/lib/relay/tunnel-client';
 import { useGlobalSessionsStore } from '@/stores/useGlobalSessionsStore';
 import { useAuthoritativeSessionCleanup } from '@/components/session/sidebar/list/useAuthoritativeSessionCleanup';
-import { restoreLastActiveSession } from '@/sync/last-session-restore';
+import { beginLastSessionRestore } from '@/sync/last-session-restore';
 import { cn } from '@/lib/utils';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useDirectoryStore } from '@/stores/useDirectoryStore';
@@ -62,6 +62,7 @@ import { useSourceControlAuthStore } from '@/stores/useSourceControlAuthStore';
 import { useSourceControlProviderRegistry } from '@/lib/source-control/providers/registry';
 import { refreshTrackers } from '@/stores/useTrackerAuthStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useChatWidthAttribute } from '@/hooks/useChatWidthAttribute';
 import { closeTopmostBackLayer } from '@/lib/mobileBackLayers';
 import { useUpdateStore } from '@/stores/useUpdateStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
@@ -229,7 +230,6 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
   }, [guestPage, openGuestPageId]);
   const closeGuestPage = React.useCallback(() => useUIStore.getState().setOpenGuestPage(null), []);
   const setSettingsPage = useUIStore((state) => state.setSettingsPage);
-  const wideChatLayoutEnabled = useUIStore((state) => state.wideChatLayoutEnabled);
   const updateAvailable = useUpdateStore((state) => state.available);
   const updateRuntimeType = useUpdateStore((state) => state.runtimeType);
   const showCapacitorOnlyFeatures = React.useMemo(() => isCapacitorMobileApp(), []);
@@ -455,17 +455,10 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
     return () => useMobileChatInsets.setState({ left: 0, right: 0 });
   }, [sidebarWidth, workspacePanelWidth]);
 
-  // Wide chat layout: the shared chat columns key off this root class, but only
-  // the desktop App set it — so on a tablet, where the chat column is finally
-  // wide enough for the setting to mean something, it did nothing. Applied for
-  // every mobile surface; on a phone the viewport is narrower than even the
-  // normal clamp, so it is a no-op there.
-  React.useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const root = document.documentElement;
-    root.classList.toggle('wide-chat-layout', wideChatLayoutEnabled);
-    return () => root.classList.remove('wide-chat-layout');
-  }, [wideChatLayoutEnabled]);
+  // Chat width: applied for every mobile surface, because on a tablet the chat
+  // is wide enough for it to matter; on a phone the viewport is narrower than
+  // even the default column, so it changes nothing there.
+  useChatWidthAttribute();
 
   // The draft screen keeps its starter chips while the keyboard is up when
   // there is room for both: a tablet in portrait, or any tablet orientation
@@ -1393,9 +1386,11 @@ function MobileAppContent({ apis }: MobileAppProps) {
   }, [agentsCount, isConnected, loadAgents, loadProviders, providersCount]);
 
   // Cold-launch continuity: after the launch instance connects, reopen the
-  // session that was open on this instance last time — but only after an
-  // authoritative sessions snapshot confirms it still exists, and only if the
-  // user hasn't opened a session in the meantime. An open new-session draft
+  // session that was open on this instance last time, at once when its folder
+  // is known, and only if the user hasn't opened a session in the meantime.
+  // The authoritative sessions snapshot checks the choice afterwards: with
+  // thousands of sessions it is many pages, each a round trip through the
+  // relay, and waiting for all of them held the launch for seconds. An open new-session draft
   // does NOT block the restore: ChatContainer auto-opens the draft whenever no
   // session is active, so at this point it reflects the boot default, not a
   // user choice. Runs once per successful launch connect; in-app instance
@@ -1410,8 +1405,15 @@ function MobileAppContent({ apis }: MobileAppProps) {
     // Safety valve: the overlay must never strand the user on the splash if
     // the snapshot hangs — fall through to the draft after a bounded wait.
     const overlayTimeoutId = window.setTimeout(() => setLastSessionRestorePending(false), 6000);
+    const attempt = beginLastSessionRestore({ selectNow: true, refresh: true });
+    // A session on screen leaves no draft to cover.
+    const showSelectedSession = () => {
+      if (useSessionUIStore.getState().currentSessionId) setLastSessionRestorePending(false);
+    };
+    const stopWatchingSelection = useSessionUIStore.subscribe(showSelectedSession);
+    showSelectedSession();
     void (async () => {
-      const result = await restoreLastActiveSession({ refresh: true });
+      const result = await attempt();
       if (cancelled) return;
       // A failed list read keeps the ref unset so the next connect (a stale
       // persisted isConnected can fire this early) retries the restore.
@@ -1420,6 +1422,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
     })();
     return () => {
       cancelled = true;
+      stopWatchingSelection();
       window.clearTimeout(overlayTimeoutId);
     };
   }, [connectionEpoch, isConnected, isNativeMobileApp]);

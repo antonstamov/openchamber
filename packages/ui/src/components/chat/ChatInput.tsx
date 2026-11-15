@@ -92,6 +92,8 @@ import { getSettingsSurface } from '@/lib/settings/surface';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { isMobileSurfaceRuntime } from '@/lib/runtimeSurface';
 import { GuestIcon } from '@/components/layout/GuestRailIcon';
+import { useProjectActions } from '@/components/layout/projectActionsRunnerContext';
+import { collectRunningActions, planRunningActionsNote } from './lib/runningActionsNote';
 import { openGuestSurface } from '@/lib/guests/open-surface';
 import { guestPanelOpensHere } from '@/lib/guests/phone';
 import { useTabletLayout } from '@/lib/device';
@@ -752,6 +754,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         void prepareChatDraftDirectory();
     }, [newSessionDraft.target, newSessionDraftOpen, prepareChatDraftDirectory]);
     const consumePendingSyntheticParts = useInputStore((s) => s.consumePendingSyntheticParts);
+    // Read when a message leaves, so a run that starts or stops does not rebuild the send handlers.
+    const projectActions = useProjectActions();
+    const projectActionsRef = React.useRef(projectActions);
+    projectActionsRef.current = projectActions;
     const acknowledgeSessionAbort = useSessionUIStore((s) => s.acknowledgeSessionAbort);
     const abortCurrentOperation = React.useCallback(
         (sessionIdOverride?: string) => sessionActions.abortCurrentOperation(sessionIdOverride ?? currentSessionId ?? ''),
@@ -1921,9 +1927,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         const linkedToQueue = await withRegisteredSharedPages(withReferencesFromText(linked, referenceLinksIn(messageToQueue)));
         // Queued context is delivered as captured, so comment snippets expand now.
         const expandedDrafts = await expandCommentSnippets(drafts, useSnippetsStore.getState().expandText);
+        const actionsNote = currentSessionId
+            ? planRunningActionsNote(currentSessionId, collectRunningActions(projectActionsRef.current))
+            : null;
         const context = buildComposerContext({
             inlineComments: expandedDrafts,
-            syntheticTexts: syntheticParts.map((part) => part.text),
+            syntheticTexts: [...syntheticParts.map((part) => part.text), ...(actionsNote?.text ? [actionsNote.text] : [])],
             references: [...linkedToQueue.map(toContextReference), ...sessionMentionsIn(messageToQueue)],
         }, skillInstruction);
         const attachmentsToQueue = [...composerAttachments, ...mentionAttachments];
@@ -2004,6 +2013,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         if (inputMode !== 'shell') settleModelPick();
         void resumeAfterQueue().catch(console.warn);
         recordLinkedReferences(queueSessionId, queueTarget.directory, linkedToQueue);
+        if (currentSessionId) actionsNote?.commit(currentSessionId);
     }, [getCurrentInputSnapshot, currentSessionId, messageQueueTarget, inputMode, hasDrafts, guestCommands, attachedFiles, sanitizeAttachmentsForSend, prepareReadOnSendMentions, extractInlineFileMentions, mentionableAgents, availableSkills, consumePendingSyntheticParts, mailboxTarget, inlineDraftTarget, consumeDrafts, linkedReferences, scrollToLatest, clearAttachedFiles, chatDraftIdentity, setLinkedReferencesFor, updateLinkedReferencesFor, isMobile, isMobileCommentOpen, addToQueue, currentProviderId, currentModelId, currentAgentName, currentVariant, t, readSessionMentionsBeforeSend, sessionMentionsIn, referenceLinksIn, composerText, setMessage]);
 
     /** Put the context a queued message was captured with back on the composer chips. */
@@ -2656,6 +2666,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
         if (outgoing.isEmpty) return;
 
+        // After the empty check: the note alone is no reason to send.
+        const actionsNote = isBtwActive ? null : planRunningActionsNote(currentSessionId ?? null, collectRunningActions(projectActionsRef.current));
+        if (actionsNote?.text) additionalParts.push({ text: actionsNote.text, synthetic: true });
+
         // Skills named inline are attached to the prompt so OpenCode loads
         // them with the message, rather than hoping the model follows a hint.
         if (skillNames.length > 0) {
@@ -2725,6 +2739,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         inputMode,
                         sendMessageOptions,
                     );
+                    if (currentSessionId) actionsNote?.commit(currentSessionId);
                 } catch (error) {
                     restoreConsumedInput();
                     toast.error(getSubmitErrorMessage(error, t(command.errorToastKey)));
@@ -2859,6 +2874,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     ?? currentDirectory;
             if (linkTargetSessionId) {
                 recordLinkedReferences(linkTargetSessionId, linkTargetDirectory, linkedReferencesToSend);
+                actionsNote?.commit(linkTargetSessionId);
             }
             // A session that starts with a tracker item attached reports itself
             // on that item (the tracker's Session comments, where it has them),
