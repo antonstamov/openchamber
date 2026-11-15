@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -583,6 +584,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'Hide for me',
   'settings.projects.shared.replaceMode': 'Use only my setup commands, skip the repository\'s',
   'settings.projects.shared.toast.shareFailed': 'Failed to update the repository config',
+  'settings.projects.notesTodos.title': 'Notes and todos',
+  'settings.projects.notesTodos.inRepository': 'Keep notes and todos in the repository',
+  'settings.projects.notesTodos.inRepositoryDescription': 'This machine reads and saves them in .openchamber/notes-todos.json, so Git can sync them. Turning this on moves your notes and todos into the file; turning it off copies the file\'s entries back to this machine.',
+  'settings.projects.notesTodos.toast.saveFailed': 'Failed to change where notes and todos are saved',
   'settings.projects.actions.state.loading': 'Loading...',
   'settings.projects.actions.state.noDesktopSshForwards': 'No enabled local SSH forwards available.',
   'settings.projects.actions.field.selectIconAria': 'Select icon',
@@ -1258,6 +1263,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'Agent notify tool',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'Agent notify tool',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Let agents ping you when work is done or they're stuck.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Terminal panel',
+  "settings.openchamber.tools.field.agentTerminalToolSummary": "Let the agent list this folder's terminals and read what they printed. A terminal holds whatever was typed into it, secrets included, so this stays off until you turn it on.",
   'settings.openchamber.tools.field.agentKnowledgeTool': "Project knowledge tool",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "Project knowledge tool",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "Let agents read and update the project's notes, todos and plans.",
@@ -2730,6 +2737,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.en,
   ...extensionsSettingsI18n.en,
   ...settingsLayoutI18n.en,
+  ...mobileAppSettingsI18n.en,
   'settings.page.integrations.title': 'Integrations',
   'settings.agents.page.field.steps': 'Max steps',
   'settings.agents.page.field.stepsTooltip': 'How many tool steps the agent may take in one turn before it has to stop.',

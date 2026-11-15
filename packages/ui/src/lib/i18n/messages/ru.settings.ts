@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -583,6 +584,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'Скрыть для меня',
   'settings.projects.shared.replaceMode': 'Использовать только мои команды настройки, пропускать команды репозитория',
   'settings.projects.shared.toast.shareFailed': 'Не удалось обновить конфигурацию репозитория',
+  'settings.projects.notesTodos.title': 'Заметки и задачи',
+  'settings.projects.notesTodos.inRepository': 'Хранить заметки и задачи в репозитории',
+  'settings.projects.notesTodos.inRepositoryDescription': 'Эта машина читает и сохраняет их в .openchamber/notes-todos.json, чтобы Git мог их синхронизировать. Включение переносит ваши заметки и задачи в файл, выключение возвращает записи из файла обратно на эту машину.',
+  'settings.projects.notesTodos.toast.saveFailed': 'Не удалось изменить место хранения заметок и задач',
   'settings.projects.actions.state.loading': 'Загрузка...',
   'settings.projects.actions.state.noDesktopSshForwards': 'Нет включённых локальных переадресаций SSH.',
   'settings.projects.actions.field.selectIconAria': 'Выберите значок',
@@ -1258,6 +1263,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'Инструмент уведомлений агента',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'Инструмент уведомлений агента',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Пусть агенты сообщают вам, когда работа готова или они застряли.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Панель терминала',
+  "settings.openchamber.tools.field.agentTerminalToolSummary": "Разрешить агенту смотреть терминалы этой папки и читать их вывод. Терминал хранит всё, что в него вводили, включая секреты, поэтому опция выключена, пока вы её не включите.",
   'settings.openchamber.tools.field.agentKnowledgeTool': 'Инструмент знаний о проекте',
   'settings.openchamber.tools.field.agentKnowledgeToolAria': 'Инструмент знаний о проекте',
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': 'Разрешить агентам читать и обновлять заметки, задачи и планы проекта.',
@@ -2730,6 +2737,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.ru,
   ...extensionsSettingsI18n.ru,
   ...settingsLayoutI18n.ru,
+  ...mobileAppSettingsI18n.ru,
   'settings.page.integrations.title': 'Интеграции',
   'settings.agents.page.field.steps': 'Макс. число шагов',
   'settings.agents.page.field.stepsTooltip': 'Сколько шагов с инструментами агент может сделать за один ход, прежде чем остановиться.',

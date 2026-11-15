@@ -46,7 +46,7 @@ import { countSyncPerformance } from "./performance-diagnostics"
 import { runBackgroundNetworkTask } from "@/lib/background-network"
 import { recordDirectoryRecoveryEvent, selectHeldSessionStatuses } from "./directory-recovery-snapshots"
 import { hasPromptInFlight, withPromptsInFlight } from "./prompts-in-flight"
-import { applyRecoverableQuestionEvents, deriveRecoveredQuestions, noteQuestionFormSnapshot, useRecoverableQuestionsStore, type RecoveredQuestion } from "./recoverable-questions"
+import { applyRecoverableQuestionEvents, deriveRecoveredQuestions, noteDeferredAnswersLoaded, noteQuestionFormSnapshot, useRecoverableQuestionsStore, type RecoveredQuestion } from "./recoverable-questions"
 import { adoptSessionMove, setActionRefs } from "./session-actions"
 import { subscribeSessionAdmission } from "./session-admission"
 import { setSyncRefs, getAllSyncSessions, emitSyncConfigChanged, getDirectoryState } from "./sync-refs"
@@ -2962,6 +2962,15 @@ export function SyncProvider(props: {
   useEffect(() => {
     if (syncStoresMadeBeforeMount === syncStoresRef.current) syncStoresMadeBeforeMount = null
   }, [])
+  // A deferred question's marked answer that arrives by a history or inbox read closes its card
+  // for good, so the card stays closed once that message leaves the loaded window (#5391).
+  useEffect(() => {
+    const noteLoadedAnswers = () => {
+      for (const store of childStores.children.values()) noteDeferredAnswersLoaded(store.getState().message)
+    }
+    noteLoadedAnswers()
+    return childStores.subscribeAllSelected((state) => state.message, noteLoadedAnswers)
+  }, [childStores])
   const runtimeKey = getRuntimeKey()
   const messageLoaderDisposalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   messageLoader.configure({ sdk: opencodeClient, runtimeKey })
@@ -3527,13 +3536,10 @@ export function SyncProvider(props: {
       },
       onTransportSwitch: () => {
         void useMessageQueueStore.getState().resync().catch(() => undefined)
-        // Transport changes are gap-prone in real networks. Treat them like a
-        // reconnect and refresh active session snapshots from HTTP.
-        useConfigStore.setState({
-          isConnected: true,
-          hasEverConnected: true,
-          connectionPhase: "connected",
-        })
+        // Transport changes are gap-prone in real networks: refresh active
+        // session snapshots from HTTP. The switch follows a WebSocket that failed
+        // to open or dropped right after ready, so it proves no connection;
+        // onReconnect marks one when the next transport delivers.
         resyncAfterStreamGap("transport-switch")
       },
     })

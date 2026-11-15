@@ -183,6 +183,9 @@
     "agentUsageToolEnabled": {
       "scope": "instance"
     },
+    "agentTerminalToolEnabled": {
+      "scope": "instance"
+    },
     "agentImageToolEnabled": {
       "scope": "instance"
     },
@@ -1048,6 +1051,10 @@
       "local": true
     },
     "alwaysShowScrollbars": {
+      "scope": "device",
+      "local": true
+    },
+    "mobileKeepScreenAwake": {
       "scope": "device",
       "local": true
     },

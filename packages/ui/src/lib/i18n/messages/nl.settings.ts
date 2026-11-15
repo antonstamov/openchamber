@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -584,6 +585,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'Voor mij verbergen',
   'settings.projects.shared.replaceMode': 'Alleen mijn setupopdrachten gebruiken en die van de repository overslaan',
   'settings.projects.shared.toast.shareFailed': 'Kan de repositoryconfig niet bijwerken',
+  'settings.projects.notesTodos.title': 'Notities en taken',
+  'settings.projects.notesTodos.inRepository': 'Notities en taken in de repository bewaren',
+  'settings.projects.notesTodos.inRepositoryDescription': 'Deze machine leest en bewaart ze in .openchamber/notes-todos.json, zodat Git ze kan synchroniseren. Aanzetten verplaatst je notities en taken naar het bestand; uitzetten kopieert de items uit het bestand terug naar deze machine.',
+  'settings.projects.notesTodos.toast.saveFailed': 'Kan niet wijzigen waar notities en taken worden bewaard',
   'settings.projects.actions.state.loading': 'Laden...',
   'settings.projects.actions.state.noDesktopSshForwards': 'Geen ingeschakelde lokale SSH-forwards beschikbaar.',
   'settings.projects.actions.field.selectIconAria': 'Pictogram selecteren',
@@ -1259,6 +1264,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'Meldtool voor agents',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'Meldtool voor agents',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Agents laten het weten als het werk klaar is of ze vastlopen.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Terminalpaneel',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'Laat de agent de terminals van deze map tonen en lezen wat erin is uitgevoerd. Een terminal bewaart alles wat erin is getypt, inclusief geheimen, dus dit blijft uit tot je het inschakelt.',
   'settings.openchamber.tools.field.agentKnowledgeTool': "Projectkennis-tool",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "Projectkennis-tool",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "Agents lezen en werken de notities, taken en plannen van het project bij.",
@@ -2730,6 +2737,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.nl,
   ...extensionsSettingsI18n.nl,
   ...settingsLayoutI18n.nl,
+  ...mobileAppSettingsI18n.nl,
   'settings.page.integrations.title': 'Integraties',
   'settings.agents.page.field.steps': 'Max. stappen',
   'settings.agents.page.field.stepsTooltip': 'Hoeveel toolstappen de agent in één beurt mag doen voordat die moet stoppen.',

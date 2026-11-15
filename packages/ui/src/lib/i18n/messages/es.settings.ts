@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -551,6 +552,10 @@ export const settingsDict = {
   "settings.projects.shared.actions.hide": "Ocultar para mí",
   "settings.projects.shared.replaceMode": "Usar solo mis comandos de configuración y omitir los del repositorio",
   "settings.projects.shared.toast.shareFailed": "No se pudo actualizar la configuración del repositorio",
+  "settings.projects.notesTodos.title": "Notas y tareas pendientes",
+  "settings.projects.notesTodos.inRepository": "Guardar notas y tareas pendientes en el repositorio",
+  "settings.projects.notesTodos.inRepositoryDescription": "Este equipo las lee y las guarda en .openchamber/notes-todos.json, para que Git pueda sincronizarlas. Al activarlo, tus notas y tareas se mueven al archivo; al desactivarlo, las entradas del archivo se copian de vuelta a este equipo.",
+  "settings.projects.notesTodos.toast.saveFailed": "No se pudo cambiar dónde se guardan las notas y tareas pendientes",
   "settings.projects.actions.state.loading": "Cargando...",
   "settings.projects.actions.state.noDesktopSshForwards": "No hay forwards SSH locales habilitados disponibles.",
   "settings.projects.actions.field.selectIconAria": "Seleccionar icono",
@@ -1226,6 +1231,8 @@ export const settingsDict = {
   "settings.openchamber.tools.field.agentNotifyTool": "Herramienta de notificaciones del agente",
   "settings.openchamber.tools.field.agentNotifyToolAria": "Herramienta de notificaciones del agente",
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Los agentes te avisan cuando terminan o se quedan bloqueados.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Panel de terminal',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'Permite al agente listar los terminales de esta carpeta y leer lo que imprimieron. Un terminal guarda todo lo que se escribió en él, incluidos secretos, así que esto permanece desactivado hasta que lo actives.',
   'settings.openchamber.tools.field.agentKnowledgeTool': "Herramienta de conocimiento del proyecto",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "Herramienta de conocimiento del proyecto",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "Los agentes leen y actualizan las notas, tareas y planes del proyecto.",
@@ -2740,6 +2747,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.es,
   ...extensionsSettingsI18n.es,
   ...settingsLayoutI18n.es,
+  ...mobileAppSettingsI18n.es,
   'settings.page.integrations.title': 'Integraciones',
   'settings.agents.page.field.steps': 'Pasos máximos',
   'settings.agents.page.field.stepsTooltip': 'Cuántos pasos de herramienta puede dar el agente en un turno antes de detenerse.',

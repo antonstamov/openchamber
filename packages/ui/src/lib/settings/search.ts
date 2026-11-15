@@ -1,5 +1,6 @@
 import type { I18nKey, I18nParams } from '@/lib/i18n/store';
 import { getCustomizableShortcutActions } from '@/lib/shortcuts';
+import { canKeepScreenAwake } from '@/lib/platform';
 import { isIsolatedSpacesPageVisible } from '@/lib/spaces/release';
 import { useUIStore } from '@/stores/useUIStore';
 import { useConfigStore } from '@/stores/useConfigStore';
@@ -119,6 +120,15 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'chat',
     titleKey: 'settings.openchamber.visual.field.showMessageTimestamps',
     keywords: ['time', 'timestamp', 'clock', 'date', 'duration'],
+  },
+  {
+    id: 'general.keep-screen-awake',
+    page: 'general',
+    titleKey: 'settings.mobileApp.keepScreenAwake.label',
+    descriptionKey: 'settings.mobileApp.keepScreenAwake.info',
+    keywords: ['screen', 'display', 'sleep', 'lock', 'awake', 'wake lock', 'timeout', 'battery', 'phone'],
+    // Same guard as MobileAppSettings: the native app, on a WebView with the Screen Wake Lock API.
+    isAvailable: () => canKeepScreenAwake(),
   },
   {
     id: 'appearance.scrollbars',
@@ -964,6 +974,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
+    id: 'sessions.agent-terminal-tool',
+    page: 'general',
+    titleKey: 'settings.openchamber.tools.field.agentTerminalTool',
+    descriptionKey: 'settings.openchamber.tools.field.agentTerminalToolSummary',
+    keywords: ['agent', 'tool', 'terminal', 'shell', 'output', 'command', 'openchamber'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
     id: 'sessions.agent-image-tool',
     page: 'general',
     titleKey: 'settings.openchamber.tools.field.agentImageTool',
@@ -1226,6 +1244,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     titleKey: 'settings.projects.environment.title',
     descriptionKey: 'settings.projects.environment.info',
     keywords: ['environment', 'env', 'variables', 'direnv', 'devenv', 'nix', 'envrc', 'path', 'terminal', 'git hooks'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
+    id: 'projects.notes-todos.repository',
+    page: 'projects',
+    titleKey: 'settings.projects.notesTodos.inRepository',
+    descriptionKey: 'settings.projects.notesTodos.inRepositoryDescription',
+    keywords: ['notes', 'todos', 'repository', 'git', 'sync', '.openchamber', 'notes-todos.json'],
     isAvailable: (ctx) => !ctx.isVSCode,
   },
   {

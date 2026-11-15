@@ -345,6 +345,9 @@ const sourceControlCapabilitiesSchema = z.object({
   ]).default(false),
   ci: z.boolean().default(false),
   comments: z.boolean().default(false),
+  // Replacing and removing a comment, on top of posting one: it is what gates
+  // the edit and delete routes, so posting alone never implies it.
+  commentEdit: z.boolean().default(false),
   reviews: z.boolean().default(false),
   state: z.boolean().default(false),
   labels: z.boolean().default(false),
@@ -429,6 +432,8 @@ const sourceControlSchema = z.object({
     features: z.object({
       authorCanReview: z.boolean().default(false),
       issueCloseReason: z.boolean().default(false),
+      issueEdit: z.boolean().optional(),
+      changeRequestEdit: z.boolean().optional(),
       submitRequirements: z.boolean().optional(),
     }).strict(),
     changeRequestTemplates: z.array(z.string().trim().max(256).refine(isRepositoryFilePath, {

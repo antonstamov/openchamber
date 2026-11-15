@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -548,6 +549,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': '對我隱藏',
   'settings.projects.shared.replaceMode': '僅使用我的設定命令，略過儲存庫中的命令',
   'settings.projects.shared.toast.shareFailed': '更新儲存庫設定失敗',
+  'settings.projects.notesTodos.title': '筆記和待辦事項',
+  'settings.projects.notesTodos.inRepository': '將筆記和待辦事項保存在儲存庫中',
+  'settings.projects.notesTodos.inRepositoryDescription': '這台機器會從 .openchamber/notes-todos.json 讀取並儲存它們，讓 Git 可以同步。開啟後，你的筆記和待辦事項會移入該檔案；關閉後，檔案中的項目會複製回這台機器。',
+  'settings.projects.notesTodos.toast.saveFailed': '無法變更筆記和待辦事項的儲存位置',
   'settings.projects.actions.state.loading': '載入中...',
   'settings.projects.actions.state.noDesktopSshForwards': '沒有可用的本機 SSH 轉送。',
   'settings.projects.actions.field.selectIconAria': '選擇圖示',
@@ -1184,6 +1189,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': '智慧代理通知工具',
   'settings.openchamber.tools.field.agentNotifyToolAria': '智慧代理通知工具',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "工作完成或卡住時，智慧代理會通知你。",
+  'settings.openchamber.tools.field.agentTerminalTool': '終端機面板',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': '讓代理程式列出此資料夾的終端機並讀取其輸出。終端機會保留其中輸入的所有內容，包括機密資訊，因此在開啟前會保持關閉。',
   'settings.openchamber.tools.field.agentKnowledgeTool': "專案知識工具",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "專案知識工具",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "讓代理讀取並更新專案的筆記、待辦事項和計畫。",
@@ -2740,6 +2747,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n['zh-TW'],
   ...extensionsSettingsI18n['zh-TW'],
   ...settingsLayoutI18n['zh-TW'],
+  ...mobileAppSettingsI18n['zh-TW'],
   'settings.page.integrations.title': '整合',
   'settings.agents.page.field.steps': '最大步數',
   'settings.agents.page.field.stepsTooltip': '代理在一輪中最多可以執行多少個工具步驟。',

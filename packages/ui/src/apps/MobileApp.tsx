@@ -28,6 +28,7 @@ import { registerRuntimeAPIs } from '@/contexts/runtimeAPIRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MobileToaster } from './MobileToaster';
 import { usePushVisibilityBeacon } from '@/hooks/usePushVisibilityBeacon';
+import { useKeepScreenAwake } from '@/hooks/useKeepScreenAwake';
 import { useRouter } from '@/hooks/useRouter';
 import { useTerminalSessionKeepalive } from '@/hooks/useTerminalSessionKeepalive';
 import { useUpdatePolling } from '@/hooks/useUpdatePolling';
@@ -537,8 +538,13 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
   // Settings owns a drill-down of its own (nav → page list → item), so the
   // hardware back button asks it to step up before the shell closes it.
   const settingsBackRef = React.useRef<(() => boolean) | null>(null);
+  const previewBackRef = React.useRef<(() => boolean) | null>(null);
   const registerSettingsBackHandler = React.useCallback((handler: (() => boolean) | null) => {
     settingsBackRef.current = handler;
+  }, []);
+
+  const registerPreviewBackHandler = React.useCallback((handler: (() => boolean) | null) => {
+    previewBackRef.current = handler;
   }, []);
 
   // Top-most layer first: a plan or fullscreen surface can sit ABOVE a drawer
@@ -570,6 +576,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
       return true;
     }
     if (workspaceOpen) {
+      if (workspaceTab === 'preview' && previewBackRef.current?.()) return true;
       closeWorkspace();
       return true;
     }
@@ -578,7 +585,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
       return true;
     }
     return false;
-  }, [activeSurface, closeGuestPage, closeSurface, closeWorkspace, guestPage, openPlan, openReceivedPage, sessionsSheetOpen, workspaceOpen]);
+  }, [activeSurface, closeGuestPage, closeSurface, closeWorkspace, guestPage, openPlan, openReceivedPage, sessionsSheetOpen, workspaceOpen, workspaceTab]);
 
   useNativeAndroidBackButton(handleNativeBack);
 
@@ -775,6 +782,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
                 onClose={closeWorkspace}
                 tab={workspaceTab}
                 onTabChange={setWorkspaceTab}
+                registerPreviewBackHandler={registerPreviewBackHandler}
                 pendingChangesDiff={pendingChangesDiff}
                 pendingChangesCommit={pendingChangesCommit}
                 onOpenPlan={setOpenPlan}
@@ -1495,6 +1503,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
   // (document.hasFocus() is unreliable) and leaked while the app was open; the in-app SSE
   // notification dispatch is no-op'd for native in renderMobileApp.
   useNativePushRegistration({ enabled: isNativeMobileApp && isConnected });
+  useKeepScreenAwake(isConnected);
   useNativeWidgetSync({ enabled: isNativeMobileApp && isConnected && isInitialized });
   // Single native deep-link entry point: notification taps AND the openchamber:// URL
   // scheme (widgets, Live Activities, external links). Registered unconditionally so a

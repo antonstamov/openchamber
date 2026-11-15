@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -567,6 +568,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'Für mich ausblenden',
   'settings.projects.shared.replaceMode': 'Nur meine Setup-Befehle verwenden, die des Repositorys überspringen',
   'settings.projects.shared.toast.shareFailed': 'Repository-Konfiguration konnte nicht aktualisiert werden',
+  'settings.projects.notesTodos.title': 'Notizen und Aufgaben',
+  'settings.projects.notesTodos.inRepository': 'Notizen und Aufgaben im Repository speichern',
+  'settings.projects.notesTodos.inRepositoryDescription': 'Dieses Gerät liest und speichert sie in .openchamber/notes-todos.json, damit Git sie synchronisieren kann. Beim Einschalten werden deine Notizen und Aufgaben in die Datei verschoben; beim Ausschalten werden die Einträge der Datei zurück auf dieses Gerät kopiert.',
+  'settings.projects.notesTodos.toast.saveFailed': 'Speicherort für Notizen und Aufgaben konnte nicht geändert werden',
   'settings.projects.actions.state.loading': 'Wird geladen...',
   'settings.projects.actions.state.noDesktopSshForwards': 'Keine aktivierten lokalen SSH-Weiterleitungen verfügbar.',
   'settings.projects.actions.field.selectIconAria': 'Symbol auswählen',
@@ -1209,6 +1214,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'Agenten-Benachrichtigungswerkzeug',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'Agenten-Benachrichtigungswerkzeug',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Agenten melden sich, wenn die Arbeit fertig ist oder sie feststecken.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Terminalbereich',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'Lässt den Agenten die Terminals dieses Ordners auflisten und lesen, was sie ausgegeben haben. Ein Terminal enthält alles, was eingegeben wurde, auch Geheimnisse, daher bleibt dies aus, bis du es einschaltest.',
   'settings.openchamber.tools.field.agentKnowledgeTool': "Projektwissen-Werkzeug",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "Projektwissen-Werkzeug",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "Agenten lesen und pflegen Notizen, Todos und Pläne des Projekts.",
@@ -2731,6 +2738,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.de,
   ...extensionsSettingsI18n.de,
   ...settingsLayoutI18n.de,
+  ...mobileAppSettingsI18n.de,
   'settings.page.integrations.title': 'Integrationen',
   'settings.agents.page.field.steps': 'Max. Schritte',
   'settings.agents.page.field.stepsTooltip': 'Wie viele Tool-Schritte der Agent in einem Zug machen darf, bevor er stoppen muss.',

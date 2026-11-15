@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -583,6 +584,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'إخفاء لدي',
   'settings.projects.shared.replaceMode': 'استخدام أوامر الإعداد الخاصة بي فقط، وتخطي أوامر المستودع',
   'settings.projects.shared.toast.shareFailed': 'تعذّر تحديث إعدادات المستودع',
+  'settings.projects.notesTodos.title': 'الملاحظات والمهام',
+  'settings.projects.notesTodos.inRepository': 'الاحتفاظ بالملاحظات والمهام في المستودع',
+  'settings.projects.notesTodos.inRepositoryDescription': 'يقرأ هذا الجهاز الملاحظات والمهام ويحفظها في .openchamber/notes-todos.json، ليتمكن Git من مزامنتها. التشغيل ينقل ملاحظاتك ومهامك إلى الملف، والإيقاف ينسخ عناصر الملف مرة أخرى إلى هذا الجهاز.',
+  'settings.projects.notesTodos.toast.saveFailed': 'تعذّر تغيير مكان حفظ الملاحظات والمهام',
   'settings.projects.actions.state.loading': 'جارٍ التحميل…',
   'settings.projects.actions.state.noDesktopSshForwards': 'لا توجد عمليات تمرير SSH محلية مفعّلة.',
   'settings.projects.actions.field.selectIconAria': 'اختيار أيقونة',
@@ -1258,6 +1263,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'أداة إشعارات الوكيل',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'أداة إشعارات الوكيل',
   'settings.openchamber.tools.field.agentNotifyToolSummary': 'السماح للوكلاء بتنبيهك عند انتهاء العمل أو عند تعثرهم.',
+  'settings.openchamber.tools.field.agentTerminalTool': 'لوحة الطرفية',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'يتيح للوكيل سرد طرفيات هذا المجلد وقراءة ما طبعته. تحتفظ الطرفية بكل ما كُتب فيها، بما في ذلك الأسرار، لذا تبقى مطفأة حتى تشغّلها.',
   'settings.openchamber.tools.field.agentKnowledgeTool': "أداة معرفة المشروع",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "أداة معرفة المشروع",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "السماح للوكلاء بقراءة ملاحظات المشروع ومهامه وخططه وتحديثها.",
@@ -2773,5 +2780,6 @@ export const settingsDict = {
   ...guestIntegrationsI18n.ar,
   ...extensionsSettingsI18n.ar,
   ...settingsLayoutI18n.ar,
+  ...mobileAppSettingsI18n.ar,
   'settings.openchamber.keyboardShortcuts.action.search_prompt_history.label': "البحث في سجل المطالبات",
 } as const;

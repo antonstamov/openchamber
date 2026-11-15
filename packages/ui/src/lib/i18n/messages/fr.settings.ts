@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -462,6 +463,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'Masquer pour moi',
   'settings.projects.shared.replaceMode': 'Utiliser uniquement mes commandes de configuration et ignorer celles du dépôt',
   'settings.projects.shared.toast.shareFailed': 'Impossible de mettre à jour la configuration du dépôt',
+  'settings.projects.notesTodos.title': 'Notes et tâches',
+  'settings.projects.notesTodos.inRepository': 'Garder les notes et tâches dans le dépôt',
+  'settings.projects.notesTodos.inRepositoryDescription': 'Cette machine les lit et les enregistre dans .openchamber/notes-todos.json, pour que Git puisse les synchroniser. L’activer déplace vos notes et tâches dans le fichier ; le désactiver recopie les entrées du fichier sur cette machine.',
+  'settings.projects.notesTodos.toast.saveFailed': 'Impossible de changer l’emplacement des notes et tâches',
   'settings.projects.actions.state.loading': 'Chargement...',
   'settings.projects.actions.state.noDesktopSshForwards': 'Aucun transfert local SSH activé disponible.',
   'settings.projects.actions.field.selectIconAria': 'Sélectionner l\'icône',
@@ -1130,6 +1135,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'Outil de notification de l’agent',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'Outil de notification de l’agent',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Les agents vous préviennent quand c’est fini ou qu’ils sont bloqués.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Panneau du terminal',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'Permet à l’agent de lister les terminaux de ce dossier et de lire ce qu’ils ont affiché. Un terminal conserve tout ce qui y a été saisi, secrets compris, donc cette option reste désactivée jusqu’à ce que vous l’activiez.',
   'settings.openchamber.tools.field.agentKnowledgeTool': "Outil de connaissances du projet",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "Outil de connaissances du projet",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "Les agents lisent et mettent à jour les notes, tâches et plans du projet.",
@@ -2740,6 +2747,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.fr,
   ...extensionsSettingsI18n.fr,
   ...settingsLayoutI18n.fr,
+  ...mobileAppSettingsI18n.fr,
   'settings.page.integrations.title': 'Intégrations',
   'settings.agents.page.field.steps': 'Étapes max',
   'settings.agents.page.field.stepsTooltip': 'Combien d\'étapes d\'outils l\'agent peut effectuer en un tour avant de devoir s\'arrêter.',

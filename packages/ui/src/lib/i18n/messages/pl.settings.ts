@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -1080,6 +1081,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'Narzędzie powiadomień agenta',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'Narzędzie powiadomień agenta',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Agenci powiadamiają Cię, gdy skończą lub utkną.",
+  'settings.openchamber.tools.field.agentTerminalTool': 'Panel terminala',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'Pozwala agentowi wylistywać terminale tego folderu i czytać, co wypisały. Terminal przechowuje wszystko, co w nim wpisano, łącznie z sekretami, więc pozostaje wyłączone, dopóki go nie włączysz.',
   'settings.openchamber.tools.field.agentKnowledgeTool': "Narzędzie wiedzy o projekcie",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "Narzędzie wiedzy o projekcie",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "Agenci czytają i aktualizują notatki, zadania i plany projektu.",
@@ -1705,6 +1708,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': 'Ukryj dla mnie',
   'settings.projects.shared.replaceMode': 'Używaj tylko moich poleceń konfiguracji, pomiń te z repozytorium',
   'settings.projects.shared.toast.shareFailed': 'Nie udało się zaktualizować konfiguracji w repozytorium',
+  'settings.projects.notesTodos.title': 'Notatki i zadania',
+  'settings.projects.notesTodos.inRepository': 'Przechowuj notatki i zadania w repozytorium',
+  'settings.projects.notesTodos.inRepositoryDescription': 'Ten komputer odczytuje je i zapisuje w .openchamber/notes-todos.json, więc Git może je synchronizować. Włączenie przenosi Twoje notatki i zadania do pliku; wyłączenie kopiuje wpisy z pliku z powrotem na ten komputer.',
+  'settings.projects.notesTodos.toast.saveFailed': 'Nie udało się zmienić miejsca zapisu notatek i zadań',
   'settings.projects.actions.toast.saveFailed': 'Nie udało się zapisać akcji',
   'settings.projects.page.actions.discoverFavicon': 'Wykryj faviconę',
   'settings.projects.page.actions.discovering': 'Wykrywanie...',
@@ -2733,6 +2740,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.pl,
   ...extensionsSettingsI18n.pl,
   ...settingsLayoutI18n.pl,
+  ...mobileAppSettingsI18n.pl,
   'settings.page.integrations.title': 'Integracje',
   'settings.appearance.language.select': 'Select language',
   'settings.openchamber.visual.field.mobileKeyboardModeAria': 'Mobile keyboard behavior',

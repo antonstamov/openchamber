@@ -1,4 +1,5 @@
 import { settingsLayoutI18n } from './settings-layout.i18n';
+import { mobileAppSettingsI18n } from './mobile-app-settings.i18n';
 import { extensionsSettingsI18n } from './extensions.settings.i18n';
 import { guestIntegrationsI18n } from './guest-integrations.i18n';
 import { firstPartyIntegrationsI18n } from './first-party-integrations.i18n';
@@ -584,6 +585,10 @@ export const settingsDict = {
   'settings.projects.shared.actions.hide': '自分には非表示',
   'settings.projects.shared.replaceMode': '自分のセットアップコマンドのみ使用し、リポジトリのものはスキップ',
   'settings.projects.shared.toast.shareFailed': 'リポジトリ設定を更新できませんでした',
+  'settings.projects.notesTodos.title': 'メモとTODO',
+  'settings.projects.notesTodos.inRepository': 'メモとTODOをリポジトリに保存',
+  'settings.projects.notesTodos.inRepositoryDescription': 'このマシンでは .openchamber/notes-todos.json から読み込み、そこに保存するため、Git で同期できます。オンにするとメモとTODOがファイルへ移動し、オフにするとファイルの項目がこのマシンにコピーされます。',
+  'settings.projects.notesTodos.toast.saveFailed': 'メモとTODOの保存先を変更できませんでした',
   'settings.projects.actions.state.loading': '読み込み中...',
   'settings.projects.actions.state.noDesktopSshForwards': '有効なローカル SSH 転送がありません。',
   'settings.projects.actions.field.selectIconAria': 'アイコンを選択',
@@ -1259,6 +1264,8 @@ export const settingsDict = {
   'settings.openchamber.tools.field.agentNotifyTool': 'エージェント通知ツール',
   'settings.openchamber.tools.field.agentNotifyToolAria': 'エージェント通知ツール',
   "settings.openchamber.tools.field.agentNotifyToolSummary": "作業が終わったときや行き詰まったときにエージェントが知らせます。",
+  'settings.openchamber.tools.field.agentTerminalTool': 'ターミナルパネル',
+  'settings.openchamber.tools.field.agentTerminalToolSummary': 'エージェントがこのフォルダーのターミナルを一覧し、出力された内容を読めるようにします。ターミナルには入力された内容がすべて残り、秘密情報も含まれるため、オンにするまで無効のままです。',
   'settings.openchamber.tools.field.agentKnowledgeTool': "プロジェクトナレッジツール",
   'settings.openchamber.tools.field.agentKnowledgeToolAria': "プロジェクトナレッジツール",
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': "エージェントがプロジェクトのメモ、ToDo、プランを読み書きできます。",
@@ -2740,6 +2747,7 @@ export const settingsDict = {
   ...guestIntegrationsI18n.ja,
   ...extensionsSettingsI18n.ja,
   ...settingsLayoutI18n.ja,
+  ...mobileAppSettingsI18n.ja,
   'settings.page.integrations.title': '連携',
   'settings.agents.page.field.steps': '最大ステップ数',
   'settings.agents.page.field.stepsTooltip': 'エージェントが 1 ターンで実行できるツールステップの上限です。',

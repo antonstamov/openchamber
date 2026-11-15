@@ -127,14 +127,40 @@ and needs no provider, so a Markdown block rendered for export is unchanged.
 
 ### Why a collapsed user message shares two lines between text and context
 
-Each context item (a quote, a code comment, terminal output) collapses to one
-row, so a message with ten comments stayed ten rows tall, and with the sticky
-user header on those rows stayed over the chat. A collapsed message now gets
-two lines: the text takes one or two, and context rows get what is left
+Each context item (a quote, a code comment, terminal output) collapses to its
+quote line plus a line for the user's comment, so a message with ten comments
+stayed twenty lines tall, and with the sticky user header on those lines stayed
+over the chat. A collapsed message now gets two lines: the text takes one or
+two, and context items get what is left, each shown whole or not at all
 (`contextPartsPastCollapse`). The rest waits behind the message's one show more
 link. The text wins because it is what the user typed. Lines follow the chat's
 width, so `UserTextPart` measures them before paint, and clamping the block by
-height would cut a row in half.
+height would cut an item in half.
+
+### Why a chat quote has no caption
+
+A quote's accent bar already says "this is quoted", and a quote from this chat
+has no source worth naming, so its caption ("Quoted from an earlier message")
+is read to screen readers only and the collapsed line shows the quote itself.
+Code comments, terminal output, pages and PR items keep their caption, since
+the file, terminal or page is information the bar does not carry.
+
+### Why backslash doubling stops at `.` and `?`
+
+A user message reads as typed, but CommonMark treats `\` + punctuation as
+an escape, so `prepareUserMarkdownContent` doubles backslash runs in prose
+before the renderer sees them — only before `.` and `?`, which start no
+Markdown or emoji construct. Code and formulas keep their source: the
+helper parses the message with the bubble's own math and literal-text
+plugins and skips fenced, indented and inline code and every math node,
+because a doubled backslash shows in code and changes a formula (`\.` is
+KaTeX's dot accent, `\text{\.{z}}`). Link targets keep their source too
+(`[f](./a\.txt)` points at `a.txt`): only a link's label is prose, and
+autolinks, bare URLs, images and reference definitions stay whole. A wider set was tried and reverted
+twice: the full punctuation set re-armed intentional escapes (`\*x\*`),
+live links, and math delimiters. `:` feeds emoji shortcodes for the same
+reason. The next reader tempted to widen the set is re-adding one of those
+regressions.
 
 ### Bidirectional prose
 
@@ -151,6 +177,10 @@ without letters keeps `dir="auto"` and `unicode-bidi: plaintext`, and table
 cells and summaries keep plaintext. The message root does not select one
 direction for all its children. Code widgets, diagrams, math and technical
 references remain LTR isolates, including their controls.
+
+Each Markdown table takes the majority direction of its cell prose, excluding
+code, and aligns to that side. Cells retain their own plaintext direction and
+explicit Markdown alignment. Tables without letters stay left to right.
 
 Plain-text user messages resolve each line on its own: the container keeps
 `unicode-bidi: plaintext`, and `plainTextLineDirection.tsx` opens each line with
@@ -198,6 +228,21 @@ labels without loaded URLs. This does not modify the live React subtree or
 run a second Markdown parser. Ordinary code selections copy raw code;
 prose follows the Markdown/plain setting and retains safe rich HTML. The
 desktop `openchamber:copy` event follows the same selection policy.
+
+### How a saved image reaches the user
+
+`saveMessageImageExport` (`message/imageExport.ts`) draws a source on the chat
+background and hands the PNG to the runtime: the VS Code save dialog, the
+native share sheet in the Capacitor app, or a download everywhere else. One
+answer's "Save as image" and a selection of several messages
+(`messageSelection/`) both go through it. The exporter chunk loads before the
+temporary clone is attached, so a slow chunk cannot leave export-only content
+in the page. The download goes through a blob URL, because the desktop app
+titles its save dialog with the download URL and a data URL would put the
+whole image there. A dismissed save dialog or share sheet resolves as
+`canceled`: the caller shows nothing and keeps its state, where it used to
+report a failed image. The VS Code bridge waits on its file dialogs without a
+timeout, since the user can take longer than a request normally may.
 
 ### Why image exports keep prose at the visible column width
 
@@ -746,7 +791,7 @@ update, with the `shellID`, when the command starts.
 - OpenCode's `opencode` namespace tools (sessions, worktrees, models, MCP resources, schedules, artifacts) run behind Code Mode; an `execute` script that made exactly one such call shows as that tool's row (`soleNamedCall`), titled "OpenCode" with OpenCode's own mark (the `opencode` sprite glyph):
   - The description is the tool's verb once the call succeeded ("Renamed the session · Voice models"), else the tool's name. Success is the call's own status in `metadata.toolCalls`, never the script's: a namespace tool fails its call, and a script can catch that and still finish. History pages keep that metadata, so a reloaded row shows the verb without the result.
   - The expanded row reads the call's answer, the tool's structured output that the script returned (`opencodeToolResult.ts`), against that tool's output schema from the OpenCode repository, and draws it in `OpencodeToolOutput.tsx`; anything else keeps the plain output. While the view shows, the raw input is hidden; the raw answer and a failed call keep it.
-- Selecting a JSON summary, tree, or raw view saves that mode in the persisted UI settings. New and refreshed JSON tool outputs read the saved mode across sessions; missing or invalid preferences use Summary. A summary section's chevron turns on that section's own `<details>` state (`JsonSummarySection`), never on an enclosing one, so a nested row that is still collapsed keeps pointing right while its parent is open.
+- Selecting a JSON summary, tree, or raw view saves that mode in the persisted UI settings. New and refreshed JSON tool outputs read the saved mode across sessions; missing or invalid preferences use Summary. A summary section's chevron turns on that section's own `<details>` state (`JsonSummarySection`), never on an enclosing one, so a nested row that is still collapsed keeps pointing right while its parent is open. A collapsed object row adds a preview of its first two non-identity fields after its label and identity (`{ key: value, … }`, nested containers as `{…}`/`[…]`, empty ones as `{}`/`[]`, capped at 96 characters); the row stays one line and truncates to the available width, and an expanded row shows only its label and identity.
 - `ToolPart` defers expanded content after a user toggle, preventing large tool input/output payloads from mounting during the initial chat render.
 - A failed `!command` row states its reason while collapsed, after the description and in the error colour, so a red row is not a bare duration. `TimelineNotice` passes it as `failureReason`: for a command that exited on its own, the last non-empty line of its output as the terminal shows it, because that is where sudo or ls prints the problem; for one killed or timed out, one that printed nothing, or one whose output OpenCode truncated (it keeps the start, so the last stored line is not the end), how it ended (`timeout`, `exited (1)`). The line is capped at 300 characters, its tooltip shows what the row cuts off, and the whole line is in the expanded output. An expanded row does not repeat it, because the body already shows the error and output. Agent tool rows get no reason line: a call interrupted by Stop keeps its streamed output, and its last line would read as the failure.
 - The rich tool diff preview lives in `ToolPartDiffPreview.tsx` and is lazy-loaded from `ToolPart`. It is the only tool-card piece that imports the `@pierre/diffs` highlighting stack, keeping that stack out of the eager chat startup graph. While its chunk loads (first rendered diff only) the plain-text patch from `PlainDiffFallback.tsx` renders as the Suspense fallback, mirroring the preview's error fallback. Patches over 256 KiB or 2,000 lines skip rich parsing and use a bounded plain-text preview; navigation keeps the original patch. `ToolPart` itself must not statically import `@pierre/diffs` runtime modules or `@/lib/shiki/appThemeRegistry`.
@@ -813,7 +858,10 @@ Why: only navigation tools use the compact static path; all other tools need obs
   `prepareUserMarkdownContent` used to escape them to entities in the source
   instead; entities are not decoded inside code spans and formulas, so
   `` `a<b` `` showed `a&lt;b`, and a quote escaped to `&quot;` let two shell
-  variables (`$USER ... "$HOME"`) read as one formula.
+  variables (`$USER ... "$HOME"`) read as one formula. Backslash runs
+  before `.` and `?` in prose are doubled there for the same reason
+  (CommonMark would strip them as escapes); code, math and every other
+  `\` + punctuation pair stay as typed — see "Why backslash doubling stops at `.` and `?`" above.
 - Attachment citations: the composer writes `[name.png]` into the text for each
   pasted or picked file. `UserTextPart` gets the message's file names and draws
   each citation of one of them as an inline chip with its file-type icon. The
@@ -825,9 +873,11 @@ Why: only navigation tools use the compact static path; all other tools need obs
   message opens: one resolver (`lib/messages/attachmentPreview.ts`) decides for
   both, and `message/useOpenAttachment.ts` carries it out per runtime. An image
   opens the viewer, text sent inline (a pasted text, a picked text file) the
-  text dialog, a file attached by path (`file://`) the file itself, in the
-  editor in VS Code and a Files tab elsewhere. A citation whose file opens
-  nothing (a PDF sent inline, a folder) stays a label. Only `UserTextPart`
+  text dialog, a PDF sent inline the document dialog (the Files view's PDF
+  preview, `ToolOutputDialog`; not in VS Code, whose webview policy blocks
+  both its frame and pdf.js), a file attached by path (`file://`) the file
+  itself, in the editor in VS Code and a Files tab elsewhere. A citation whose
+  file opens nothing (another binary sent inline, a folder) stays a label. Only `UserTextPart`
   makes chips clickable: `withAttachmentChips` draws labels unless the caller
   passes `isOpenable`, so the composer, the queue and context blocks get no
   dead tab stops. A click that ends a text selection over a chip leaves it

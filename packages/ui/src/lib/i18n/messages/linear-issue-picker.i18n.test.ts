@@ -5,8 +5,6 @@ const locales = ['en', 'de', 'fr', 'nl', 'es', 'ja', 'pt-BR', 'ru', 'ko', 'pl', 
 
 const requiredKeys = [
   'chat.chatInput.actions.linkTrackerItem',
-  'chat.chatInput.linked.trackerItem.openInBrowserAria',
-  'chat.chatInput.linked.trackerItem.removeAria',
   'chat.workStatus.linkedIssues.openTrackerItem',
   'session.newWorktree.actions.startFromTrackerItem',
 ] as const;

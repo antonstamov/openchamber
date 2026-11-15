@@ -300,8 +300,8 @@ no Shift.
   always shown, since there is no hover to reveal it: in the slot of a
   one-line row, over the second line's first icon of a two-line row, in a
   thumb-sized target. The live state sits on the right before the time on
-  every row, and the marks before it come in the desktop's order (the goal,
-  the PR, the requests waiting on the user, the pin, the done hint). No row
+  every row, and the marks before it come in the desktop's order (the done
+  hint, the goal, the PR, the requests waiting on the user, the pin). No row
   shows a date, as on the
   desktop: the list is ordered by recency; a turn's duration shows while it
   runs and until it is read.
@@ -897,8 +897,9 @@ chevron, while its saved collapse stays and its delete dialog counts the members
 - A detailed zone row has two lines of fixed height (20px and 16px). An empty
   second line is omitted; a project icon, branch, goal, linked reference,
   waiting request or expansion chevron keeps it visible, and an extension's
-  mark never does. The first holds the title and the action indicator, pin, done hint,
-  status icon and time; hover actions cover that cluster. The second opens
+  mark never does. The first holds the title and the done hint, action indicator, pin,
+  status icon and time; hover actions cover that cluster. The done hint comes and
+  goes, so it opens the cluster: the marks that stay keep their place at the row's end. The second opens
   with the project's icon (and its name, with several projects) and holds the
   branch (or the space's name) and the state cluster: goal glyph, PR (or the zombie warning), extension marks,
   permission/question badges. It shows no provider logo: the model's provider says nothing about
@@ -1255,7 +1256,7 @@ rest it is as quiet as the button was.
   state (running kind, unread, the move/rename spinner) sits on the right
   before the time. With the state in the slot a running worktree read as a
   chat, its branch mark gone (maintainer, 2026-10-26). Session rows use the
-  one-line form of `SessionTimelineRowBody`: pin, done hint, the live state
+  one-line form of `SessionTimelineRowBody`: done hint, pin, the live state
   and, while a turn runs or until it is read, the turn's duration on the
   right. No row shows a date:
   every list is ordered by recency and the whole-row tooltip has the time.
@@ -1418,7 +1419,7 @@ rest it is as quiet as the button was.
 - Cleanup after a PR merge is opt-in (`mergedWorktreeCleanupEnabled`, Settings → Sessions → Finished worktrees, beside archiving on Done, off by default; maintainer decision 2026-10-02). `hooks/useMergedWorktreeCleanup.ts` reads the bound branch PR status (`getFreshestBranchStatusForDirectory`) for each discovered linked worktree and, while the setting is on, has the server follow the open PR of every such worktree, collapsed projects included, so a merge is seen without its row on screen; finding a branch's first PR stays with the rows on screen, and `lib/worktrees/mergedWorktreeCleanup.ts` decides: wait while the host reports a session there running or cannot be asked, a background command runs there, the open session is there, or the worktree is the directory on screen (`lib/worktrees/worktreeUse.ts`, shared with Overview and Works); otherwise archive the worktree with its sessions. An archive keeps uncommitted work and commits outside the merged PR, so the earlier rule (remove only a checkout with nothing to lose, keep the rest) is gone with the checks it needed. A worktree and PR pair that was archived or restored is done with (remembered in local storage). A failed archive is retried after 1, 5 and 15 minutes, then hourly, with a toast only for the first failure; the retry state lives for the app run, so a reload tries again at once. A worktree being archived or removed right now is skipped, so Done and a pass never archive it twice; a worktree the user restored from the archive is marked handled for its PR on the next pass (`takeRestoredWorktree`), since restoring a merged worktree is taking it back. It runs on desktop and web only; VS Code has no worktrees and a phone would race the desktop it drives.
 - CLI/server-created sessions use the low-frequency OpenChamber control event stream to refresh only the created session directory. The same event re-lists the worktrees of the session's project, or of every project when the session's directory is not a project root or a known worktree, so a newly created external worktree gains ownership without a view reload; it does not re-enable broad session or streaming subscriptions.
 - A successful restore on the current runtime promotes only the session's ephemeral list-order rank. It does not change timestamps or live status, and it resets on a runtime switch.
-- `useProjectRepoStatus` reads Git status once per project path while the sidebar is visible. A change to the project list that adds no path (collapse, rename, color, last opened) reads nothing; an added project reads only its own status; a failed read is retried on the next list change. New paths are first read together through `GitAPI.prefetchProjectStatuses`, one batched request that warms the status cache, so the per-project reads after it are cache hits; VS Code has no batched read and reads one by one. Hiding the sidebar or switching runtime starts over.
+- `useProjectRepoStatus` reads Git status once per project path while the sidebar is visible. A change to the project list that adds no path (collapse, rename, color, last opened) reads nothing; an added project reads only its own status; a failed read is retried on the next list change. New paths are prefetched through `GitAPI.prefetchProjectStatuses` while the store joins each directory's own promise. The HTTP adapter streams each completed directory into its cache and store without waiting for the batch; VS Code keeps its native bridge reads. Hiding the sidebar preserves its known paths; showing it re-ensures them, and switching runtime starts over.
 - Structural updates rebuild grouped nodes only for projects whose local sessions, worktrees, repository state, branch, or worktree-ordering ranks changed; unchanged project sections preserve references so memoized group/session descendants skip the update wave. The grouping builder therefore keeps its identity across inputs the section cache compares per project: it reads git branches and lifecycle ranks at call time, and keeps the session ownership map while every session's scope directory is unchanged (the ownership index itself is rebuilt on any session-list change). Without a search query every group shares one empty search-data map, so a rebuilt section does not invalidate the others' group headers.
 - Empty successful lists, unresolved loads, and failed loads are separate UI states. Failed groups expose Retry and retain prior data.
 - List loading and workspace initialization have separate states. The spinner follows only the list queue; config, MCP, LSP, and live-state recovery cannot keep a successful empty list spinning. A core initialization failure has a separate localized notice and reuses the retry/native-access actions without clearing loaded sessions.
