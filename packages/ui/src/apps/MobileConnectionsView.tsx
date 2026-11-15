@@ -434,11 +434,11 @@ export const MobileConnectionsView: React.FC<Props> = (props) => {
         className={mobileConnectionInputClass}
       />
       {error ? <p className="px-1 typography-meta text-[var(--status-error-text)]">{error}</p> : null}
-      <div className="flex items-center justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={() => { setPassword(''); cancelPassword(); }}>
+      <div className="flex min-w-0 flex-col-reverse gap-2">
+        <Button type="button" variant="ghost" className="w-full" onClick={() => { setPassword(''); cancelPassword(); }}>
           {t('mobile.connect.cancelPassword')}
         </Button>
-        <Button type="submit" disabled={isPasswordBusy || !password.trim()}>
+        <Button type="submit" className="w-full" disabled={isPasswordBusy || !password.trim()}>
           {isPasswordBusy ? t('mobile.connect.connecting') : t('mobile.connect.unlockButton')}
         </Button>
       </div>
