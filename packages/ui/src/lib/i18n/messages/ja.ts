@@ -3990,6 +3990,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': '実行が終わるとワークツリーとブランチは削除されます。',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': '実行後もワークツリーとブランチは残り、結果を確認できます。',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'プロジェクトフォルダーはGitリポジトリではありません。実行はチェックアウトをそのまま使います。',
+  'sessions.scheduledTasks.editor.runIfMissed.label': '時刻を過ぎていたら実行する',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'スリープ中や電源オフ中に時刻を過ぎた場合、次回の起動時または復帰時に1回実行します。',
   'sessions.scheduledTasks.dialog.usesDefaults': 'セッションの既定値',
   'sessions.moveSession.menu': 'セッションを移動…',
   'sessions.moveSession.hint': 'ファイルは元のフォルダーに残ります',

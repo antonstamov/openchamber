@@ -118,4 +118,12 @@ describe('scheduledTaskEditorDraft.buildScheduledTaskPayload', () => {
     const payload = buildScheduledTaskPayload(draft);
     expect('cleanupWorktree' in payload).toBe(false);
   });
+
+  test('missed slots run by default and stay off once disabled', () => {
+    expect(toDraft(null, defaults).runIfMissed).toBe(true);
+    expect(toDraft(baseTask, defaults).runIfMissed).toBe(true);
+    expect(toDraft({ ...baseTask, runIfMissed: false }, defaults).runIfMissed).toBe(false);
+    expect(buildScheduledTaskPayload(toDraft(null, defaults)).runIfMissed).toBe(true);
+    expect(buildScheduledTaskPayload(toDraft({ ...baseTask, runIfMissed: false }, defaults)).runIfMissed).toBe(false);
+  });
 });

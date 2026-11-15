@@ -3988,6 +3988,8 @@ export const dict = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'Worktree ve dalı, koşu bitince silinir.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'Worktree ve dalı koşudan sonra kalır; sonucu inceleyebilirsin.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'Proje klasörü bir git deposu değil; çalıştırmalar mevcut checkoutu kullanır.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Saat kaçırılırsa çalıştır',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Saat, bilgisayar uyurken veya kapalıyken geçtiyse, sonraki başlatmada veya uyanmada bir kez çalışır.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Oturum varsayılanları',
   'sessions.moveSession.menu': 'Oturumu taşı…',
   'sessions.moveSession.hint': 'Dosyalar eski klasörde kalır',

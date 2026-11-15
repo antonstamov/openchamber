@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { mkdtemp, rm, writeFile, mkdir } from 'fs/promises';
-import { parseLoopDefinition, discoverLoops, discoverLoopFiles } from './loops.js';
+import { parseLoopDefinition, discoverLoops, discoverLoopFiles, loopFingerprint } from './loops.js';
 
 const createProject = async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'oc-loops-'));
@@ -117,6 +117,42 @@ Run every half hour.
 `, 'utf8');
 
       expect(parseLoopDefinition(filePath).enabled).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('passes an explicit runIfMissed through and leaves the fingerprint alone', async () => {
+    const { projectPath, cleanup } = await createProject();
+    try {
+      const offPath = path.join(projectPath, 'off.md');
+      await writeFile(offPath, `---
+name: off
+schedule: "*/30 * * * *"
+model: openai/gpt-5
+runIfMissed: false
+---
+Run every half hour.
+`, 'utf8');
+      const off = parseLoopDefinition(offPath);
+      expect(off.runIfMissed).toBe(false);
+
+      const onPath = path.join(projectPath, 'on.md');
+      await writeFile(onPath, `---
+name: on
+schedule: "*/30 * * * *"
+model: openai/gpt-5
+runIfMissed: true
+---
+Run every half hour.
+`, 'utf8');
+      const on = parseLoopDefinition(onPath);
+      expect(on.runIfMissed).toBe(true);
+
+      // The flag decides whether an overdue slot still runs, not what runs:
+      // toggling it must not invalidate the machine approval.
+      const { runIfMissed: _dropped, ...withoutFlag } = off;
+      expect(loopFingerprint(withoutFlag)).toBe(loopFingerprint(off));
     } finally {
       await cleanup();
     }

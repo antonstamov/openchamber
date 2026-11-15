@@ -43,6 +43,8 @@ export type ScheduledTask = {
   cleanupWorktree?: boolean;
   /** Source ref, preserved while isolation is off. Absent uses the checkout's HEAD. */
   baseBranch?: string;
+  /** Run the slot once when it was missed while the host slept or was down. Absent means run. */
+  runIfMissed?: boolean;
   state: {
     createdAt: number;
     updatedAt: number;

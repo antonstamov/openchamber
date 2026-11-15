@@ -962,12 +962,13 @@ describe('managed agent tool runtime', () => {
       expect(tools.openchamber.input.properties.parameters.properties).not.toHaveProperty(field);
     }
     expect(scheduleParameters.disabled.type).toBe('boolean');
-    for (const field of ['runInWorktree', 'baseBranch', 'cleanupWorktree']) {
+    for (const field of ['runInWorktree', 'baseBranch', 'cleanupWorktree', 'runIfMissed']) {
       expect(scheduleParameters).toHaveProperty(field);
       expect(tools.openchamber.input.properties.parameters.properties).not.toHaveProperty(field);
     }
     expect(scheduleParameters.runInWorktree.type).toBe('boolean');
     expect(scheduleParameters.cleanupWorktree.type).toBe('boolean');
+    expect(scheduleParameters.runIfMissed.type).toBe('boolean');
     expect(scheduleParameters.baseBranch.type).toBe('string');
 
     await runtime.materializePlugin({ includeControl: true, includeSchedule: false });

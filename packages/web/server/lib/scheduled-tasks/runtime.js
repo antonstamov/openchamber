@@ -16,6 +16,11 @@ const DEFAULT_GLOBAL_CONCURRENCY = 4;
 const DEFAULT_PROJECT_CONCURRENCY = 2;
 const DEFAULT_MAX_RUN_MS = 30 * 60 * 1000;
 const JITTER_MAX_MS = 2_000;
+const HEARTBEAT_INTERVAL_MS = 60_000;
+// A normal tick lands about one interval after the previous one. A gap far
+// beyond that means the event loop was frozen: suspend on Linux/macOS (where
+// the monotonic clock setTimeout rides on stops across sleep) or a long stall.
+const SUSPEND_THRESHOLD_MS = 300_000;
 const TASK_TITLE_MAX_LENGTH = 120;
 const TASK_DUE_SLACK_MS = 5_000;
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
@@ -357,6 +362,8 @@ export const createScheduledTasksRuntime = (deps) => {
   const runningCountByProject = new Map();
   let runningGlobalCount = 0;
   const queue = [];
+  let heartbeatTimer = null;
+  let lastHeartbeatAt = 0;
 
   const clearTimerForKey = (taskKey) => {
     const timer = timersByTaskKey.get(taskKey);
@@ -368,12 +375,21 @@ export const createScheduledTasksRuntime = (deps) => {
 
   const clearProjectTimers = (projectID) => {
     const tasks = tasksByProject.get(projectID);
-    if (!tasks) {
-      return;
+    if (tasks) {
+      for (const task of tasks.values()) {
+        clearTimerForKey(buildTaskKey(projectID, task.id));
+        queuedTaskKeys.delete(buildTaskKey(projectID, task.id));
+      }
     }
-    for (const task of tasks.values()) {
-      clearTimerForKey(buildTaskKey(projectID, task.id));
-      queuedTaskKeys.delete(buildTaskKey(projectID, task.id));
+    // A repeat sync re-queues whatever is still due, so drop stale queued
+    // entries for the project instead of letting them pile up as duplicates
+    // behind the fresh ones. Queued entries are always scheduled runs (manual
+    // runs never queue); the sync loop below re-adds the ones still due.
+    // In-flight runs already left the queue when they were dispatched.
+    for (let index = queue.length - 1; index >= 0; index -= 1) {
+      if (queue[index]?.projectID === projectID) {
+        queue.splice(index, 1);
+      }
     }
   };
 
@@ -413,6 +429,35 @@ export const createScheduledTasksRuntime = (deps) => {
       const taskMap = tasksByProject.get(projectID);
       const task = taskMap?.get(taskID);
       if (!task || !task.enabled) {
+        return;
+      }
+      if (
+        Number.isFinite(nextRunAt)
+        && nextRunAt <= Date.now() - TASK_DUE_SLACK_MS
+        && task.runIfMissed === false
+      ) {
+        // The timer fired late after a short sleep and the task opts out of
+        // missed slots: skip the run and re-arm the next future slot instead
+        // of dispatching it late. A one-time task has no future slot, so it
+        // is consumed with a terminal skipped status instead. On a failed
+        // consume the overdue slot is left intact for a later sync to retry.
+        logger.info?.('[ScheduledTasks] skipping missed occurrence (runIfMissed is off)', {
+          projectID,
+          taskID,
+          scheduledFor: nextRunAt,
+          lateByMs: Date.now() - nextRunAt,
+        });
+        try {
+          if ((await consumeSkippedOnceTask(projectID, task)) === 'not-applicable') {
+            await syncTaskSchedule(projectID, task);
+          }
+        } catch (error) {
+          logger.warn?.('[ScheduledTasks] failed to re-arm after skipping a missed occurrence', {
+            projectID,
+            taskID,
+            error: safeErrorMessage(error),
+          });
+        }
         return;
       }
       queueTaskRun(projectID, taskID, 'scheduled', nextRunAt);
@@ -499,8 +544,22 @@ export const createScheduledTasksRuntime = (deps) => {
     setProjectTasks(projectID, tasks);
 
     for (const task of tasks) {
-      await syncTaskSchedule(projectID, task);
+      // A queued catch-up keeps the persisted overdue nextRunAt: the claim in
+      // runTask advances it on success, and a crash before the claim leaves a
+      // retryable overdue slot instead of a silently skipped one. An opted-out
+      // one-time task whose slot passed is consumed with a terminal skipped
+      // status instead of being left enabled-but-inert.
+      const caughtUp = queueMissedRun(projectID, task);
+      if (!caughtUp) {
+        const consumed = await consumeSkippedOnceTask(projectID, task);
+        // 'consumed' needs no re-arm; 'failed' keeps the overdue slot intact
+        // so the next sync retries instead of advancing past it.
+        if (consumed === 'not-applicable') {
+          await syncTaskSchedule(projectID, task);
+        }
+      }
     }
+    pumpQueue();
 
     return tasks;
   };
@@ -549,6 +608,172 @@ export const createScheduledTasksRuntime = (deps) => {
       taskID,
       reason,
       ...(Number.isFinite(scheduledFor) ? { scheduledFor } : {}),
+    });
+  };
+
+  /**
+   * Whether the persisted nextRunAt names a slot that already passed without
+   * being claimed (lastScheduledFor names an older slot). Only the future
+   * belongs to the armed timer; the slack lives solely in the
+   * lastScheduledFor dedup below, so even a seconds-past slot counts.
+   */
+  const isOverdueUnclaimed = (task) => {
+    const overdueFor = task.state?.nextRunAt;
+    // Only the future belongs to the armed timer. A slot even seconds in the
+    // past has no live timer after a restart. On a running server the shared
+    // lastScheduledFor claim below is what prevents a second dispatch — not
+    // the in-process queued/running sets, which a resync clears and re-arms
+    // from scratch (see clearProjectTimers) — so no slack window here.
+    if (!Number.isFinite(overdueFor) || overdueFor > Date.now()) {
+      return false;
+    }
+    const lastScheduledFor = task.state?.lastScheduledFor;
+    return !(Number.isFinite(lastScheduledFor) && Math.abs(lastScheduledFor - overdueFor) <= TASK_DUE_SLACK_MS);
+  };
+
+  /**
+   * Dispatch an overdue unclaimed slot once through the normal scheduled
+   * claim path, unless the task opts out with runIfMissed: false. A repeat
+   * sync sees the claim and skips, and a second instance that loses the
+   * claim skips too. Returns true when a catch-up run was queued — the
+   * caller then skips the nextRunAt advance, which the claim performs
+   * itself, so a crash before the claim leaves a retryable overdue slot
+   * instead of a silent loss.
+   */
+  const queueMissedRun = (projectID, task) => {
+    if (!task?.enabled || task.runIfMissed === false || !isOverdueUnclaimed(task)) {
+      return false;
+    }
+    queueTaskRun(projectID, task.id, 'scheduled', task.state.nextRunAt);
+    logger.info?.('[ScheduledTasks] running missed occurrence', {
+      projectID,
+      taskID: task.id,
+      scheduledFor: task.state.nextRunAt,
+      lateByMs: Date.now() - task.state.nextRunAt,
+    });
+    return true;
+  };
+
+  /**
+   * A one-time task whose slot was missed while opted out of catch-up runs:
+   * the slot will never come back, so consume the task with a terminal
+   * skipped status instead of leaving it enabled-but-inert with no future
+   * slot. Mirrors the consume-once-after-scheduled-run path in runTask.
+   *
+   * Returns 'consumed' when the task was disabled and marked skipped,
+   * 'not-applicable' when there is nothing to do (another path owns the
+   * slot, the task changed, or it was already consumed), and 'failed' when
+   * a write failed — the caller must not advance nextRunAt then, so the
+   * overdue slot survives for the next sync to retry.
+   *
+   * The state write is guarded by updateScheduledTaskStateIf, which re-reads
+   * the task under the project write lock: a concurrent on-time run that
+   * claimed the slot first makes the predicate fail instead of being
+   * clobbered. The disable upsert carries no state of its own, so it keeps
+   * whatever the disk holds (the skipped marker, or a concurrent run's
+   * completion) instead of resurrecting a stale snapshot.
+   */
+  const consumeSkippedOnceTask = async (projectID, task) => {
+    if (task?.schedule?.kind !== 'once') {
+      return 'not-applicable';
+    }
+    let latest = null;
+    try {
+      const tasks = await projectConfigRuntime.listScheduledTasks(projectID);
+      latest = tasks.find((entry) => entry?.id === task?.id) ?? null;
+    } catch (error) {
+      logger.warn?.('[ScheduledTasks] failed to re-read a missed one-time task', {
+        projectID,
+        taskID: task?.id,
+        error: safeErrorMessage(error),
+      });
+      return 'failed';
+    }
+    const overdueFor = latest?.state?.nextRunAt;
+    if (latest?.enabled === true
+      && latest?.schedule?.kind === 'once'
+      && latest?.state?.lastStatus === 'skipped'
+      && !Number.isFinite(overdueFor)) {
+      // Crash between the consume marker and its disable: the slot is already
+      // cleared, so finish the disable instead of leaving the task
+      // enabled-but-inert with no timer and no retry.
+      try {
+        const { state: _droppedState, ...envelope } = latest;
+        const consumed = await projectConfigRuntime.upsertScheduledTask(projectID, { ...envelope, enabled: false });
+        updateInMemoryTask(projectID, consumed.task);
+        return 'consumed';
+      } catch (error) {
+        logger.warn?.('[ScheduledTasks] failed to finish disabling a skipped one-time task', {
+          projectID,
+          taskID: task?.id,
+          error: safeErrorMessage(error),
+        });
+        return 'failed';
+      }
+    }
+    if (latest?.runIfMissed !== false
+      || !Number.isFinite(overdueFor)
+      || overdueFor > Date.now()
+      || (Number.isFinite(latest?.state?.lastScheduledFor)
+        && Math.abs(latest.state.lastScheduledFor - overdueFor) <= TASK_DUE_SLACK_MS)) {
+      return 'not-applicable';
+    }
+    try {
+      const marked = await projectConfigRuntime.updateScheduledTaskStateIf(
+        projectID,
+        task.id,
+        (candidate) => candidate?.schedule?.kind === 'once'
+          && candidate?.runIfMissed === false
+          && Number.isFinite(candidate?.state?.nextRunAt)
+          && Math.abs(candidate.state.nextRunAt - overdueFor) <= TASK_DUE_SLACK_MS
+          && !(Number.isFinite(candidate?.state?.lastScheduledFor)
+            && Math.abs(candidate.state.lastScheduledFor - overdueFor) <= TASK_DUE_SLACK_MS)
+          && candidate?.state?.lastStatus !== 'skipped',
+        {
+          lastStatus: 'skipped',
+          lastError: `Missed the scheduled time and runIfMissed is off (${new Date(overdueFor).toISOString()})`,
+          nextRunAt: undefined,
+          updatedAt: Date.now(),
+        },
+      );
+      if (!marked.updated || !marked.task) {
+        return 'not-applicable';
+      }
+      updateInMemoryTask(projectID, marked.task);
+      const { state: _droppedState, ...envelope } = marked.task;
+      const consumed = await projectConfigRuntime.upsertScheduledTask(projectID, { ...envelope, enabled: false });
+      updateInMemoryTask(projectID, consumed.task);
+      logger.info?.('[ScheduledTasks] consumed missed one-time task', {
+        projectID,
+        taskID: task.id,
+        scheduledFor: overdueFor,
+      });
+      return 'consumed';
+    } catch (error) {
+      logger.warn?.('[ScheduledTasks] failed to consume missed one-time task', {
+        projectID,
+        taskID: task.id,
+        error: safeErrorMessage(error),
+      });
+      return 'failed';
+    }
+  };
+
+  const heartbeatTick = () => {
+    const now = Date.now();
+    const gap = now - lastHeartbeatAt;
+    lastHeartbeatAt = now;
+    if (gap <= SUSPEND_THRESHOLD_MS) {
+      return;
+    }
+    // The event loop was frozen far longer than the interval: every armed
+    // setTimeout is now late by the gap. Re-arm from the wall clock; the
+    // missed-slot check in syncProject decides whether the overdue
+    // occurrence still runs.
+    void syncAllProjects().catch((error) => {
+      logger.warn?.('[ScheduledTasks] post-sleep resync failed', {
+        error: safeErrorMessage(error),
+      });
     });
   };
 
@@ -1445,6 +1670,12 @@ export const createScheduledTasksRuntime = (deps) => {
       return;
     }
     started = true;
+    // The heartbeat re-arms timers after the event loop was frozen (sleep on
+    // Linux/macOS, where setTimeout rides a monotonic clock that stops
+    // across suspend). Without it a timer armed before sleep fires late by
+    // the whole sleep and nothing ever re-syncs it.
+    lastHeartbeatAt = Date.now();
+    heartbeatTimer = setInterval(heartbeatTick, HEARTBEAT_INTERVAL_MS);
     let cleanups = [];
     try {
       cleanups = await projectConfigRuntime.listScheduledWorktreeCleanups?.() ?? [];
@@ -1480,6 +1711,10 @@ export const createScheduledTasksRuntime = (deps) => {
       return;
     }
     started = false;
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
     for (const controller of pendingCleanups.values()) controller.abort();
     pendingCleanups.clear();
     for (const timer of timersByTaskKey.values()) {

@@ -385,6 +385,13 @@ const normalizeTaskForStorage = (value, options) => {
     ? value.cleanupWorktree
     : existingTask?.cleanupWorktree !== false;
 
+  // Whether a slot missed while the host slept or was down still runs once
+  // on the next sync or wake. Absent reads as true; only an explicit opt-out
+  // is stored, mirroring runInWorktree above.
+  const runIfMissed = value.runIfMissed === true || value.runIfMissed === false
+    ? value.runIfMissed
+    : existingTask?.runIfMissed !== false;
+
   // Loop provenance: absolute path of the `.agents/loops/*.md` file driving
   // this task, when any. Preserved on every write so the scheduler can detect
   // removed loop files across restarts. Unknown to the UI model.
@@ -408,6 +415,7 @@ const normalizeTaskForStorage = (value, options) => {
     ...(loopFile ? { loopFile } : {}),
   };
   if (runInWorktree) storedTask.runInWorktree = true;
+  if (runIfMissed === false) storedTask.runIfMissed = false;
   if (baseBranchRaw) storedTask.baseBranch = baseBranchRaw;
   if (cleanupWorktree === false) storedTask.cleanupWorktree = false;
   if (targetSessionId) storedTask.targetSessionId = targetSessionId;

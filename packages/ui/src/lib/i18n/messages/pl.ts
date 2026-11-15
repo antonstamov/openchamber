@@ -3995,6 +3995,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'Worktree i jego gałąź są usuwane po zakończeniu uruchomienia.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'Worktree i jego gałąź zostają po uruchomieniu, żeby można było obejrzeć wynik.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'Folder projektu nie jest repozytorium git; uruchomienia użyją checkoutu bez zmian.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Uruchom, jeśli pora minęła',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Uruchamia się raz przy następnym starcie lub wybudzeniu, jeśli pora minęła podczas uśpienia lub wyłączenia komputera.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Domyślne ustawienia sesji',
   'sessions.moveSession.menu': 'Przenieś sesję…',
   'sessions.moveSession.hint': 'Pliki zostają w starym folderze',

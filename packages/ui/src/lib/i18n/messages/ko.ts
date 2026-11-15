@@ -3990,6 +3990,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': '실행이 끝나면 워크트리와 브랜치가 제거됩니다.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': '실행 후에도 워크트리와 브랜치가 남아 결과를 확인할 수 있습니다.',
   'sessions.scheduledTasks.editor.worktree.notRepo': '프로젝트 폴더는 git 저장소가 아닙니다. 실행은 체크아웃을 그대로 사용합니다.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': '시간을 놓치면 실행',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': '컴퓨터가 절전 중이거나 꺼져 있는 동안 시간이 지나면 다음 시작 또는 절전 해제 시 한 번 실행합니다.',
   'sessions.scheduledTasks.dialog.usesDefaults': '세션 기본값',
   'sessions.moveSession.menu': '세션 이동…',
   'sessions.moveSession.hint': '파일은 이전 폴더에 남습니다',

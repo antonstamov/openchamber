@@ -361,6 +361,8 @@ describe('OpenChamber control service', () => {
     ['runInWorktree', null, 'runInWorktree must be a boolean'],
     ['cleanupWorktree', 'false', 'cleanupWorktree must be a boolean'],
     ['cleanupWorktree', 0, 'cleanupWorktree must be a boolean'],
+    ['runIfMissed', 'false', 'runIfMissed must be a boolean'],
+    ['runIfMissed', 1, 'runIfMissed must be a boolean'],
     ['baseBranch', 42, 'baseBranch must be a branch name'],
     ['baseBranch', '   ', 'baseBranch must be a branch name'],
   ])('refuses %s %j on create and update without writing', async (field, value, message) => {

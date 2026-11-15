@@ -3991,6 +3991,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': 'El worktree y su rama se eliminan al terminar la corrida.',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': 'El worktree y su rama permanecen tras la corrida para que revises el resultado.',
   'sessions.scheduledTasks.editor.worktree.notRepo': 'La carpeta del proyecto no es un repositorio git; las corridas usarán el checkout tal cual.',
+  'sessions.scheduledTasks.editor.runIfMissed.label': 'Ejecutar si se pasa la hora',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': 'Se ejecuta una vez al reanudar o iniciar si la hora pasó mientras el equipo dormía o estaba apagado.',
   'sessions.scheduledTasks.dialog.usesDefaults': 'Valores predeterminados de sesión',
   'sessions.moveSession.menu': 'Mover sesión…',
   'sessions.moveSession.hint': 'Los archivos se quedan en la carpeta anterior',

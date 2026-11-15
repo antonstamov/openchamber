@@ -3990,6 +3990,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': '執行結束後會移除 worktree 及其分支。',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': '執行結束後保留 worktree 及其分支，方便檢視結果。',
   'sessions.scheduledTasks.editor.worktree.notRepo': '專案資料夾不是 git 儲存庫；執行將直接使用目前的檢出。',
+  'sessions.scheduledTasks.editor.runIfMissed.label': '錯過時間時執行',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': '如果在睡眠或關機期間錯過了排定時間，將在下次啟動或喚醒時執行一次。',
   'sessions.scheduledTasks.dialog.usesDefaults': '工作階段預設值',
   'sessions.moveSession.menu': '移動工作階段…',
   'sessions.moveSession.hint': '檔案會留在原資料夾中',

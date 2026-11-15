@@ -168,6 +168,9 @@ const buildScheduledTask = (input) => {
     throw new OpenChamberControlError('goalTokenBudget must be from 1000 to 100000000', 400);
   }
   assertWorktreeIsolation(input, targetSessionId);
+  if (input.runIfMissed !== undefined && !isBoolean(input.runIfMissed)) {
+    throw new OpenChamberControlError('runIfMissed must be a boolean', 400);
+  }
   const baseBranch = asNonEmptyString(input.baseBranch);
   const task = {
     name,
@@ -185,6 +188,7 @@ const buildScheduledTask = (input) => {
   if (input.targetSessionId !== undefined) task.targetSessionId = targetSessionId ?? input.targetSessionId;
   if (input.runInWorktree === true) task.runInWorktree = true;
   if (input.cleanupWorktree === false) task.cleanupWorktree = false;
+  if (input.runIfMissed === false) task.runIfMissed = false;
   if (baseBranch) task.baseBranch = baseBranch;
   return task;
 };
@@ -262,6 +266,9 @@ const patchScheduledTask = (existing, input) => {
     input,
     input.targetSessionId === undefined ? existing.targetSessionId : input.targetSessionId,
   );
+  if (input.runIfMissed !== undefined && !isBoolean(input.runIfMissed)) {
+    throw new OpenChamberControlError('runIfMissed must be a boolean', 400);
+  }
   const patch = {
     id: existing.id,
     targetSessionId: input.targetSessionId === undefined ? existing.targetSessionId : input.targetSessionId,
@@ -272,6 +279,7 @@ const patchScheduledTask = (existing, input) => {
   };
   if (input.runInWorktree !== undefined) patch.runInWorktree = input.runInWorktree;
   if (input.cleanupWorktree !== undefined) patch.cleanupWorktree = input.cleanupWorktree;
+  if (input.runIfMissed !== undefined) patch.runIfMissed = input.runIfMissed;
   // Empty or null clears the stored branch; absent leaves it to the store.
   if (input.baseBranch !== undefined) patch.baseBranch = asNonEmptyString(input.baseBranch);
   return patch;

@@ -110,7 +110,7 @@ const MEMORY_ONLY_PARAMETER_NAMES = ['body', 'scope', 'memoryId', 'type'];
 const MEMORY_PARAMETER_NAMES = [...MEMORY_ONLY_PARAMETER_NAMES, 'title'];
 // The task inputs; the schedule tool shares the scope and the run settings
 // (prompt, model, agent, goal) with the control tool.
-const SCHEDULE_ONLY_PARAMETER_NAMES = ['taskId', 'name', 'targetSessionId', 'daily', 'weekly', 'once', 'time', 'cron', 'timezone', 'disabled', 'runInWorktree', 'baseBranch', 'cleanupWorktree'];
+const SCHEDULE_ONLY_PARAMETER_NAMES = ['taskId', 'name', 'targetSessionId', 'daily', 'weekly', 'once', 'time', 'cron', 'timezone', 'disabled', 'runInWorktree', 'baseBranch', 'cleanupWorktree', 'runIfMissed'];
 const SCHEDULE_PARAMETER_NAMES = [...SCHEDULE_ONLY_PARAMETER_NAMES, 'projectId', 'directory', 'prompt', 'model', 'variant', 'agent', 'goal', 'goalTokenBudget'];
 
 /**
@@ -189,6 +189,7 @@ const ALL_PARAMETER_PROPERTIES = {
   runInWorktree: { type: 'boolean', description: 'Run each run in a fresh worktree of the project (git only); conflicts with targetSessionId' },
   baseBranch: { type: 'string', description: 'Source ref the isolated run branches from (git only); default the checked-out HEAD at run time' },
   cleanupWorktree: { type: 'boolean', description: 'False keeps the run\'s worktree and branch for review; default removes them when the run settles (git only)' },
+  runIfMissed: { type: 'boolean', description: 'False skips a slot missed while the computer slept or was off; default runs it once on wake or start' },
   path: { type: 'string', description: 'Absolute, or relative to the session directory' },
   url: { type: 'string', description: 'http(s)' },
   ref: { type: 'string', description: 'An element from the last browser.snapshot, such as e12; reaches inside frames and shadow DOM' },

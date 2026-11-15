@@ -27,6 +27,7 @@
  *   model    -> split into task.execution.providerID / task.execution.modelID
  *   agent    -> task.execution.agent (optional)
  *   timezone -> task.schedule.timezone (optional, defaults to the server zone)
+  *   runIfMissed -> task.runIfMissed (optional boolean, default run)
  *   body     -> task.execution.prompt
  *
  * `thinking_level` and `goalEnabled`/`goalTokenBudget` are not part of the
@@ -117,9 +118,17 @@ export const parseLoopDefinition = (filePath) => {
   const timezone = asNonEmptyString(frontmatter.timezone);
   const agent = asNonEmptyString(frontmatter.agent);
 
+  // Optional: run the slot once when it was missed while the host slept or
+  // was down. Absent preserves the stored choice and reads as true.
+  // Deliberately outside the approval fingerprint: it changes when an
+  // overdue run fires, not what runs, so adding the field must not
+  // invalidate existing machine approvals.
+  const runIfMissed = typeof frontmatter.runIfMissed === 'boolean' ? frontmatter.runIfMissed : undefined;
+
   return {
     name,
     enabled: typeof frontmatter.enabled === 'boolean' ? frontmatter.enabled : false,
+    ...(runIfMissed !== undefined ? { runIfMissed } : {}),
     schedule: {
       kind: 'cron',
       cron,

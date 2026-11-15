@@ -105,6 +105,43 @@ Manual `runNow` does not claim a schedule occurrence. It also runs paused
 (`enabled: false`) tasks — that is the point of the button — while scheduled
 dispatches still skip disabled tasks, and completion never re-arms a paused task.
 
+## Sleep, restarts and missed occurrences
+
+Timers ride a monotonic clock that freezes across suspend on Linux and macOS
+(and keeps counting on Windows), so after sleep a timer armed before it is
+late by the whole sleep. A heartbeat re-arms from the wall clock: every
+`HEARTBEAT_INTERVAL_MS` it compares the gap with `SUSPEND_THRESHOLD_MS` and
+full-resyncs when the event loop was frozen. A restart has no live timer at
+all — the same check runs on every sync instead.
+
+When a sync finds a persisted `nextRunAt` in the past that was never claimed
+(`lastScheduledFor` names an older slot), the occurrence is missed rather
+than armed. Unless the task opts out with `runIfMissed: false` (absent means
+run), it is dispatched once through the normal scheduled claim path. The sync
+skips its own `nextRunAt` advance for that task: the claim advances it on
+success, and a crash before the claim then leaves a retryable overdue slot
+instead of a silent loss. A second instance that loses the claim skips, and a
+repeat sync sees the claim and skips too.
+
+A timer that fires late after a short sleep (under the heartbeat threshold, so
+no resync happened) goes through the same opt-out: with `runIfMissed: false`
+the late run is skipped and the next future slot is armed instead; otherwise
+the run proceeds late through the normal path. An opted-out one-time task has
+no future slot, so it is consumed with a terminal skipped status instead of
+being left enabled-but-inert.
+
+### Why missed slots run once by default and never more than once
+
+Skipping was never the designed behavior: it fell out of the spin guard that
+refuses to arm a past `nextRunAt`, and different OS clocks made it
+platform-dependent (Windows fired the overdue slot on wake, Linux/macOS
+stayed silent). Running once matches what the user asked for when they set
+the time; replaying backlogged runs would surprise after a long downtime, so
+only the persisted overdue slot — the oldest unclaimed one — runs, and the
+claim advances `nextRunAt` past everything missed in between. Tasks that must
+not run late (a reminder for a meeting that already started) opt out with
+`runIfMissed: false`.
+
 ## Existing-session tasks
 
 `targetSessionId` sends to an existing session instead of creating one.
@@ -343,6 +380,7 @@ Field mapping (model: `packages/ui/src/lib/scheduledTasksApi.ts`):
 | `model` | split on the first `/` into `execution.providerID` / `execution.modelID` (required) |
 | `agent` | `execution.agent` (optional) |
 | `timezone` | `schedule.timezone` (optional, IANA; defaults to the server zone) |
+| `runIfMissed` | `runIfMissed` (optional boolean, default run: the missed slot still runs once on wake or start) |
 | body | `execution.prompt` (required) |
 
 A stored `model` is checked against the model catalog when it is written. The
@@ -366,6 +404,9 @@ told.
 
 `thinking_level` and `goalEnabled`/`goalTokenBudget` are not part of the portable
 format (UI/JSON-only today); `daily`/`weekly`/`once` schedules remain UI/JSON-only.
+`runIfMissed` stays out of the loop approval fingerprint on purpose: it changes
+whether an overdue run fires, not what runs, so adding the field (or flipping
+it) never invalidates an existing machine approval.
 Runtime state (`lastRunAt`, `nextRunAt`, `lastStatus`, `lastError`, `lastSessionId`,
 `lastDurationMs`, `lastRunIsolated`, `lastRunBranch`) is never written to the markdown file —
 it continues to live in the project config state store.

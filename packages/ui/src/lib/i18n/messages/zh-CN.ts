@@ -3991,6 +3991,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.scheduledTasks.editor.worktree.cleanup.hint': '运行结束后会移除 worktree 及其分支。',
   'sessions.scheduledTasks.editor.worktree.cleanup.keepHint': '运行结束后保留 worktree 及其分支，便于查看结果。',
   'sessions.scheduledTasks.editor.worktree.notRepo': '项目文件夹不是 git 仓库；执行将直接使用当前检出。',
+  'sessions.scheduledTasks.editor.runIfMissed.label': '错过时间时运行',
+  'sessions.scheduledTasks.editor.runIfMissed.hint': '如果在休眠或关机期间错过了预定时间，将在下次启动或唤醒时运行一次。',
   'sessions.scheduledTasks.dialog.usesDefaults': '会话默认设置',
   'sessions.moveSession.menu': '移动会话…',
   'sessions.moveSession.hint': '文件保留在原文件夹中',

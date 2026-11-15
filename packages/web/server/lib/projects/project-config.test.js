@@ -282,6 +282,40 @@ describe('project-config runtime', () => {
     }
   });
 
+  it('stores an explicit missed-run opt-out and reads everything else as run', async () => {
+    const { runtime, cleanup } = await createRuntime();
+    const base = {
+      name: 'Nightly review',
+      enabled: true,
+      schedule: { kind: 'daily', time: '09:30', timezone: 'UTC' },
+      execution: { prompt: 'Review the diff', providerID: 'openai', modelID: 'gpt-4.1' },
+    };
+    try {
+      // Absent reads as run: stored tasks predate the flag.
+      const plain = await runtime.upsertScheduledTask('project-test', base);
+      expect(plain.task.runIfMissed).toBeUndefined();
+
+      const skipped = await runtime.upsertScheduledTask('project-test', {
+        ...base,
+        id: plain.task.id,
+        runIfMissed: false,
+      });
+      expect(skipped.task.runIfMissed).toBe(false);
+      const reloaded = await runtime.listScheduledTasks('project-test');
+      expect(reloaded.find((task) => task.id === plain.task.id)?.runIfMissed).toBe(false);
+
+      // Switching back on drops the flag instead of storing true.
+      const restored = await runtime.upsertScheduledTask('project-test', {
+        ...base,
+        id: plain.task.id,
+        runIfMissed: true,
+      });
+      expect(restored.task.runIfMissed).toBeUndefined();
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('rejects an oversized source branch without changing the stored task', async () => {
     const { runtime, tempRoot, cleanup } = await createRuntime();
     const input = {
