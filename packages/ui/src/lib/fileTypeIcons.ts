@@ -206,6 +206,10 @@ const extensionIconMap: Record<string, string> = {
   yml: 'yaml',
   mdx: 'mdx',
   md: 'markdown',
+  // Build files highlight as their language (sbt as Scala, gradle as
+  // Groovy) but keep the build tool's own icon.
+  sbt: 'sbt',
+  gradle: 'gradle',
   lock: 'lock',
   env: 'settings',
   zip: 'zip',
@@ -271,19 +275,23 @@ const resolveIconName = (filePath: string, extension?: string): string => {
     return 'excalidraw';
   }
 
-  const language = getLanguageFromExtension(filePath);
-  if (language && languageIconMap[language]) {
-    return languageIconMap[language];
-  }
-
   const normalizedExtension = isNonEmptyString(extension)
     ? extension.toLowerCase()
     : fileName.includes('.')
       ? fileName.split('.').pop()?.toLowerCase() || ''
       : '';
 
+  // A curated extension icon wins over the generic language icon: without
+  // this, sbt files would take the Scala icon and mdx/env files would never
+  // reach the entries above. Extensions without a curated icon still fall
+  // through to the language below.
   if (normalizedExtension && extensionIconMap[normalizedExtension]) {
     return extensionIconMap[normalizedExtension];
+  }
+
+  const language = getLanguageFromExtension(filePath);
+  if (language && languageIconMap[language]) {
+    return languageIconMap[language];
   }
 
   if (normalizedExtension && FILE_TYPE_ICON_IDS.has(normalizedExtension)) {
