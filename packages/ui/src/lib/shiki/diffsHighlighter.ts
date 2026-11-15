@@ -21,6 +21,11 @@ const FILE_NAME_LANGUAGES = {
   '.npmrc': 'toml',
 };
 
+// Extensions @pierre/diffs does not map to a language.
+const EXTENSION_LANGUAGES = {
+  sbt: 'scala',
+};
+
 // Diffs infer the language from the file name; the pool forwards these
 // mappings to its workers.
 if (DIFFS_HIGHLIGHTER === 'highlights') {
@@ -29,4 +34,5 @@ if (DIFFS_HIGHLIGHTER === 'highlights') {
     if (alias) setCustomExtension(extension, alias);
   }
   for (const [name, lang] of Object.entries(FILE_NAME_LANGUAGES)) setCustomExtension(name, lang);
+  for (const [extension, lang] of Object.entries(EXTENSION_LANGUAGES)) setCustomExtension(extension, lang);
 }

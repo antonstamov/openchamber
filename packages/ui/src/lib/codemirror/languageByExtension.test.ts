@@ -4,7 +4,7 @@ import { ensureSyntaxTree, highlightingFor } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { highlightTree, tags } from '@lezer/highlight';
 
-import { languageByExtension, loadLanguageByExtension } from './languageByExtension';
+import { languageByExtension, loadLanguageByExtension, codeBlockLanguageResolver } from './languageByExtension';
 
 function markdownState(doc: string) {
   const extension = languageByExtension('test.md');
@@ -57,11 +57,19 @@ describe('Markdown code backgrounds', () => {
   }
 });
 
+describe('codeBlockLanguageResolver', () => {
+  test('resolves sbt fences through the Scala language', () => {
+    expect(codeBlockLanguageResolver('sbt')).not.toBeNull();
+    expect(codeBlockLanguageResolver('scala')).not.toBeNull();
+  });
+});
+
 describe('loadLanguageByExtension', () => {
   test('resolves extensions the CodeMirror catalog lacks through the shared extension map', async () => {
     expect(await loadLanguageByExtension('views/page.tpl')).not.toBeNull();
     expect(await loadLanguageByExtension('logs/events.jsonl')).not.toBeNull();
     expect(await loadLanguageByExtension('src/App.svelte')).not.toBeNull();
+    expect(await loadLanguageByExtension('build.sbt')).not.toBeNull();
   });
 
   test('keeps plain text and unknown extensions unhighlighted', async () => {

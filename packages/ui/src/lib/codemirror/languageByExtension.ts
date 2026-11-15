@@ -50,6 +50,10 @@ export function codeBlockLanguageResolver(info: string): Language | LanguageDesc
     case 'py':
     case 'python':
       return python().language;
+    case 'sbt':
+    case 'sc':
+    case 'scala':
+      return LanguageDescription.matchLanguageName(languages, 'scala');
     case 'md':
     case 'markdown':
     case 'mdown':

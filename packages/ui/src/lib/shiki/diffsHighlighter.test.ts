@@ -17,6 +17,7 @@ test('files Highlights has no lexer for take a close relative', () => {
     ['app.properties', 'toml'],
     ['.editorconfig', 'toml'],
     ['src/main.ts', 'typescript'],
+    ['build.sbt', 'scala'],
   ]) {
     expect(getFiletypeFromFileName(name)).toBe(lang);
     expect(isSupportedLanguage(lang)).toBe(true);
