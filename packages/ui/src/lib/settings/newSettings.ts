@@ -33,11 +33,6 @@ const saveSeenAnchors = (anchorIds: readonly string[]): void => {
   }
 };
 
-/**
- * The anchors this client already knows. A client with no baseline is seeding
- * one for the first time, so the build's own anchors are what it knows; that is
- * what keeps a fresh install free of badges.
- */
 const loadOrSeedBaseline = (): Set<string> => {
   const known = loadSeenAnchors();
   if (known.size > 0) return known;
@@ -52,10 +47,6 @@ type NewSettingsBadgeState = {
   readonly pendingAnchors: ReadonlySet<string>;
 };
 
-/**
- * What this client has not seen yet: the anchors the running build has that its
- * baseline lacks, whatever number of releases that spans.
- */
 const buildState = (): NewSettingsBadgeState => {
   const known = loadOrSeedBaseline();
 
@@ -67,11 +58,6 @@ const buildState = (): NewSettingsBadgeState => {
   return { newAnchors, pendingAnchors: newAnchors };
 };
 
-/**
- * Resolved once and kept in memory: deciding what is new walks the whole search
- * table, and the answer only changes when the user acknowledges it. Reading it
- * again on every row render would repeat that walk for nothing.
- */
 let state: NewSettingsBadgeState | null = null;
 
 let badgeVersion = 0;
@@ -212,7 +198,6 @@ export const acknowledgeNewSettingPage = (page: SettingsPageSlug, ctx: SettingsS
   emitNewSettingsBadgeChange();
 };
 
-/** Drop the resolved answer so the next read rebuilds it. Tests use it after writing storage directly. */
 export const resetNewSettingsBadgeCacheForTests = (): void => {
   state = null;
   emitNewSettingsBadgeChange();

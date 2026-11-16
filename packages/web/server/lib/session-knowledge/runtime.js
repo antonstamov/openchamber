@@ -128,11 +128,15 @@ export const WORK_NAME_GUIDANCE = "Name the task with work.name (tools.openchamb
  * line that names an openchamber action: an agent that read
  * only "the openchamber tool" looked for a direct tool of that name, found
  * openchamber_secret and openchamber_render, and called those instead. The
- * subagent line keeps it from dispatching what is part of its own task.
+ * ownWork line keeps the sessions an agent runs for its own task off the
+ * user's list.
  */
 export const DISPATCH_GUIDANCE = "To hand work to another session, call tools.openchamber inside execute:"
   + " session.create starts a new session, session.send gives a task to an existing one (session.list finds it by title)."
-  + " Only for a separate session the user asks for; part of your own task goes to your subagent tool.";
+  + " A session the user wants for themselves, to follow and talk to, is theirs: create it without ownWork. A session you start"
+  + " to get part of the work done and collect its answer, also when the user told you to hand that work off, takes"
+  + " ownWork: true: it nests under you, the user does not talk to it, and its answer comes back to you. Smaller pieces"
+  + " of your own task go to your subagent tool.";
 
 /**
  * The managed tools the chat draws from their own call stay direct tools; the
@@ -287,7 +291,8 @@ export const WORKFLOW_GUIDANCE = 'The openchamber_workflow tool runs a script th
   + ' Every agent runs on your own model unless the script names another, and dozens of agents on a top model cost many times what a cheap one does.'
   + ' So when you propose a workflow, give each phase a model in the same message (look them up with models.list, tools.openchamber inside execute, when you have it):'
   + ' a cheap one for reading and checking against a fixed list, a strong one where a phase weighs judgement or writes what lands.'
-  + ' Start the run once the user agrees to the models.';
+  + ' Start the run once the user agrees to the models.'
+  + ' When the user lets runs start without approval in Settings, workflow.run starts the run at once instead of showing it for approval, so agree on the plan and the models in the chat first all the same.';
 
 /**
  * When to ask for a secret on a card, stated in every session that has the

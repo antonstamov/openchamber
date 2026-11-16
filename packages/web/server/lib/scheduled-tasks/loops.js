@@ -49,10 +49,6 @@ import { MAX_TASK_NAME_LENGTH } from '../projects/project-config.js';
 const LOOP_DIR_NAME = 'loops';
 const USER_LOOP_ROOT = () => path.join(os.homedir(), '.agents', LOOP_DIR_NAME);
 
-/**
- * Split a `provider/model` string into its two parts. Splits on the first `/`
- * so model ids containing a slash (e.g. `openai/gpt-5`) still resolve.
- */
 const splitProviderModel = (value) => {
   const raw = asNonEmptyString(value);
   if (!raw) {
@@ -68,11 +64,6 @@ const splitProviderModel = (value) => {
   };
 };
 
-/**
- * Parse one loop markdown file into a scheduled-task definition, or return
- * null when the file is malformed. Malformed files are skipped with a warning
- * and never prevent valid files from loading.
- */
 export const parseLoopDefinition = (filePath) => {
   let parsed;
   try {
@@ -91,8 +82,6 @@ export const parseLoopDefinition = (filePath) => {
     return null;
   }
   if (name.length > MAX_TASK_NAME_LENGTH) {
-    // Reject instead of clamping: task names are clamped to this length at
-    // storage time, so identity keys must match the stored value exactly.
     console.warn(`[loops] skipped ${filePath}: frontmatter "name" exceeds ${MAX_TASK_NAME_LENGTH} characters`);
     return null;
   }
@@ -143,10 +132,6 @@ export const parseLoopDefinition = (filePath) => {
   };
 };
 
-/**
- * What a local approval of a project loop covers: everything that decides
- * what runs and when. `enabled` is left out, it is what the approval gates.
- */
 export const loopFingerprint = (definition) => createHash('sha256')
   .update(JSON.stringify({ name: definition.name, schedule: definition.schedule, execution: definition.execution }))
   .digest('hex');
@@ -174,11 +159,6 @@ const walkLoopMdFiles = (rootDir) => {
   }
 };
 
-/**
- * Discover loop files for a project: `~/.agents/loops/*.md` (user scope) plus
- * `.agents/loops/*.md` in every ancestor of the project path up to the
- * worktree root (project scope).
- */
 export const discoverLoopFiles = (projectPath) => {
   const files = [];
   for (const filePath of walkLoopMdFiles(USER_LOOP_ROOT())) {
@@ -196,17 +176,6 @@ export const discoverLoopFiles = (projectPath) => {
   return files;
 };
 
-/**
- * Discover and parse all loops for a project. Project-scope loops shadow
- * user-scope loops with the same name; among project files the nearest
- * ancestor wins.
- *
- * Unparseable files are reported as `{ scope, filePath, definition: null }`
- * entries instead of being dropped: the scheduler must distinguish "file is
- * gone" (unschedule its task) from "file exists but is currently malformed"
- * (keep its task with the last good definition until the file is fixed).
- * Malformed files never block valid ones in the same or other scopes.
- */
 export const discoverLoops = (projectPath) => {
   const byName = new Map();
   const loops = [];

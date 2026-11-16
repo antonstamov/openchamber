@@ -43,6 +43,7 @@ import { snippetsI18n } from './snippets.i18n';
 import { sidebarWorkI18n } from './sidebar-work.i18n';
 import { sidebarSectionsI18n } from './sidebar-sections.i18n';
 import { worktreeArchiveI18n } from './worktree-archive.i18n';
+import { operatorChildrenI18n } from './operator-children.i18n';
 import { omniSearchI18n } from './omni-search.i18n';
 import { overviewI18n } from './overview.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -233,6 +234,7 @@ export const dict = {
   ...sidebarWorkI18n.ru,
   ...sidebarSectionsI18n.ru,
   ...worktreeArchiveI18n.ru,
+  ...operatorChildrenI18n.ru,
   ...omniSearchI18n.ru,
   ...overviewI18n.ru,
   ...isolatedSpacesI18n.ru,

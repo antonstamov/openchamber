@@ -25,6 +25,9 @@ import { isChatDirectoryPath } from '@/lib/chatDirectories';
 import { useI18n } from '@/lib/i18n';
 import { isSessionPinned } from '@/lib/sessionPins';
 import { isDoneSuggested } from '@/lib/sessionWorkMetadata';
+import { isOperatorChildSession } from '@/lib/sessionOperatorChild';
+import { takeOverSession } from '@/sync/session-take-over';
+import { OperatorChildrenCount } from '@/components/session/sidebar/sessions/OperatorChildrenCount';
 import { getSessionGoal } from '@/lib/sessionGoalMetadata';
 import { collectSessionWorkInWork } from '@/components/session/sidebar/works/sidebarWorks';
 import { cn } from '@/lib/utils';
@@ -248,6 +251,7 @@ export const MobileSessionRow: React.FC<{
             {refMark(true)}
             {marks}
             <MobileSessionPendingBadges {...pendingRequests} />
+            <OperatorChildrenCount childNodes={node.children} />
           </span>
         </> : null}
       />
@@ -277,6 +281,7 @@ export const MobileSessionRow: React.FC<{
           {refMark(false)}
           {marks}
           <MobileSessionPendingBadges {...pendingRequests} />
+          <OperatorChildrenCount childNodes={node.children} />
           {pinMarker}
           {liveState}
           {timeSlot}
@@ -305,6 +310,12 @@ export const MobileSessionRow: React.FC<{
           {work.inWork ? t('sessions.sidebar.session.work.markDone') : t('sessions.sidebar.session.work.track')}
         </ContextMenuItem>
       ) : null}
+      {isOperatorChildSession(session) ? (
+        <ContextMenuItem onClick={() => { void takeOverSession(session.id, directory || null).catch(() => toast.error(t('sessions.sidebar.session.takeOver.failed'))); }}>
+          <Icon name="user" className="me-1 size-4" />
+          {t('sessions.sidebar.session.menu.takeOver')}
+        </ContextMenuItem>
+      ) : null}
       <ContextMenuItem onClick={() => { void runMobileSubtreeAction('archive', session, t); }}>
         <Icon name="archive" className="me-1 size-4" />
         {t('sessions.sidebar.bulkActions.archive')}
@@ -326,6 +337,7 @@ export const MobileSessionRow: React.FC<{
       revealed={revealed}
       onRevealedChange={setRevealed}
       dataActiveSession={active}
+      sessionId={session.id}
       // A repeat of the open session (Pinned or In work above its project)
       // takes no fill, as on the desktop: its full-strength title marks it.
       contentClassName={cn('relative flex w-full items-center bg-background transition-colors', active && !row.repeat && MOBILE_ACTIVE_ROW_CLASS)}

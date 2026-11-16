@@ -1,8 +1,5 @@
 import type { Extension } from '@codemirror/state';
 
-// Static imports for the most common languages only.
-// Less common languages are loaded dynamically via loadLanguageByExtension
-// to keep the initial bundle lean.
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { css } from '@codemirror/lang-css';
@@ -79,8 +76,6 @@ const matchLanguageDescriptionForFile = (filePath: string): LanguageDescription 
   if (byFilename) {
     return byFilename;
   }
-  // The chat and diff highlighter knows more extensions (.tpl as PHP, .jsonl,
-  // .svelte...); reuse its language name so the editor colours them too.
   const languageName = getLanguageFromExtension(filePath);
   if (!languageName || languageName === 'text') {
     return null;
@@ -94,7 +89,6 @@ const markdownHighlight = () => syntaxHighlighting(HighlightStyle.define([
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strikethrough, textDecoration: 'line-through' },
   { tag: [t.link, t.url], color: 'var(--markdown-link, currentColor)', textDecoration: 'underline' },
-  // Translucent code backgrounds let selection and match highlights show through.
   { tag: t.monospace, backgroundColor: 'color-mix(in srgb, var(--surface-muted) 30%, transparent)' },
   { tag: t.quote, color: 'var(--markdown-blockquote, currentColor)', fontStyle: 'italic' },
   { tag: t.list, color: 'color-mix(in srgb, var(--muted-foreground) 40%, var(--foreground) 60%)' },
@@ -105,11 +99,9 @@ export function languageByExtension(filePath: string): Extension | null {
   const normalized = filePath.toLowerCase();
   const filename = normalizeFileName(normalized);
 
-  // Special filenames
   switch (filename) {
     case 'makefile':
     case 'gnumakefile':
-      // No dedicated mode; shell is a decent fallback for Make-ish files.
       return shellLanguage;
   }
 
@@ -117,7 +109,6 @@ export function languageByExtension(filePath: string): Extension | null {
   const ext = idx >= 0 ? normalized.slice(idx + 1) : '';
 
   switch (ext) {
-    // JavaScript/TypeScript (most common — keep static)
     case 'ts':
     case 'tsx':
     case 'mts':
@@ -129,7 +120,6 @@ export function languageByExtension(filePath: string): Extension | null {
     case 'cjs':
       return javascript({ typescript: false, jsx: ext === 'jsx' });
 
-    // Web (keep static)
     case 'json':
     case 'jsonc':
     case 'json5':
@@ -162,7 +152,6 @@ export function languageByExtension(filePath: string): Extension | null {
         markdownHighlight(),
       ];
 
-    // Shell (keep static)
     case 'sh':
     case 'bash':
     case 'zsh':
@@ -170,14 +159,11 @@ export function languageByExtension(filePath: string): Extension | null {
     case 'env':
       return shellLanguage;
 
-    // Python (very common — keep static)
     case 'py':
     case 'pyw':
     case 'pyi':
       return python();
 
-    // Less common languages: return null so callers fall back to
-    // loadLanguageByExtension which dynamically imports from @codemirror/language-data.
     default:
       return null;
   }

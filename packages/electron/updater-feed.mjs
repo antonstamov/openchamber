@@ -27,16 +27,8 @@ export const CANARY_UPDATER_FEED = Object.freeze({
 // existing callers keep working.
 export const pickUpdaterSource = () => 'github';
 
-// Where the app takes its updates from: the releases, or the nightly Canary
-// build. The person picks it in Settings → About; the app installs the next
-// update from that channel and keeps following it. Without a pick (unset, an
-// older build's value) the app follows its own build, so a Canary build
-// installed from the canary pre-release does not offer the older release as
-// an update nobody asked for.
 export const isUpdateChannel = (value) => value === 'stable' || value === 'canary';
 
-// A Canary build's version is the release it leads to with a `canary`
-// pre-release part: 2.5.4-canary.20261030.123.
 export const isCanaryVersion = (version) => /-canary\./.test(String(version ?? ''));
 
 export const normalizeUpdateChannel = (value, appVersion) => {
