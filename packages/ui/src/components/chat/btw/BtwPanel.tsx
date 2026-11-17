@@ -24,6 +24,7 @@ import {
 } from '@/sync/sync-context';
 import { useStreamingStore } from '@/sync/streaming';
 import { destroyBtwSession, filterBtwTailMessages, promoteBtwSession, type BtwSessionRef } from '@/lib/btw';
+import { attachSyntheticContext } from '../lib/attachSyntheticContext';
 import type { BtwPanelState } from './useBtwPanelState';
 import { ChatSurfaceProvider } from '../ChatSurfaceContext';
 import { ChatTranscriptDirectoryContext } from '../chatColumnSession';
@@ -167,7 +168,7 @@ const useBtwSessionData = (
     const sessionRecoveredQuestions = useRecoveredQuestions(sessionId, directory);
 
     const tailRecords = React.useMemo(
-        () => filterBtwTailMessages(messageRecords, boundaryMessageID),
+        () => attachSyntheticContext(filterBtwTailMessages(messageRecords, boundaryMessageID)),
         [boundaryMessageID, messageRecords],
     );
 
