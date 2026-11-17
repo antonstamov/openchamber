@@ -89,7 +89,6 @@ const LARGE_TEXT_PASTE_BEHAVIOR_OPTIONS: ChipOption<LargeTextPasteBehavior>[] = 
   { id: 'inline-double-paste', labelKey: 'settings.openchamber.visual.option.largeTextPaste.inlineDoublePaste.label' },
 ];
 
-/** A sub-option that only matters while the option above it is on. */
 const NESTED_OPTION_CLASS = 'ps-6';
 
 const useChipOptions = <T extends string>(options: ChipOption<T>[]) => {
@@ -97,7 +96,6 @@ const useChipOptions = <T extends string>(options: ChipOption<T>[]) => {
   return React.useMemo(() => options.map((option) => ({ value: option.id, label: t(option.labelKey) })), [options, t]);
 };
 
-/** How the transcript reads: agent activity, layout, formatting, search. */
 const SelectionApprovalField: React.FC = () => {
   const { t } = useI18n();
   const selectionApprovalText = useUIStore((state) => state.selectionApprovalText);
@@ -171,8 +169,6 @@ const MessagesTab: React.FC = () => {
 
   const handleActivityRenderModeChange = (mode: 'collapsed' | 'summary') => {
     setActivityRenderMode(mode);
-    // A stored legacy 'sorted' chat mode reads as Collapsed until the user
-    // picks a mode here; retire it so the choice sticks.
     void updateDesktopSettings({ activityRenderMode: mode, chatRenderMode: 'live' });
   };
 
@@ -204,7 +200,6 @@ const MessagesTab: React.FC = () => {
               className={NESTED_OPTION_CLASS}
             />
           ) : null}
-          {/* Only a collapsible block can fold while it streams. */}
           {showReasoningTraces && collapsibleThinkingBlocks ? (
             <SettingsCheckboxRow
               checked={expandReasoningWhileStreaming}
@@ -386,7 +381,6 @@ const MessagesTab: React.FC = () => {
   );
 };
 
-/** Typing and sending: the send key, follow-ups, pastes, drafts, history. */
 const ComposerTab: React.FC = () => {
   const { t } = useI18n();
   const { isMobile } = useDeviceInfo();
@@ -441,7 +435,6 @@ const ComposerTab: React.FC = () => {
     <>
       <SettingsSection title={t('settings.layout.chat.section.sending')} settingsItem="chat.composer" contentClassName="space-y-5">
         <div>
-          {/* Phones send with the keyboard's own button, so there is no send key to pick. */}
           {isMobile ? null : (
             <SettingsFieldRow
               label={t('settings.openchamber.visual.field.enterToSend')}
@@ -562,7 +555,6 @@ const ComposerTab: React.FC = () => {
           </SettingsFieldRow>
           <SettingsFieldRow
             label={t('settings.openchamber.visual.field.inputHistoryLimit')}
-            // Lowering the number drops prompts for good, so this stays visible.
             description={t('settings.openchamber.visual.field.inputHistoryLimitDescription')}
             settingsItem="chat.input-history-limit"
           >
@@ -588,7 +580,6 @@ const ComposerTab: React.FC = () => {
   );
 };
 
-/** What OpenChamber adds around a session: starters, recaps, reviews, goals. */
 const AssistanceTab: React.FC = () => {
   const { t } = useI18n();
   const isVSCode = isVSCodeRuntime();
@@ -639,9 +630,6 @@ const AssistanceTab: React.FC = () => {
           ariaLabel={t('settings.openchamber.visual.field.sessionSuggestionAria')}
           settingsItem="chat.session-suggestion"
         />
-        {/* Jev runs on the OpenChamber server, which VS Code does not have.
-            The line naming who decides sits under the label, so it reads as
-            part of this option rather than text between two checkboxes. */}
         {isVSCode ? null : (
           <SettingsCheckboxRow
             checked={jevAvailable && sessionReviewOfferEnabled}
@@ -656,7 +644,6 @@ const AssistanceTab: React.FC = () => {
         )}
       </SettingsSection>
 
-      {/* The goal loop runs in the web server; VS Code only renders goal state. */}
       {isVSCode ? null : (
         <SettingsSection
           title={t('settings.openchamber.visual.goal.sectionTitle')}
@@ -685,8 +672,6 @@ const AssistanceTab: React.FC = () => {
               )}
               settingsItem="chat.session-goal-budget"
             >
-              {/* The field keeps its place while the budget is off, so
-                  turning it on does not move the rows around it. */}
               <NumberInput
                 value={sessionGoalDefaultBudget}
                 onValueChange={(value) => {
@@ -709,12 +694,6 @@ const AssistanceTab: React.FC = () => {
   );
 };
 
-/**
- * Settings → Chat. Three tabs split what used to be one long page: how the
- * transcript reads, how the composer sends, and what OpenChamber adds around
- * a session. The tab lives in `chatSettingsTabs.ts`, so a search result can
- * open the tab that holds its target.
- */
 export const ChatSettings: React.FC = () => {
   const { t } = useI18n();
   const tab = useChatSettingsTabStore((state) => state.tab);
