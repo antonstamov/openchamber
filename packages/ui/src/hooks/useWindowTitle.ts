@@ -1,5 +1,12 @@
 import React from 'react';
 import { useProjectsStore } from '@/stores/useProjectsStore';
+import { useDirectoryStore } from '@/stores/useDirectoryStore';
+import { useSessionUIStore } from '@/sync/session-ui-store';
+import { isChatDirectoryForHome } from '@/lib/chatDirectories';
+import { useSpaceProjectDirectory } from '@/lib/spaces/spaces-store';
+import { resolveProjectForSessionDirectory } from '@/lib/projectResolution';
+import type { ProjectEntry } from '@/lib/api/types';
+import type { WorktreeMetadata } from '@/types/worktree';
 import { isDesktopLocalOriginActive, isDesktopShell } from '@/lib/desktop';
 import { desktopHostsGet, getDesktopHostApiUrl, locationMatchesHost, redactSensitiveUrl } from '@/lib/desktopHosts';
 import { setDesktopWindowTitle } from '@/lib/desktopNative';
@@ -20,13 +27,54 @@ const buildWindowTitle = (projectLabel: string | null, instanceLabel: string | n
   return parts.join(' | ');
 };
 
-export const useWindowTitle = () => {
-  const activeProject = useProjectsStore((state) => {
-    if (!state.activeProjectId) {
+export const resolveWindowTitleProject = ({
+  projects,
+  worktreesByProject,
+  currentSessionDirectory,
+  activeProjectId,
+  isChat,
+  spaceProjectDirectory,
+}: {
+  projects: ProjectEntry[];
+  worktreesByProject: Map<string, WorktreeMetadata[]>;
+  currentSessionDirectory: string | null;
+  activeProjectId: string | null;
+  isChat: boolean;
+  spaceProjectDirectory: string | null;
+}): ProjectEntry | null => {
+  // A selected session owns the title. A chat session resolves to no project,
+  // so a stale global activeProjectId must not leak into the title.
+  if (currentSessionDirectory) {
+    if (isChat) {
       return null;
     }
-    return state.projects.find((project) => project.id === state.activeProjectId) ?? null;
-  });
+    return resolveProjectForSessionDirectory(projects, worktreesByProject, currentSessionDirectory, spaceProjectDirectory);
+  }
+  if (!activeProjectId) {
+    return null;
+  }
+  return projects.find((project) => project.id === activeProjectId) ?? null;
+};
+
+export const useWindowTitle = () => {
+  const projects = useProjectsStore((state) => state.projects);
+  const activeProjectId = useProjectsStore((state) => state.activeProjectId);
+  const currentSessionDirectory = useSessionUIStore((state) => state.currentSessionDirectory);
+  const availableWorktreesByProject = useSessionUIStore((state) => state.availableWorktreesByProject);
+  const homeDirectory = useDirectoryStore((state) => state.homeDirectory);
+  // Subscribed so a space session picks up its project when the spaces list
+  // arrives after the session was selected.
+  const spaceProjectDirectory = useSpaceProjectDirectory(currentSessionDirectory);
+  const isChat = isChatDirectoryForHome(currentSessionDirectory, homeDirectory);
+
+  const activeProject = React.useMemo(() => resolveWindowTitleProject({
+    projects,
+    worktreesByProject: availableWorktreesByProject,
+    currentSessionDirectory,
+    activeProjectId,
+    isChat,
+    spaceProjectDirectory,
+  }), [projects, availableWorktreesByProject, currentSessionDirectory, activeProjectId, isChat, spaceProjectDirectory]);
 
   const projectLabel = React.useMemo(() => {
     if (!activeProject) {
