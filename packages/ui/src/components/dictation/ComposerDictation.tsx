@@ -27,7 +27,6 @@ import { formatShortcutForDisplay, getEffectiveShortcutCombo } from '@/lib/short
 import { TooltipLabelWithShortcut } from '@/components/ui/action-toolbar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-// One composer owns microphone capture and its keyboard confirmation in a window.
 let recordingOwner: HTMLSpanElement | null = null;
 
 /**
@@ -49,12 +48,7 @@ interface ComposerDictationProps {
     disabled?: boolean;
     onInsert: (text: string) => void;
     onInsertAndSend: (text: string) => void;
-    /** Called once when a dictation leaves idle, before any transcript exists,
-        so the host can record which draft the dictation belongs to. */
     onStart?: () => void;
-    /** Called when the record-and-send button is pressed, before the async
-        transcript resolves; the host holds the composer open until onInsert
-        or onInsertAndSend settles. */
     onSendStart?: () => void;
     /** Reports whether dictation is active (recording/transcribing/failed). */
     onActiveChange?: (active: boolean) => void;
@@ -67,6 +61,14 @@ interface ComposerDictationProps {
     /** Render the mic trigger button (default). Pass false when the host renders
         its own trigger and only needs the engine + inline status. */
     renderTrigger?: boolean;
+    /** Overlay sizing hooks kept for the callers that still pass them; the
+        inline status reports no height, so the height callback always stays
+        null when called. */
+    radius?: number | string;
+    footerPaddingClass?: string;
+    sendIconSizeClass?: string;
+    onContentHeightChange?: (height: number | null) => void;
+    topAccessory?: React.ReactNode;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -75,10 +77,6 @@ const formatDuration = (seconds: number): string => {
     return `${mins}:${String(secs).padStart(2, '0')}`;
 };
 
-/**
- * Polls the dictation status route while the local model is downloading and
- * returns the download percent (null while unknown / not downloading).
- */
 const useModelDownloadProgress = (active: boolean): number | null => {
     const sttLocalModel = useConfigStore((state) => state.sttLocalModel);
     const [percent, setPercent] = React.useState<number | null>(null);
@@ -98,8 +96,6 @@ const useModelDownloadProgress = (active: boolean): number | null => {
                     return;
                 }
                 const data = await response.json();
-                // activeModel is the model the server dictates with, which
-                // differs from the saved one when that left the catalog.
                 const modelId = data?.activeModel ?? sttLocalModel;
                 const model = Array.isArray(data?.models)
                     ? data.models.find((m: { id: string }) => m.id === modelId)
@@ -144,8 +140,6 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
     const dictationAutoSend = useConfigStore((state) => state.dictationAutoSend);
     const shortcutOverrides = useUIStore((state) => state.shortcutOverrides);
     const dictationShortcut = formatShortcutForDisplay(getEffectiveShortcutCombo('toggle_dictation', shortcutOverrides), '');
-    // The dictation server (WebSocket + STT worker) lives in the OpenChamber
-    // web server; the VS Code bridge has no server process for it.
     const [supported] = React.useState(() => !isVSCodeRuntime() && isDictationCaptureSupported());
 
     const pendingActionRef = React.useRef<'insert' | 'send' | null>(null);
@@ -203,8 +197,6 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
         void startDictation();
     }, [supported, dictationEnabled, disabled, startDictation]);
 
-    // The transcript arrives long after the start; report the start itself so
-    // the host can keep the transcript with the draft that was on screen then.
     const onStartRef = React.useRef(onStart);
     React.useEffect(() => {
         onStartRef.current = onStart;
@@ -216,7 +208,6 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
 
     const confirmWith = React.useCallback((action: 'insert' | 'send') => {
         pendingActionRef.current = action;
-        // Hold the mobile composer open until the asynchronous submit settles.
         if (action === 'send') {
             onSendStartRef.current?.();
         }

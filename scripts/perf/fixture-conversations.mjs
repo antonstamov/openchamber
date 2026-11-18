@@ -464,7 +464,7 @@ export const DESIGN_SESSIONS = [
 ]
 
 // The OpenAI protocol sends a message's content as a string or as a list of parts.
-const textOf = (content) => (Array.isArray(content) ? content.map((part) => part?.text ?? "").join("\n") : String(content ?? ""))
+export const fixtureMessageText = (content) => (Array.isArray(content) ? content.map((part) => part?.text ?? "").join("\n") : String(content ?? ""))
 
 // Turns behavior scenarios (scripts/verify) send that no design shot shows.
 // The workflow's agents answer slowly so a scenario sees the run while it works.
@@ -735,6 +735,19 @@ const VERIFY_TURNS = [
     }],
     answer: "Starting the release from the branch you picked.\n",
   },
+  // A page the agent shows waits on the user's answer.
+  {
+    id: "verify_waiting_page",
+    prompt: "Show me a page to pick the release day.",
+    steps: [{
+      text: "Showing the page.",
+      calls: [{
+        name: "openchamber_render",
+        arguments: { action: "render.page", parameters: { title: "Release day", awaitAnswer: true, html: "<p>Which day should the release go out?</p><button class=\"oc-button\" onclick=\"openchamber.submit({ day: 'friday' }, 'Friday')\">Friday</button>" } },
+      }],
+    }],
+    answer: "Releasing on the day you picked.\n",
+  },
 ]
 
 const TURNS = [
@@ -750,7 +763,7 @@ const TURNS = [
 export const planScriptedResponse = (messages) => {
   const lastPrompt = messages.findLastIndex((message) => message?.role === "user")
   if (lastPrompt < 0) return null
-  const prompt = textOf(messages[lastPrompt].content)
+  const prompt = fixtureMessageText(messages[lastPrompt].content)
   const turn = TURNS.find((candidate) => prompt.includes(candidate.prompt))
   if (!turn) return null
   const toolResults = messages.slice(lastPrompt + 1).filter((message) => message?.role === "tool").length

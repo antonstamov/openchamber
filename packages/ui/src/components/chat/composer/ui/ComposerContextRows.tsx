@@ -1,16 +1,3 @@
-/**
- * Context waiting for the next message, as rows inside the composer above the
- * input: review comments left in a diff, preview annotations, terminal
- * selections, PR context, chat quotes.
- *
- * Each row reads like the sent message will: the quoted material behind an
- * accent bar, then the user's comment. A click opens the row in place, with
- * the whole quote and the comment ready to edit; Enter or a click elsewhere
- * saves, Escape drops the edit. On mobile the click opens the composer's
- * comment shell on that comment instead (`composer/comment/`), the same field
- * that wrote it. Remove and "show in the original message" wait on the row's
- * hover, and stay visible on touch screens.
- */
 
 import React from 'react';
 import { flushSync } from 'react-dom';
@@ -57,40 +44,25 @@ import { useMobileCommentComposerController } from '../comment/MobileCommentComp
 
 interface ComposerContextRowsProps {
     draftTarget: InlineCommentDraftTarget | null;
-    /** Mobile edits a comment in the composer's comment shell, not in the row. */
     isMobile: boolean;
-    /** Opens one of the composer's files by name: a browser annotation's screenshot. */
     onOpenAttachment: (filename: string) => void;
 }
 
-/** Rows shown before the rest folds behind "+N more", so the input keeps its place. */
 const VISIBLE_ROWS = 4;
 
-/** The bar every quote stands behind, here and in the sent message. */
 const QUOTE_BAR_CLASS = 'border-s-3 border-primary/45 ps-2.5';
 
-/**
- * A collapsed comment's text before a chip keeps its width, up to a cap past
- * which it truncates: the chip and the line's tail give way first. Shrinking it
- * even by a fraction of a pixel would put an ellipsis on a word that fits.
- */
 const LEADING_TEXT_STYLE: React.CSSProperties = { flexShrink: 0, maxWidth: '60%', whiteSpace: 'pre' };
-/** `truncate` collapses the spaces at a run's edges, which sit right against a chip. */
 const TEXT_RUN_STYLE: React.CSSProperties = { whiteSpace: 'pre' };
 
 const ROW_ACTION_CLASS = 'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-interactive-hover hover:text-foreground';
 
-/** What a row shows for one draft. */
 type RowView = {
     icon: IconName;
     iconClassName?: string;
-    /** The source, named in full: the caption of the open row and the row's tooltip. */
     title: string;
-    /** The collapsed row's lead: the quote's first line, or where it came from. */
     snippet: string;
-    /** The open row's quote. */
     quote: string;
-    /** Code, terminal output and CI logs read better monospaced. */
     mono: boolean;
     comment: string;
     editable: boolean;
@@ -103,7 +75,6 @@ const basename = (path: string): string => {
 
 const firstLine = (text: string): string => text.trim().split('\n')[0] ?? '';
 
-/** `file:12`, `file:12-18`, or the file alone for a whole-file comment. */
 const location = (file: string, start: number, end: number): string => {
     if (start <= 0) return file;
     return start === end ? `${file}:${start}` : `${file}:${start}-${end}`;
@@ -114,13 +85,7 @@ const DraftRow: React.FC<{
     target: InlineCommentDraftTarget | null;
     view: RowView;
     open: boolean;
-    /** Desktop: an open editable row is an open editor. */
     editsInPlace: boolean;
-    /**
-     * The phone layout: no hover whatever the pointer, so the actions stay
-     * visible, and a folded row with a comment shows only the comment, since
-     * the quote beside it would leave a few words of each.
-     */
     phoneLayout: boolean;
     onToggle: () => void;
     onClose: () => void;
@@ -129,12 +94,10 @@ const DraftRow: React.FC<{
     onFocusQuote: ((focused: boolean) => void) | null;
     onRevealQuote: (() => void) | null;
     attachmentFilenames: readonly string[];
-    /** Opens the annotation's screenshot; absent when the row has none. */
     onOpenScreenshot: (() => void) | null;
 }> = ({ draft, target, view, open, editsInPlace, phoneLayout, onToggle, onClose, onRemove, onSaveComment, onFocusQuote, onRevealQuote, attachmentFilenames, onOpenScreenshot }) => {
     const { t } = useI18n();
     const [editText, setEditText] = React.useState(view.comment);
-    // Images pasted while editing join the composer's attachments on save.
     const imagePaste = useCommentImagePaste();
     const editing = open && editsInPlace && view.editable;
     // A late transcript from an attach-while-busy outlives the field that
@@ -217,8 +180,6 @@ const DraftRow: React.FC<{
         toast.error(t('chat.dictation.failed'), { description: error.message });
     }, [disarmEditHandoff, draft.id, t, target]);
 
-    // Set once the edit is saved, dropped or the item removed, so a blur that
-    // follows (the field unmounting) does nothing more.
     const settledRef = React.useRef(false);
     React.useEffect(() => {
         if (!editing) return;
@@ -270,11 +231,6 @@ const DraftRow: React.FC<{
         imagePaste.discardPastedImages();
         onClose();
     };
-    // A blur saves once focus has really left the row, whether the row is
-    // still open or another row's click already replaced it. The field also
-    // blurs when it remounts (React's development double mount removes the
-    // first one) while the second field takes focus right after: that blur
-    // finds focus back inside the row and saves nothing.
     const openRowRef = React.useRef<HTMLDivElement>(null);
     const handleRowBlur = () => {
         const row = openRowRef.current;
@@ -283,8 +239,6 @@ const DraftRow: React.FC<{
             commitEdit();
         }, 0);
     };
-    // A press on the row's own controls keeps focus in the field, so its blur
-    // does not save and close the row under the pointer first.
     const keepEditorFocus = (event: React.PointerEvent) => {
         if (editing) event.preventDefault();
     };
@@ -296,7 +250,6 @@ const DraftRow: React.FC<{
                 !open && !phoneLayout && 'opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100',
             )}
         >
-            {/* An open row's quote is itself the way to its source. */}
             {onRevealQuote && !open ? (
                 <HoverTooltip label={t('chat.message.context.showQuoteSource')}>
                     <button
@@ -379,9 +332,6 @@ const DraftRow: React.FC<{
                 )}
                 {view.editable ? (
                     hasComment ? (
-                        // Text runs and file chips share the line and shrink together, so a
-                        // chip narrows to its icon and the start of its name instead of
-                        // being cut off whole the way one line's ellipsis would.
                         <span dir="auto" className="flex min-w-0 flex-1 items-center overflow-hidden whitespace-pre text-foreground">
                             {withAttachmentChips(firstLine(view.comment), attachmentFilenames, `row-${draft.id}`).map((node, index, nodes) => (
                                 React.isValidElement(node)
@@ -410,8 +360,6 @@ const DraftRow: React.FC<{
         <div
             ref={openRowRef}
             className="oc-tile rounded-lg px-1.5 py-1.5"
-            // Focus leaving the row from anywhere inside it (the field, or the
-            // row's buttons the keyboard moved to) saves the edit.
             onBlur={editing ? handleRowBlur : undefined}
             {...focusHandlers}
         >
@@ -531,7 +479,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
     const listRef = React.useRef<HTMLDivElement>(null);
 
     const descriptorOf = useSourceControlDescriptorOf();
-    // A draft without a provider was written before providers other than GitHub existed: a pull request.
     const termOf = React.useCallback(
         (draft: InlineCommentDraft): ChangeRequestTerm => (draft.provider ? descriptorOf(draft.provider).terminology.changeRequest : 'pullRequest'),
         [descriptorOf],
@@ -556,7 +503,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
                 return { icon: 'terminal', title, snippet: title, quote: draft.code, mono: true, comment: '', editable: false };
             }
             case 'preview-annotation': {
-                // The prompt is written for the model; the row shows what the user pointed at.
                 const annotation = readBrowserAnnotationPrompt(draft.code);
                 return {
                     icon: 'global',
@@ -606,7 +552,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
         }
     }, [t, termOf]);
 
-    // Quotes waiting here stay marked in their messages until sent or removed.
     const quoteMarks = React.useMemo<ChatQuoteMark[]>(() => {
         if (!draftTarget) return [];
         return drafts.flatMap((draft) => (
@@ -631,7 +576,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
     const hiddenCount = showAll ? 0 : Math.max(0, drafts.length - VISIBLE_ROWS);
     const visibleDrafts = hiddenCount > 0 ? drafts.slice(0, VISIBLE_ROWS) : drafts;
 
-    // An open row that left the list (removed, sent, folded away) is closed.
     React.useEffect(() => {
         if (openId && !visibleDrafts.some((draft) => draft.id === openId)) setOpenId(null);
     }, [openId, visibleDrafts]);
@@ -639,14 +583,11 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
         if (drafts.length <= VISIBLE_ROWS) setShowAll(false);
     }, [drafts.length]);
 
-    // A press outside the list closes a read-only open row; an editing row
-    // closes through its field's blur, which saves first.
     React.useEffect(() => {
         if (!openId) return;
         const handlePointerDown = (event: PointerEvent) => {
             // SAFETY: a pointer event target inside the document is always a Node; `contains` only needs that.
             if (listRef.current?.contains(event.target as Node)) return;
-            // An editing row closes through its blur, which saves first.
             if (openRowEditsRef.current && listRef.current?.contains(document.activeElement)) return;
             setOpenId(null);
         };
@@ -657,8 +598,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
     if (!draftTarget || drafts.length === 0) return null;
 
     const saveComment = (draft: InlineCommentDraft, text: string): boolean => {
-        // An annotation written before its comment moved out of the prompt
-        // still says it there; drop that line so the model reads one comment.
         const legacyAnnotationComment = draft.source === 'preview-annotation' && readBrowserAnnotationPrompt(draft.code).comment !== null;
         return updateDraft(draftTarget, draft.id, legacyAnnotationComment
             ? { text, code: withoutBrowserAnnotationComment(draft.code) }
@@ -671,18 +610,12 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
             return;
         }
         if (isMobile && mobileComment && view.editable) {
-            // The shell saves only the text, so an annotation that still
-            // carries its comment in the prompt moves it out first.
             if (draft.source === 'preview-annotation' && !draft.text && readBrowserAnnotationPrompt(draft.code).comment !== null) {
                 saveComment(draft, view.comment);
             }
-            // flushSync mounts and focuses the shell inside the tap, as iOS
-            // requires for the soft keyboard (see composer/comment/).
             flushSync(() => mobileComment.openEdit({
                 target: draftTarget,
                 draftId: draft.id,
-                // Shown in the shell's quote row only; a save writes nothing
-                // but the text. Without quoted text the row names the item.
                 quote: { plainText: view.quote.trim() ? view.quote : view.title, markdownText: view.quote, messageId: null },
                 text: view.comment,
             }));
@@ -712,7 +645,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
                 onRemove={() => {
                     quoteHighlights?.focusMark(null);
                     removeDraft(draftTarget, draft.id);
-                    // The annotation's screenshot leaves with it.
                     const screenshot = draft.screenshot ? attachedFiles.find((file) => file.filename === draft.screenshot) : undefined;
                     if (screenshot) removeAttachedFile(screenshot.id);
                 }}
@@ -731,7 +663,6 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
 
     return (
         <div ref={listRef} className="pt-1.5">
-            {/* Unfolded, a long list scrolls inside the composer instead of pushing the input off screen. */}
             <ScrollableOverlay outerStyle={{ maxHeight: '40vh' }} className="flex flex-col gap-0.5" disableHorizontal>
                 {rows}
             </ScrollableOverlay>
@@ -749,5 +680,4 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
     );
 }
 
-/** Memoized: the composer re-renders on every keystroke, and nothing here depends on the draft text. */
 export const ComposerContextRows = React.memo(ComposerContextRowsView);

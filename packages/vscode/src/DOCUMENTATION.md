@@ -24,8 +24,17 @@ Keep `bridge.ts` as a thin orchestration layer that delegates message handling t
 - A single resolved Shiki theme supplies both variants when the opposite theme cannot be found, preserving the active editor's highlighting. Active-theme lookup wins for the current variant; preferred themes supply the opposite variant. Theme resolution also listens for configuration changes because `workbench.colorTheme` can update after the active-theme event.
 - The logo between the `brand:flat-logo` markers in `webviewHtml.ts` belongs to `scripts/brand/generate.mjs` and shares its drawing with `OpenChamberLogo.tsx`.
 
+### Why the splash uses discrete updates and not a smooth animation
+
+The loading logo advances its lit roof tier once per second because a smooth CSS animation repaints the logo on every frame. Reduced-motion mode leaves the logo static.
+
+### Why the splash shows errors and not connection progress text
+
+The animated logo already indicates startup activity, so normal connection states leave the status text empty. Errors populate that text so a startup failure remains visible.
+
 ### Bridge reads and configuration
 
+- Config tests import `opencodeConfigTestHome` before `opencodeConfig` or `opencodeConfigPaths`. Config paths freeze at module load, so later isolation leaves reads and writes pointed at the user's real OpenCode config directory.
 - Proxy coalescing shares only overlapping, identical, allowlisted GET requests. Bootstrap and configuration stores issue duplicate reads that otherwise delay session creation on the single OpenCode process. Each caller receives its own payload copy, and settled requests leave the coalescer immediately.
 - A coalescing key includes every forwarded header with canonicalized header names, because directory and authentication scope travel in headers. A caller's abort cannot cancel a shared read and strand other callers.
 - A failed authoritative OpenCode skill list marks the filesystem supplement partial. Caching the supplement as a complete answer hides skills. Built-ins normalize both legacy `location` and current `path` records, including `/builtin/` and `skill://` paths, and retain OpenCode's id because policy ids can differ from display names.

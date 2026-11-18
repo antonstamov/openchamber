@@ -3,15 +3,13 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { pathToFileURL } from 'url';
+import { getWebPackagePaths } from './web-package-paths.js';
 import { fetchUpdateNotes } from './changelog/update-notes.js';
 import { compareVersions } from './version-order.js';
 import { isEnterpriseMode } from './enterprise-mode.js';
 
 import { resolveNpmRegistryRequest } from './opencode/npm-registry-config.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const PACKAGE_NAME = '@openchamber/web';
 const PACKAGE_PATH_SEGMENTS = PACKAGE_NAME.split('/');
@@ -143,17 +141,12 @@ async function checkForUpdatesFromApi(currentVersion, options = {}) {
     const shouldTrustClientPlatform = appType === 'desktop-electron' || appType === 'vscode' || appType === 'mobile-capacitor';
     const platform = shouldTrustClientPlatform ? normalizePlatform(options.platform) : hostPlatform;
     const arch = shouldTrustClientPlatform ? normalizeArch(options.arch) : hostArch;
-    // Enterprise mode keeps the update check (security fixes must reach the
-    // company) but never reports usage, whatever the client asked for.
     const reportUsage = options.reportUsage !== false && !isEnterpriseMode();
     const payload = {
       appType,
       deviceClass: normalizeDeviceClass(options.deviceClass),
       platform,
       arch,
-      // A Canary build (2.5.4-canary.20261030.123) checks in as such, so the
-      // usage counts tell the channels apart. Updates themselves come from
-      // the desktop updater, which reads the channel the person chose.
       channel: /-canary\./.test(currentVersion) ? 'canary' : 'stable',
       currentVersion,
       installId: reportUsage ? (options.installId || getOrCreateInstallId(appType)) : undefined,
@@ -231,7 +224,7 @@ function pathSetContains(a, b) {
 }
 
 function getCurrentPackagePath() {
-  return path.resolve(__dirname, '..', '..');
+  return getWebPackagePaths().root;
 }
 
 function getPackagePathForGlobalRoot(rootPath) {
@@ -361,7 +354,7 @@ function getOwnedPackagePathsFromGlobalBins(pm) {
 
     try {
       const realBinaryPath = fs.realpathSync.native ? fs.realpathSync.native(binaryPath) : fs.realpathSync(binaryPath);
-      packagePaths.push(path.resolve(realBinaryPath, '..', '..'));
+      packagePaths.push(getWebPackagePaths(pathToFileURL(realBinaryPath)).root);
     } catch {
     }
   }
@@ -406,12 +399,6 @@ function rememberDetection(packageManager, reason) {
 }
 
 export function detectPackageManagerDetails() {
-  // In desktop (Electron) runtime, package-manager detection is worthless —
-  // the app ships as a .app bundle, not installed via npm/pnpm/yarn/bun, and
-  // updates are handled by electron-updater. The detection path does up to a
-  // dozen spawnSync(pm, ['bin', '-g']) calls with 10s timeouts each; under
-  // the in-process server every one blocks the Electron main event loop and
-  // manifests as a multi-second UI freeze. Short-circuit here.
   if (process.env.OPENCHAMBER_RUNTIME === 'desktop') {
     return {
       packageManager: 'electron',
@@ -433,7 +420,6 @@ export function detectPackageManagerDetails() {
     }
   }
 
-  // First prefer the package manager that demonstrably owns the current install.
   const installPathPm = detectPackageManagerFromCurrentInstallPath();
   if (installPathPm && packageManagerOwnsCurrentInstall(installPathPm)) {
     return rememberDetection(installPathPm, 'install-path-owner');
@@ -446,7 +432,6 @@ export function detectPackageManagerDetails() {
     }
   }
 
-  // Fall back to weaker hints only when ownership cannot be established.
   const userAgent = process.env.npm_config_user_agent || '';
   let hintedPm = null;
   if (userAgent.startsWith('pnpm')) hintedPm = 'pnpm';
@@ -454,7 +439,6 @@ export function detectPackageManagerDetails() {
   else if (userAgent.startsWith('bun')) hintedPm = 'bun';
   else if (userAgent.startsWith('npm')) hintedPm = 'npm';
 
-  // Check execpath.
   const execPath = process.env.npm_execpath || '';
   if (!hintedPm) {
     if (execPath.includes('pnpm')) hintedPm = 'pnpm';
@@ -463,7 +447,6 @@ export function detectPackageManagerDetails() {
     else if (execPath.includes('npm')) hintedPm = 'npm';
   }
 
-  // Detect from invoked binary path.
   const invokedPm = detectPackageManagerFromInvocationPath(process.argv?.[1]);
   if (!hintedPm) {
     hintedPm = invokedPm;
@@ -473,7 +456,6 @@ export function detectPackageManagerDetails() {
     hintedPm = installPathPm;
   }
 
-  // Validate the hint against package visibility, but only after ownership checks failed.
   if (hintedPm && isCommandAvailable(resolvePackageManagerCommand(hintedPm)) && isPackageInstalledWith(hintedPm)) {
     return rememberDetection(hintedPm, 'hinted-visible-install');
   }
@@ -483,7 +465,6 @@ export function detectPackageManagerDetails() {
     return rememberDetection(runtimePm, 'runtime-visible-install');
   }
 
-  // Last resort: pick a PM that can at least see the package.
   const pmChecks = [
     { name: 'pnpm', check: () => isCommandAvailable(resolvePackageManagerCommand('pnpm')) },
     { name: 'yarn', check: () => isCommandAvailable(resolvePackageManagerCommand('yarn')) },
@@ -493,20 +474,15 @@ export function detectPackageManagerDetails() {
 
   for (const { name, check } of pmChecks) {
     if (check()) {
-      // Verify this PM actually has the package installed globally
       if (isPackageInstalledWith(name)) {
         return rememberDetection(name, 'last-resort-visible-install');
       }
     }
   }
 
-  // npm is only a guess from here on. A copy outside any node_modules folder
-  // (an unpacked tarball, the Docker image, a source checkout) was installed
-  // by no package manager at all, so no install command updates it.
   return rememberDetection('npm', installPathPm ? 'default-fallback' : 'unmanaged-install');
 }
 
-/** The running copy was installed by no package manager, so it cannot update itself. */
 export function isUnmanagedInstall() {
   return (cachedDetection ?? detectPackageManagerDetails()).reason === 'unmanaged-install';
 }
@@ -640,16 +616,9 @@ function isPackageInstalledWith(pm) {
   }
 }
 
-// npm, bun and yarn print `name@version`; pnpm separates the name and the
-// version with whitespace. An optional `v` covers yarn listing formats.
+// external: https://pnpm.io/cli/list pnpm separates package name and version with whitespace; npm, bun and yarn print name@version.
 const GLOBAL_VERSION_PATTERN = /@openchamber\/web[@\s]+v?(\d[\w.+-]*)/;
 
-/**
- * Read the globally installed version of the package as reported by the
- * package manager itself. Returns null when the listing cannot be read or
- * parsed. The listing command may exit non-zero when the package is missing,
- * so stdout is parsed regardless of the status.
- */
 function getInstalledGlobalVersion(pm) {
   try {
     const pmCommand = resolvePackageManagerCommand(pm);
@@ -665,22 +634,13 @@ function getInstalledGlobalVersion(pm) {
   }
 }
 
-/**
- * Normalize a version string into an exact install target.
- * Returns the plain version or null when the value is not a concrete version.
- */
 function normalizeTargetVersion(value) {
   const normalized = String(value ?? '').trim().replace(/^v/, '');
   return /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(normalized) ? normalized : null;
 }
 
-// Dependencies whose install scripts pnpm 10+ blocks until approved. pnpm 11+
-// stops a global install in a terminal to ask about them. Keep in sync with
-// scripts/install.sh and with the "Ignored build scripts" list a fresh
-// `pnpm add -g @openchamber/web` prints.
+// external: https://pnpm.io/cli/add#--allow-build pnpm 10+ restricts dependency build scripts; releases before 10.4 reject --allow-build.
 const PNPM_BUILD_DEPENDENCIES = ['msgpackr-extract', 'node-pty'];
-// First pnpm release that accepts `--allow-build`; older ones reject it as an
-// unknown option, and pnpm 9 and older run build scripts without approval.
 const PNPM_ALLOW_BUILD_MIN_VERSION = '10.4.0';
 
 function getPnpmAllowBuildFlags(pmCommand) {
@@ -795,12 +755,9 @@ export function getUpdateCommand(pm = detectPackageManager(), options = {}) {
   }
 }
 
-/**
- * Get current installed version from package.json
- */
 export function getCurrentVersion() {
   try {
-    const pkgPath = path.resolve(__dirname, '..', '..', 'package.json');
+    const pkgPath = getWebPackagePaths().packageJson;
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     return pkg.version || 'unknown';
   } catch {
@@ -810,7 +767,6 @@ export function getCurrentVersion() {
 
 const UPDATE_CHANNELS = new Set(['stable', 'canary']);
 
-/** A nightly Canary build: 2.5.4-canary.20261030.123. */
 const isCanaryVersion = (version) => /-canary\./.test(String(version || ''));
 
 function getSettingsFilePath() {
@@ -818,12 +774,6 @@ function getSettingsFilePath() {
   return path.join(dataDir ? path.resolve(dataDir) : path.join(os.homedir(), '.config', 'openchamber'), 'settings.json');
 }
 
-/**
- * The channel this install takes its updates from: the one picked in
- * Settings → About (`serverUpdateChannel`). Without a pick, a Canary build
- * (installed with `npm i -g @openchamber/web@canary`) follows Canary, so its
- * first check does not offer the release as a way back nobody asked for.
- */
 export function readUpdateChannel(currentVersion = getCurrentVersion()) {
   try {
     const settings = JSON.parse(fs.readFileSync(getSettingsFilePath(), 'utf8'));
@@ -833,10 +783,6 @@ export function readUpdateChannel(currentVersion = getCurrentVersion()) {
   return isCanaryVersion(currentVersion) ? 'canary' : 'stable';
 }
 
-/**
- * The package's npm dist-tags (`latest`, and `canary` once the nightly
- * published one), or null when the registry could not be read.
- */
 async function fetchDistTags() {
   try {
     const request = resolveNpmRegistryRequest(PACKAGE_NAME);
@@ -856,11 +802,6 @@ async function fetchDistTags() {
   }
 }
 
-/**
- * The oldest OpenCode a published release runs against, from `engines.opencode`
- * (">=2.2.4") in its package.json, or null when the registry could not be read
- * or the release does not say.
- */
 export async function fetchRequiredOpenCodeVersion(version) {
   const target = normalizeTargetVersion(version);
   if (!target) return null;
@@ -878,18 +819,13 @@ export async function fetchRequiredOpenCodeVersion(version) {
   }
 }
 
-/**
- * Fetch latest version from npm registry
- */
 async function getLatestVersion() {
   return (await fetchDistTags())?.latest || null;
 }
 
-/** Release notes between the installed and the offered version, or undefined. */
 async function fetchChangelogNotes(fromVersion, toVersion) {
   return (await fetchUpdateNotes(fromVersion, toVersion, compareVersions)) ?? undefined;
 }
-
 
 /**
  * Fork: the newest full release on the fork (drafts and pre-releases are
@@ -1033,7 +969,6 @@ export async function checkForUpdates(options = {}) {
     body: changelog,
     releaseUrl: `${GITHUB_RELEASES_URL}/tag/v${latestVersion}`,
     packageManager: pm,
-    // Show our CLI command, not raw package manager command
     updateCommand: 'openchamber update',
   };
 }

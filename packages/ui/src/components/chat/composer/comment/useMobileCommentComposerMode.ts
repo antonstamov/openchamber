@@ -1,8 +1,3 @@
-/**
- * Owns ChatInput's comment subscription, scope checks, and attach/cancel focus
- * handoff. Callbacks capture the rendered generation; ChatInput keys the shell
- * by it. A quote stays in its captured scope or is dropped, never re-targeted.
- */
 
 import React from 'react';
 import { flushSync } from 'react-dom';
@@ -17,7 +12,6 @@ import type { MobileCommentAttachPlan, MobileCommentScope } from './mobileCommen
 export interface MobileCommentModeOptions {
     isMobile: boolean;
     runtimeKey: string;
-    /** Session the composer's inline drafts target ('' when there is none). */
     directory: string | null;
     sessionKey: string | null;
     mobileShell: MobileComposerShell;
@@ -26,9 +20,7 @@ export interface MobileCommentModeOptions {
 export interface MobileCommentMode {
     active: boolean;
     draft: ReturnType<typeof useMobileCommentDraft>;
-    /** Wiring for the comment shell; callbacks are bound to the rendered open. */
     handlers: MobileCommentComposerHandlers;
-    /** Attach whatever comment is open right now (form submit path). */
     submit(): void;
     /** The shell's handoff-aware attach; the form submit delegates to it so a
      * busy dictation takes the same route as the attach button. */
@@ -48,19 +40,11 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
             : { runtimeKey, directory, sessionKey }),
         [directory, runtimeKey, sessionKey],
     );
-    // Publish the committed composer's target before a selection-menu tap can
-    // file anything. The menu must not derive a second target from the parent:
-    // an expanded `/btw` fork retargets the composer while the column keeps
-    // showing the parent session. Mobile's shell captures this scope when a
-    // comment opens; desktop's floating input writes its draft into it.
     React.useLayoutEffect(() => {
         controller?.setScope(scope);
         return () => controller?.setScope(null);
     }, [controller, scope]);
 
-    // Entering comment mode unmounts the wrapper-level dictation engine (the
-    // shell mounts its own, comment-scoped one); a stale active flag from it
-    // must not hold the shell expanded for the comment's lifetime.
     const prevActiveRef = React.useRef(false);
     React.useEffect(() => {
         if (active && !prevActiveRef.current && mobileShell.dictationActive) {
