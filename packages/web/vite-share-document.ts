@@ -14,25 +14,32 @@ type Options = {
 
 const stripExtension = (file: string) => file.replace(/\.(tsx?|jsx?)$/, '');
 
-// Vite ids use forward slashes on every platform, while path.join uses
-// backslashes on Windows: without normalizing, no shim matches there and the
-// real app modules stay in the graph. Those carry dynamic imports and
-// `?worker&url` workers, which an IIFE bundle cannot hold, so only the
-// Windows build failed while Linux (forward slashes on both sides) passed.
-const normalizeSlashes = (file: string) => file.replace(/\\/g, '/');
+// The app's stores read localStorage when their module loads, and the viewer's opaque-origin frame throws on that read, so a store in the bundle leaves every shared page blank.
+const posix = (file: string) => file.replace(/\\/g, '/');
+
+export function appStoreModules(moduleIds: string[], uiSource: string): string[] {
+  const stores = `${posix(uiSource)}/stores/`;
+  return moduleIds.filter((id) => posix(id).startsWith(stores));
+}
+
+export function shareDocumentShim(resolvedId: string, uiSource: string, windows = process.platform === 'win32'): string | null {
+  const slashes = (file: string) => (windows ? posix(file) : file);
+  const root = slashes(uiSource).replace(/\/$/, '');
+  const target = stripExtension(slashes(resolvedId).split('?')[0]);
+  for (const [from, shim] of Object.entries(SHARE_DOCUMENT_SHIMS)) {
+    if (target === `${root}/${from}`) return `${root}/${shim}`;
+  }
+  return null;
+}
 
 function shimPlugin(uiSource: string): Plugin {
-  const shims = new Map(Object.entries(SHARE_DOCUMENT_SHIMS).map(([target, shim]) => [
-    normalizeSlashes(path.join(uiSource, target)),
-    normalizeSlashes(path.join(uiSource, shim)),
-  ]));
   return {
     name: 'openchamber-share-document-shims',
     enforce: 'pre',
     async resolveId(source, importer, options) {
       const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
       if (!resolved) return null;
-      return shims.get(normalizeSlashes(stripExtension(resolved.id.split('?')[0]))) ?? null;
+      return shareDocumentShim(resolved.id, uiSource);
     },
   };
 }
@@ -75,6 +82,10 @@ async function buildShareDocument({ uiSource, aliases, react }: Options): Promis
   const outputs = (Array.isArray(result) ? result : [result]).flatMap((entry) => ('output' in entry ? entry.output : []));
   const chunk = outputs.find((output) => output.type === 'chunk' && output.isEntry);
   if (!chunk || chunk.type !== 'chunk') throw new Error('The share document build produced no script');
+  const stores = appStoreModules(Object.keys(chunk.modules), uiSource);
+  if (stores.length > 0) {
+    throw new Error(`The share document bundles app stores, which break shared pages at load: ${stores.map((id) => path.relative(uiSource, id)).join(', ')}. Replace the import that pulls them in with a shim in share-document/shims.ts.`);
+  }
   return chunk.code;
 }
 
