@@ -144,6 +144,20 @@ Queue acceptance creates no user row for an anchor to claim. Direct sends arm
 their anchor before the optimistic row can commit, while queued sends explicitly
 return the viewport to the live edge.
 
+### Why the mobile dictation engine mounts in BTW mode
+
+The footer mic trigger shows in BTW mode, so its engine must mount there too:
+the trigger only dispatches `openchamber:dictation-toggle` and the engine owns
+the recording. Comment mode and message selection keep their exclusions (the
+comment shell runs its own comment-scoped engine; the selection bar replaces
+the composer), but `isBtwActive` must not gate the engine: an upstream merge
+regressed the fork's own BTW enablement this way once, restoring a mic that
+taps into silence. The gate lives in `shouldMountMobileDictationEngine`
+(`input/mobileDictationMount.ts`) so the contract has one owner, with
+`isBtwActive` in its flags so the exclusion cannot return quietly, and
+`input/mobileDictationMount.test.ts` pins the BTW, comment, selection and
+desktop cases without module mocks.
+
 ### Why stable callbacks are event-only and not render helpers
 
 Their identity lasts for the composer lifetime while the closure updates with

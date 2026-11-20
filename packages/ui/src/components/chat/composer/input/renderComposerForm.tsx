@@ -60,6 +60,7 @@ import type { ChatInputProps } from './chatInputProps';
 import { renderDraftTitle } from './ComposerDraftTitle';
 import { MAX_MOBILE_COMPOSER_LINES, MAX_VISIBLE_COMPOSER_LINES, MOBILE_COMPOSER_BOUND_GAP_PX } from './composerInputLimits';
 import { MemoComposerDictation, MemoModelControls } from './memoComposerControls';
+import { shouldMountMobileDictationEngine } from './mobileDictationMount';
 
 const NO_ATTACH_GUESTS: [] = [];
 
@@ -532,7 +533,7 @@ export function renderComposerForm({
                 </div>
                 </>
                 )}
-                {isMobile && !isBtwActive && !mobileCommentActive && !messageSelectionActive ? (
+                {shouldMountMobileDictationEngine({ isMobile, isBtwActive, mobileCommentActive, messageSelectionActive }) ? (
                     <MemoComposerDictation
                         radius={chatInputRadius}
                         isMobile={isMobile}
