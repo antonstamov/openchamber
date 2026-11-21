@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,6 +10,27 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   spawnSync: vi.fn(() => ({ status: 0, stdout: '/usr/local/bin', stderr: '' })),
 }));
+
+// Windows probes run a quoted absolute shim path through the shell; other
+// shell strings are install commands.
+function splitProbe(command, args) {
+  if (Array.isArray(args)) return [command, args];
+  const match = /^"([^"]+)"((?: \S+)*)$/.exec(command);
+  if (!match) return [command, null];
+  return [path.win32.basename(match[1]).replace(/\.[^.]+$/, ''), match[2].trim().split(' ').filter(Boolean)];
+}
+
+// The mocked spawnSync sees Windows probes only for managers a PATH directory holds.
+const windowsShimDir = process.platform === 'win32' ? fs.mkdtempSync(path.join(os.tmpdir(), 'oc-pm-shims-')) : null;
+if (windowsShimDir) {
+  for (const manager of ['npm', 'pnpm', 'yarn']) fs.writeFileSync(path.join(windowsShimDir, `${manager}.cmd`), '');
+}
+beforeEach(() => {
+  if (windowsShimDir) vi.stubEnv('PATH', windowsShimDir);
+});
+afterAll(() => {
+  if (windowsShimDir) fs.rmSync(windowsShimDir, { recursive: true, force: true });
+});
 
 const {
   checkForUpdates,
@@ -562,7 +583,7 @@ describe('getUpdateCommand', () => {
   describe('pnpm build approvals', () => {
     function stubPnpmVersion(stdout, status = 0) {
       spawnSync.mockImplementation((command, args) => (
-        Array.isArray(args) && args[0] === '--version'
+        (Array.isArray(args) ? args[0] === '--version' : command.endsWith(' --version'))
           ? { status, stdout, stderr: '' }
           : { status: 0, stdout: '', stderr: '' }
       ));
@@ -693,13 +714,15 @@ describe('executeUpdate', () => {
     return file;
   };
 
-  function stubSpawnSync({ installStatuses = [0], listingStdout = '', listingStatus = 0, onShellRun, noRoots = false } = {}) {
+  function stubSpawnSync({ installStatus = 0, installStatuses = null, listingStdout = '', listingStatus = 0, onShellRun, noRoots = false } = {}) {
     shellRuns = [];
-    spawnSync.mockImplementation((command, args) => {
-      if (!Array.isArray(args)) {
-        shellRuns.push(command);
+    spawnSync.mockImplementation((rawCommand, rawArgs) => {
+      const [, args] = splitProbe(rawCommand, rawArgs);
+      if (!args) {
+        shellRuns.push(rawCommand);
         onShellRun?.(shellRuns.length);
-        const status = installStatuses[Math.min(shellRuns.length - 1, installStatuses.length - 1)];
+        const statuses = installStatuses ?? [installStatus];
+        const status = statuses[Math.min(shellRuns.length - 1, statuses.length - 1)];
         return { status, stdout: '', stderr: '' };
       }
       if (args.includes('--version')) {
@@ -936,8 +959,9 @@ describe('detectPackageManagerDetails', () => {
     vi.stubEnv('OPENCHAMBER_PACKAGE_MANAGER', '');
     vi.stubEnv('npm_config_user_agent', '');
     vi.stubEnv('npm_execpath', '');
-    spawnSync.mockImplementation((command, args) => {
-      if (command !== 'npm' && command !== 'pnpm') {
+    spawnSync.mockImplementation((rawCommand, rawArgs) => {
+      const [command, args] = splitProbe(rawCommand, rawArgs);
+      if (!args || (command !== 'npm' && command !== 'pnpm')) {
         return { status: 1, stdout: '', stderr: '' };
       }
       if (args[0] === '--version') {

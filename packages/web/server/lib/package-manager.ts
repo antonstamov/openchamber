@@ -8,6 +8,7 @@ import { getWebPackagePaths } from './web-package-paths.js';
 import { fetchUpdateNotes } from './changelog/update-notes.js';
 import { compareVersions } from './version-order.js';
 import { isEnterpriseMode } from './enterprise-mode.js';
+import { getSpawnSyncBaseOptions, spawnPackageManagerProbe } from './package-manager-probe.js';
 
 import { resolveNpmRegistryRequest } from './npm/npm-registry-config.js';
 import type { JsonObject, JsonValue } from './shared/json-values.js';
@@ -79,9 +80,6 @@ const GITHUB_RELEASES_API_URL = `https://api.github.com/repos/${FORK_OWNER}/${FO
 // a copy no package manager installed from one it did.
 let cachedDetection: { packageManager: PackageManager; reason: DetectionReason } | null = null;
 
-function getSpawnSyncBaseOptions() {
-  return process.platform === 'win32' ? { windowsHide: true } : {};
-}
 const UPDATE_CHECK_URL = process.env.OPENCHAMBER_UPDATE_API_URL || 'https://api.openchamber.dev/v1/update/check';
 
 function getOpenChamberConfigDir() {
@@ -302,7 +300,7 @@ function getUniquePaths(paths: string[]) {
 
 function getCommandOutput(command: string, args: string[]) {
   try {
-    const result = spawnSync(command, args, {
+    const result = spawnPackageManagerProbe(command, args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000,
@@ -629,7 +627,7 @@ export function quoteArg(value: unknown, platform: string = process.platform) {
 
 function isCommandAvailable(command: string) {
   try {
-    const result = spawnSync(command, ['--version'], {
+    const result = spawnPackageManagerProbe(command, ['--version'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 5000,
@@ -659,7 +657,7 @@ function isPackageInstalledWith(pm: string) {
     const pmCommand = resolvePackageManagerCommand(pm);
     const args = getGlobalListArgs(pm);
 
-    const result = spawnSync(pmCommand, args, {
+    const result = spawnPackageManagerProbe(pmCommand, args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000,
@@ -678,7 +676,7 @@ const GLOBAL_VERSION_PATTERN = /@openchamber\/web[@\s]+v?(\d[\w.+-]*)/;
 function getInstalledGlobalVersion(pm: string) {
   try {
     const pmCommand = resolvePackageManagerCommand(pm);
-    const result = spawnSync(pmCommand, getGlobalListArgs(pm), {
+    const result = spawnPackageManagerProbe(pmCommand, getGlobalListArgs(pm), {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 10000,

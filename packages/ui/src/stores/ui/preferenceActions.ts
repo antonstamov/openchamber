@@ -64,6 +64,7 @@ export const createPreferenceActions: UIStoreSlice<
   | 'setShowOpenCodeUpdateNotifications'
   | 'setInputSpellcheckEnabled'
   | 'setLargeTextPasteBehavior'
+  | 'setDocumentAttachBehavior'
   | 'setEnterToSend'
   | 'setEnterToSendConfigured'
   | 'setMobileReturnKeySends'
@@ -342,6 +343,10 @@ export const createPreferenceActions: UIStoreSlice<
 
   setLargeTextPasteBehavior: (value) => {
     set({ largeTextPasteBehavior: normalizeLargeTextPasteBehavior(value) });
+  },
+
+  setDocumentAttachBehavior: (value) => {
+    set({ documentAttachBehavior: value });
   },
 
   setEnterToSend: (value) => {

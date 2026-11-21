@@ -20,6 +20,7 @@ OpenChamber's own server features live beside it: settings persistence in `../se
 - Agent and command names are relative paths inside their owned directories. Express decodes encoded separators, so validation accepts nested names while refusing absolute paths and traversal. The disabled-agent catalog has a separate route so an agent named `disabled` remains addressable.
 - MCP conversion preserves handwritten protocol and startup-timeout fields even though the editor has no controls for them. Agent markdown bodies override frontmatter `system`, matching OpenCode's reader.
 - The minimum OpenCode version agrees with `engines.opencode` in the web package manifest. A future major remains unsupported until its contract is checked.
+- A managed OpenCode, in the web server and the VS Code extension alike, starts with `OPENCODE_CLIENT=openchamber` (`managed-opencode-env.ts`), so its model requests carry `x-opencode-client: openchamber` and the `openchamber` user-agent suffix, and OpenCode can tell OpenChamber's traffic apart. An external OpenCode keeps its own name.
 - An external connection requires explicit host, port, or skip-start configuration. Automatic attachment to a default port can take over a user's independent OpenCode instance and couple unrelated lifecycles.
 - A pending restart with a stopped-process task runs that task in its own restart, even if another restart is already in flight. Task failure is reported after the managed server starts again so a failed upgrade does not leave it stopped.
 - Process-registry cleanup considers only recorded children, verifies their current executable and known port against PID reuse, and requires evidence that the owner is gone. EPERM means a PID still exists; an identity that cannot be verified stays untouched.
@@ -216,7 +217,7 @@ OpenCode 2 loads the user config, then `OPENCODE_CONFIG`, then project `opencode
 - `packages/web/server/lib/opencode/managed-plugin-config.js`: the `OPENCODE_CONFIG_CONTENT` merge used only on the fallback path, when the user's own environment owns `OPENCODE_CONFIG`; it appends managed plugin directories, plugin-switch policies and permission rules.
 - `packages/web/server/lib/opencode/managed-config-file.js`: the managed OpenCode config layer — materializes the enabled OpenChamber plugins (agent tools, the limit failover reporter from `../limit-failover/` while a fallback model or an account switch is set, and the session title prompt, always), writes the plugin-switch denials into `policies`, and publishes them in a file OpenCode watches.
 - `packages/web/server/lib/opencode/plugin-switches.js`: OpenChamber's own record of the plugins switched off in its UI, stored under `<data-dir>/plugin-switches.json` and applied only to the managed OpenCode child.
-- `packages/web/server/lib/opencode/session-title-plugin.js`: the plugin that gives OpenCode's hidden `title` agent OpenChamber's title style and names a session started with attached context alone from that context. See "Session title prompt" below.
+- `packages/web/server/lib/opencode/session-title-plugin.ts`: the plugin that gives OpenCode's hidden `title` agent OpenChamber's title style and names a session started with attached context alone from that context. See "Session title prompt" below.
 - `packages/web/server/lib/opencode/instance-dir.js`: this server's own folder under `<data-dir>/run/instances/<pid>/` for the files its managed OpenCode reads, and removal of folders left by servers that are gone.
 
 ### Managed plugins on OpenCode 2.x
@@ -303,7 +304,8 @@ exists in OpenCode's store.
 - `readOpenCodeCredentials()`: each integration's active credential, keyed by
   integration id (the provider id for providers), in the legacy `auth.json`
   entry shape (`{ type: 'api', key }` /
-  `{ type: 'oauth', access, refresh, expires, accountId?, enterpriseUrl?, server?, orgID? }`).
+  `{ type: 'oauth', methodID, access, refresh, expires, accountId?, enterpriseUrl?, server?, orgID? }`).
+  The method ID identifies the login method for consumers that need to distinguish plugin credentials.
   The OAuth projection keeps only `server` and `orgID` from OpenCode Console
   credential metadata, so quota providers can identify a Console sign-in
   without carrying account names or emails.
@@ -479,7 +481,7 @@ Nullish body destructuring retains the original Node error message.
   - `PUT /api/config/settings`
   - `GET /api/config/opencode-resolution`
   - `POST /api/opencode/upgrade` (enforces the active runtime's upgrade capability, shares concurrent upgrade requests and runs the resolved CLI with `upgrade`; the existing Reload action restarts managed OpenCode afterwards)
-  - `GET /api/opencode/upgrade-status` (returns version availability plus the authoritative `upgrade.supported`, `upgrade.manager`, and `upgrade.reason` capability)
+  - `GET /api/opencode/upgrade-status` (returns version availability plus the authoritative `upgrade.supported`, `upgrade.manager`, and `upgrade.reason` capability). The npm registry lookup fails soft: an unreachable registry still answers 200 with the installed `currentVersion` and `available: null` and `latestVersion: null`, so a failed update check never renders the local version as unknown; clients read the missing `latestVersion` as an indeterminate check and retry it.
   - `GET /api/provider/:providerId/source`
   - `PUT /api/provider` (create/update custom OpenAI-compatible provider config in OpenCode user/project/custom layers via `scope`; secrets stay in auth via the OpenCode auth API)
   - `POST /api/provider/discover-models` (user-initiated custom-provider model discovery; fetches the configured `/models` path server-side and optionally enriches exact model matches from the shared models.dev cache). A form with a client certificate (`tls`) presents it on an `https` endpoint as OpenCode would: `{file:...}` and `{env:...}` are resolved here, the request goes through `node:https` on a connection of its own (the global fetch takes no certificate in Node, and the shared agent pools sockets without the passphrase in its key), and redirects are not followed.
@@ -1430,7 +1432,7 @@ setting; VS Code's separate extension bridge does not.
 - Project config: `<workingDirectory>/.opencode/opencode.json(c)` first, else `<workingDirectory>/opencode.json(c)`.
 - Custom config: `OPENCODE_CONFIG` env var path.
 - Origins (`../security/request-security.js`): CORS with credentials and socket upgrades trust the request's own host, `publicOrigin`, and the packaged clients (`openchamber-ui://app`, `capacitor://localhost`, `https://localhost`). Any other loopback port is trusted only on a development server (`OPENCHAMBER_ELECTRON_DEV=1` or `OPENCHAMBER_ALLOW_DEV_ORIGINS=1`, which the dev scripts set). Without a UI password a socket that names an `Origin` must still come from one of these (`isPasswordlessSocketOriginAllowed`): nothing else would stop a website open in the user's browser from reaching the terminal on the loopback port. Clients that send no `Origin` are not pages and pass.
-- Rate limit config: `OPENCHAMBER_RATE_LIMIT_MAX_ATTEMPTS`, `OPENCHAMBER_RATE_LIMIT_NO_IP_MAX_ATTEMPTS` env vars. Login and tunnel-connect limits key on `req.ip`. `server/index.js` sets `trust proxy` to loopback and private ranges, so `X-Forwarded-For` counts only when a proxy on this machine or a private network sent it; from anyone else it is ignored and cannot open a fresh bucket per attempt.
+- Rate limit config: `OPENCHAMBER_RATE_LIMIT_MAX_ATTEMPTS`, `OPENCHAMBER_RATE_LIMIT_NO_IP_MAX_ATTEMPTS` env vars. Login and tunnel-connect limits key on the client that `../security/client-address.ts` resolves: `X-Forwarded-For` counts only through loopback peers and addresses in `OPENCHAMBER_TRUSTED_PROXIES` (comma-separated addresses or CIDR ranges); relay-dispatched sign-ins share one bucket. They do not use `req.ip`: `server/runtime.ts` sets `trust proxy` to loopback, link-local and private ranges, which would let a LAN peer open a fresh bucket per attempt.
 
 ## Notes for contributors
 - This module serves as foundation for OpenCode-related server utilities.
@@ -1522,9 +1524,10 @@ under a running child.
 OpenCode names a new session with its hidden `title` agent. Its built-in prompt
 keeps file names and issue numbers and tends to restate the request, so the
 first title often reads like a summary of the prompt and gets cut off in the
-sidebar. `session-title-plugin.js` replaces that agent's `system` prompt with
+sidebar. `session-title-plugin.ts` replaces that agent's `system` prompt with
 the folder-label style the UI's own regeneration uses
-(`packages/ui/src/lib/sessionTitle.ts`); the two prompts change together.
+(`packages/ui/src/lib/sessionTitle.ts`). The two prompts change together
+unless a decision below says why one differs.
 
 - The plugin is listed on every managed launch, with no setting. External
   OpenCode and the VS Code extension's own OpenCode get no managed plugins, so
@@ -1578,6 +1581,35 @@ one Russian, and a Chinese first message still produced English titles (drift
 varied per request on the same input). The prompt now states that only the
 user's message decides the language and adds a Chinese example, the same
 pinning idiom `packages/ui/src/lib/smallModel.ts` uses for its notes.
+
+#### Why the language rule says when a path's words count
+
+A first message of one English word and a path, such as
+`Read ~/.config/openchamber/projects/<id>/plans/<plan>.md`, often got a Chinese
+title on GitHub Copilot's `gpt-6-luna`, taken from the Chinese example about a
+project's plans (#7225). The prompt now tells the model that the words inside
+a path or file name count only when the message has no other words, with three
+examples: an English word before a path, a Chinese word before a path, and a
+path alone. This is an instruction, not a guarantee: it asks the model to take
+the language of the words around a path, and the language of the path's words
+when the message is only a path.
+
+The rule was measured on `gpt-6-luna` through a managed OpenCode 2.3.1, with
+English, Chinese and Ukrainian words before plan paths, paths alone, and plain
+sentences (#7227). There, an English example of a command and a path also
+fixed the English messages, but it pulled a Ukrainian word before an English
+path toward English about one time in ten. A rule without the path-alone
+example fixed them too, but a message that was only an English path then got
+a Chinese title about one time in fifteen; that is why the path-alone example
+stays. The `opencode/*-free` title models, where the plugin moves the prompt
+into the user turn, were not measured. The Chinese example stays, because
+without it a Chinese first message got English titles (#5654).
+
+The Rename with AI prompt (`packages/ui/src/lib/sessionTitle.ts`) keeps its
+own rule, because it names the session from finished turns rather than from
+the first message alone. With a `Read <path>` turn and an English reply it gave
+English titles in 40 of 40 runs on `gpt-6-luna` and `gemini-3.8-flash`, a
+Chinese current title included.
 
 #### Why the prompt is short and every example fits four words
 

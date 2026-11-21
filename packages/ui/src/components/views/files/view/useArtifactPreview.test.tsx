@@ -64,6 +64,7 @@ const args = (overrides: Partial<Omit<Args, 't'>> & { selectedPath: string; snif
     isUnsupportedBinary: true,
   },
   fileSaving: { readFile: overrides.readFile },
+  imageFullscreen: { available: false, setOpen: () => {} },
   imageNavigation: { imageNeighbors: null },
   layout: { suppressFileLoadingIndicator: false },
   tabs: { selectedFile: file(overrides.selectedPath), selectedFileIsOutsideWorkspace: false },
