@@ -96,3 +96,18 @@ original closure's evaluation time without moving the registration.
 Lazy component identities are created once per module load. Keeping them out
 of the preview hook preserves their lifetime and React Fast Refresh's
 component-only module boundary.
+
+### Why the sniffed-as-binary override is view-only and per file
+
+A text file the content sniff flags as binary (`contentDetectedBinary`, such
+as a log full of ANSI escapes) offers "Show as text" inside `BinaryArtifact`.
+The override is read-only by construction: it renders the bytes in a plain
+`<pre>`, fetched on demand through the existing `readFile`, without touching
+the draft, `canEdit`, or `useFileSaving`'s binary refusal. Routing the file
+through the normal text pipeline instead would have lifted editing and let
+autosave write decoded bytes back over the file. The hook keeps the override
+for one path and drops it during render when the selection or the file's load
+state changes, with no persisted setting and no effect: a reload on the same
+path collapses the override instead of showing stale bytes. Files binary by
+extension, and sniffed tables over the open size cap, keep no override and
+render as before, so a huge delimited table cannot become an unbounded re-read.

@@ -24,6 +24,7 @@ describe('binary file helpers', () => {
   test('keeps text and SVG editable', () => {
     expect(isBinaryFile('/repo/README.md')).toBe(false);
     expect(isBinaryFile('/repo/src/main.ts')).toBe(false);
+    expect(isBinaryFile('/repo/app.log')).toBe(false);
     expect(isBinaryFile('/repo/icon.svg')).toBe(false);
     expect(isSvgFile('/repo/icon.svg')).toBe(true);
     expect(isBinaryFile('/repo/.env')).toBe(false);
@@ -41,6 +42,7 @@ describe('binary file helpers', () => {
     expect(looksLikeBinaryText(`PK\u0003\u0004${'x'.repeat(20)}`)).toBe(true);
     expect(looksLikeBinaryText(`${'\uFFFD'.repeat(40)}${'a'.repeat(40)}`)).toBe(true);
     expect(looksLikeBinaryText('plain text file\nwith newlines\n')).toBe(false);
+    expect(looksLikeBinaryText('\x1b[32mOK\x1b[0m\n'.repeat(8) + 'xxxx')).toBe(true);
   });
 
   test('recognizes scene files without matching lookalikes', () => {

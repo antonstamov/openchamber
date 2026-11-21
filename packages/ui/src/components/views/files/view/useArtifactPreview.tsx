@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SimpleMarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { isDelimitedTableFile, isArchiveFile, isDataFile, isOfficePreviewFile } from '@/lib/toolHelpers';
-import { MAX_OFFICE_PREVIEW_BYTES } from '@/lib/fileOpenLimits';
+import { MAX_OFFICE_PREVIEW_BYTES, MAX_OPEN_FILE_BYTES } from '@/lib/fileOpenLimits';
 import { BinaryArtifact } from '../previews/BinaryArtifact';
 import { ArchiveArtifact } from '../previews/ArchiveArtifact';
 import { NotebookArtifact } from '../previews/NotebookArtifact';
@@ -19,7 +19,7 @@ import { type useFileFreshness } from './useFileFreshness';
 import { type useFileKinds } from './useFileKinds';
 import { type useFileAssets } from './useFileAssets';
 import { TableArtifact, DataFileArtifact, OfficeArtifact } from './LazyFileArtifacts';
-import { type useFileDraft } from './useFileSaving';
+import { type useFileDraft, type useFileSaving } from './useFileSaving';
 import { type useFileDocument } from './useFileDocument';
 import { type useFileImageNavigation } from './useFileImageNavigation';
 import { type useFileLayout } from './useFileLayout';
@@ -28,12 +28,13 @@ import { type useFileViewModes } from './useFilePreviewModes';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useI18n } from '@/lib/i18n';
 
-export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshness, fileKinds, imageNavigation, layout, tabs, viewModes, files, t }: {
+export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshness, fileKinds, fileSaving, imageNavigation, layout, tabs, viewModes, files, t }: {
   draft: Pick<ReturnType<typeof useFileDraft>, 'draftContent' | 'setDraftContent'>;
   fileAssets: Pick<ReturnType<typeof useFileAssets>, 'assetAuthErrorFallback' | 'binaryFileActions' | 'downloadButton' | 'imageSrc' | 'isPdfAssetAuthLoading' | 'loadDataBytes' | 'loadOfficeBytes' | 'maxDataBytes' | 'pdfSrc' | 'rawAsset' | 'saveOfficeBytes'>;
-  fileDocument: Pick<ReturnType<typeof useFileDocument>, 'artifactSize' | 'fileContent' | 'fileContentRevision' | 'fileError' | 'fileLoading'>;
+  fileDocument: Pick<ReturnType<typeof useFileDocument>, 'artifactSize' | 'contentDetectedBinary' | 'fileContent' | 'fileContentRevision' | 'fileError' | 'fileLoading'>;
   fileFreshness: Pick<ReturnType<typeof useFileFreshness>, 'reloadSelectedFile'>;
   fileKinds: Pick<ReturnType<typeof useFileKinds>, 'canEdit' | 'isMermaid' | 'isNotebook' | 'isSelectedFont' | 'isSelectedImage' | 'isSelectedMedia' | 'isSelectedPdf' | 'isSelectedVideo' | 'isSvgSource' | 'isTable' | 'isUnsupportedBinary'>;
+  fileSaving: Pick<ReturnType<typeof useFileSaving>, 'readFile'>;
   imageNavigation: Pick<ReturnType<typeof useFileImageNavigation>, 'imageNeighbors'>;
   layout: Pick<ReturnType<typeof useFileLayout>, 'suppressFileLoadingIndicator'>;
   tabs: Pick<ReturnType<typeof useFileTabs>, 'selectedFile' | 'selectedFileIsOutsideWorkspace'>;
@@ -43,13 +44,48 @@ export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshn
 }) {
   const { draftContent, setDraftContent } = draft;
   const { assetAuthErrorFallback, binaryFileActions, downloadButton, imageSrc, isPdfAssetAuthLoading, loadDataBytes, loadOfficeBytes, maxDataBytes, pdfSrc, rawAsset, saveOfficeBytes } = fileAssets;
-  const { artifactSize, fileContent, fileContentRevision, fileError, fileLoading } = fileDocument;
+  const { artifactSize, contentDetectedBinary, fileContent, fileContentRevision, fileError, fileLoading } = fileDocument;
   const { reloadSelectedFile } = fileFreshness;
   const { canEdit, isMermaid, isNotebook, isSelectedFont, isSelectedImage, isSelectedMedia, isSelectedPdf, isSelectedVideo, isSvgSource, isTable, isUnsupportedBinary } = fileKinds;
   const { imageNeighbors } = imageNavigation;
   const { suppressFileLoadingIndicator } = layout;
+  const { readFile } = fileSaving;
   const { selectedFile, selectedFileIsOutsideWorkspace } = tabs;
   const { mermaidViewMode, tableViewMode } = viewModes;
+
+  const [binaryText, setBinaryText] = React.useState<{ path: string; content: string | null; loading: boolean; error: string | null } | null>(null);
+  const binaryTextRequestRef = React.useRef(0);
+  const selectedPath = selectedFile?.path ?? null;
+  if (binaryText !== null && (binaryText.path !== selectedPath || fileLoading)) {
+    setBinaryText(null);
+  }
+  const showBinaryAsText = React.useCallback(() => {
+    if (!selectedFile) {
+      return;
+    }
+    const path = selectedFile.path;
+    const request = binaryTextRequestRef.current + 1;
+    binaryTextRequestRef.current = request;
+    setBinaryText({ path, content: null, loading: true, error: null });
+    void readFile(path).then(
+      (content) => {
+        if (binaryTextRequestRef.current !== request) {
+          return;
+        }
+        setBinaryText({ path, content, loading: false, error: null });
+      },
+      (error) => {
+        if (binaryTextRequestRef.current !== request) {
+          return;
+        }
+        setBinaryText({ path, content: null, loading: false, error: error instanceof Error ? error.message : t('filesView.error.readFileFailed') });
+      },
+    );
+  }, [readFile, selectedFile, t]);
+  const hideBinaryAsText = React.useCallback(() => {
+    binaryTextRequestRef.current += 1;
+    setBinaryText(null);
+  }, []);
 
   const previewBoundary = (key: string, preview: React.ReactNode) => (
     <ErrorBoundary key={key} fallback={<ContentState title={t('filesView.error.previewUnavailable')} />}>
@@ -121,6 +157,14 @@ export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshn
           sizeBytes={artifactSize}
           download={binaryFileActions}
           description={isOfficePreviewFile(file.path) || isArchiveFile(file.path) || isDataFile(file.path) || isDelimitedTableFile(file.path) ? t('filesView.artifact.office.tooLarge') : undefined}
+          textPreview={contentDetectedBinary && (artifactSize === null || artifactSize <= MAX_OPEN_FILE_BYTES) ? {
+            shown: binaryText !== null && binaryText.path === file.path,
+            content: binaryText?.content ?? null,
+            loading: binaryText?.loading ?? false,
+            error: binaryText?.error ?? null,
+            onShow: showBinaryAsText,
+            onHide: hideBinaryAsText,
+          } : undefined}
         />
       );
     }

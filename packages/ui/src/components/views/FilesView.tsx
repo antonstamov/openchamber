@@ -112,7 +112,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const fileEditorExtensions = useFileEditorExtensions({ editor, fileLanguage, mobileKeyboard, scope, tabs, themes, files, git, isMobile, t });
   const fileAssets = useFileAssets({ draft, fileDocument, fileKinds, fileSaving, scope, tabs, viewModes, files, isMobile, runtime, t });
   const artifacts = useArtifactPreview({
-    draft, fileAssets, fileDocument, fileFreshness, fileKinds, imageNavigation, layout, tabs, viewModes, files, t,
+    draft, fileAssets, fileDocument, fileFreshness, fileKinds, fileSaving, imageNavigation, layout, tabs, viewModes, files, t,
   });
   useFileImageLoading({ fileDocument, fileKinds, scope, tabs, files, t });
   const filePreviewRendering = useFilePreviewRendering({

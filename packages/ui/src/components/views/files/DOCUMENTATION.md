@@ -255,7 +255,9 @@ throwaway `FontFace` family removed when the tab closes), `TableArtifact`
 (CSV/TSV through `delimitedText.ts`, capped rows stated in the meta line),
 `OfficeArtifact` (docx, xlsx, pptx, odt, ods, odp, read-only, see below),
 and `BinaryArtifact` (name, type, size, download, and the desktop's open in
-the default app; never a decode attempt). `view/useArtifactPreview`
+the default app; never a decode attempt, except the explicit read-only
+"Show as text" override offered only for content-sniffed binaries, see
+`view/DOCUMENTATION.md`). `view/useArtifactPreview`
 is the single switch both the docked and the fullscreen viewer use.
 
 A file that cannot be shown fills the pane with `ContentState`
