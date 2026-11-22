@@ -666,6 +666,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['in work', 'in progress', 'track', 'done', 'sidebar'],
   },
   {
+    id: 'sessions.work-done-hint',
+    page: 'sessions',
+    titleKey: 'settings.openchamber.sessionWork.field.doneHint',
+    descriptionKey: 'settings.openchamber.sessionWork.field.doneHintInfo',
+    keywords: ['in work', 'done', 'looks done', 'hint', 'banner', 'composer', 'mark done'],
+  },
+  {
     id: 'sessions.small-model',
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.smallModel.title',

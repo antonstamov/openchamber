@@ -88,6 +88,7 @@ export const createInitialUIState = (): Pick<UIStore,
   | 'sessionRecapEnabled'
   | 'sessionSuggestionEnabled'
   | 'sessionWorkEnabled'
+  | 'sessionWorkDoneHintEnabled'
   | 'sessionReviewOfferEnabled'
   | 'sessionGoalEnabled'
   | 'sessionGoalChecker'
@@ -319,6 +320,7 @@ export const createInitialUIState = (): Pick<UIStore,
   sessionRecapEnabled: true,
   sessionSuggestionEnabled: true,
   sessionWorkEnabled: true,
+  sessionWorkDoneHintEnabled: true,
   sessionReviewOfferEnabled: false,
   sessionGoalEnabled: true,
   sessionGoalChecker: 'small-model',

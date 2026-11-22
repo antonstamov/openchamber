@@ -30,6 +30,7 @@ import { SessionDoneHintRow } from '@/components/chat/SessionDoneHintRow';
 import { SessionReviewHintRow } from '@/components/chat/SessionReviewHintRow';
 import { BackgroundShellsStrip } from '@/components/chat/BackgroundShellsStrip';
 import { ComposerStatusStrip } from '@/components/chat/ComposerStatusStrip';
+import { useUIStore } from '@/stores/useUIStore';
 import { useWorktreeBootstrapPending } from '@/hooks/useWorktreeBootstrapPending';
 import { useShownAfter } from '@/hooks/useShownAfter';
 import { SessionGoalRow } from '@/components/chat/SessionGoalRow';
@@ -107,7 +108,9 @@ export function useComposerRows({
         />
     ) : null;
 
-    const doneHintRow = !isBtwActive && !newSessionDraftOpen ? (
+    const doneHintEnabled = useUIStore((state) => state.sessionWorkDoneHintEnabled);
+
+    const doneHintRow = !isBtwActive && !newSessionDraftOpen && doneHintEnabled ? (
         <SessionDoneHintRow
             sessionId={currentSessionId}
             directory={currentSessionDirectoryForSync ?? currentDirectory}

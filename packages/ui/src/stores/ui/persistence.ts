@@ -304,6 +304,7 @@ const uiStorePersistOptions = {
     sessionRecapEnabled: state.sessionRecapEnabled,
     sessionSuggestionEnabled: state.sessionSuggestionEnabled,
     sessionWorkEnabled: state.sessionWorkEnabled,
+    sessionWorkDoneHintEnabled: state.sessionWorkDoneHintEnabled,
     sessionReviewOfferEnabled: state.sessionReviewOfferEnabled,
     sessionGoalEnabled: state.sessionGoalEnabled,
     sessionGoalChecker: state.sessionGoalChecker,
