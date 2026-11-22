@@ -1,4 +1,5 @@
 import type { Session } from '@/lib/opencode/model';
+import { isChatDirectoryPath } from '@/lib/chatDirectories';
 import type { ConversationMetadata } from '@/lib/search/conversationSearch';
 import type { WorktreeMetadata } from '@/types/worktree';
 import type { DirectoryOwner } from './sessions/sessionOwnership';
@@ -33,6 +34,27 @@ export function resolveSidebarSearchScope({ projects, worktrees, knownDirectorie
   };
   const directories = isVSCode ? [...knownDirectories].sort() : undefined;
   return { directories, available: directories === undefined || directories.length > 0, isAdmitted };
+}
+
+export function buildSearchKnownDirectories(input: {
+  knownDirectories: ReadonlySet<string>;
+  sessions: readonly Session[];
+  knownChatsRoot: string | null;
+  isVSCode: boolean;
+}): ReadonlySet<string> {
+  if (input.isVSCode && input.knownDirectories.size > 0) return input.knownDirectories;
+  const directories = new Set(input.knownDirectories);
+  if (input.knownChatsRoot) {
+    for (const session of input.sessions) {
+      if (!isChatDirectoryPath(session.directory)) continue;
+      // The scope admits by normalized path, so a raw session directory
+      // (backslashes or a lowercase drive letter on Windows) must be
+      // normalized before it joins the set, or chats stay unadmitted.
+      const normalized = normalizePath(session.directory);
+      if (normalized) directories.add(normalized);
+    }
+  }
+  return directories;
 }
 
 export function sidebarSearchMetadata(input: {

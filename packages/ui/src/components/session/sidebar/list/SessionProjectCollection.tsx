@@ -84,7 +84,7 @@ import { useI18n } from '@/lib/i18n';
 import type { ContentSearchStatus } from '@/hooks/useConversationSearch';
 import { useSidebarConversationSearch } from '../useSidebarConversationSearch';
 import { searchScopeQuery, type SearchScope } from '@/lib/search/omniQuery';
-import { resolveSidebarSearchScope, sidebarSearchMetadata } from '../sidebarConversationSearch';
+import { resolveSidebarSearchScope, sidebarSearchMetadata, buildSearchKnownDirectories } from '../sidebarConversationSearch';
 import type { ConversationResultProject } from '@/components/search/conversationResultContext';
 import { formatDirectoryName } from '@/lib/utils';
 
@@ -209,12 +209,9 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
   const allSearchSessions = React.useMemo(() => [...collection.sessions, ...collection.chatSessions, ...collection.archivedSessions], [collection.sessions, collection.chatSessions, collection.archivedSessions]);
   const searchActive = view.isVisible && view.hasSessionSearchQuery;
   const knownChatsRoot = useChatsRoot();
-  const searchKnownDirectories = React.useMemo(() => {
-    if (topology.isVSCode && topology.knownDirectories.size > 0) return topology.knownDirectories;
-    const directories = new Set(topology.knownDirectories);
-    if (knownChatsRoot) for (const session of allSearchSessions) if (isChatDirectoryPath(session.directory)) directories.add(session.directory);
-    return directories;
-  }, [allSearchSessions, knownChatsRoot, topology.isVSCode, topology.knownDirectories]);
+  const searchKnownDirectories = React.useMemo(() => buildSearchKnownDirectories({
+    knownDirectories: topology.knownDirectories, sessions: allSearchSessions, knownChatsRoot, isVSCode: topology.isVSCode,
+  }), [allSearchSessions, knownChatsRoot, topology.isVSCode, topology.knownDirectories]);
   const searchScope = React.useMemo(() => resolveSidebarSearchScope({
     projects: topology.projects, worktrees: topology.availableWorktreesByProject, knownDirectories: searchKnownDirectories, isVSCode: topology.isVSCode,
   }), [topology.projects, topology.availableWorktreesByProject, searchKnownDirectories, topology.isVSCode]);
