@@ -135,7 +135,7 @@ describe('ComposerContextRows comment edit dictation', () => {
       text: 'note',
     });
     await act(async () => root.render(
-      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} />,
+      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} surfaceActive={true} />,
     ));
 
     const collapsed = browser.document.querySelector('[role="button"][aria-expanded="false"]');
@@ -160,7 +160,7 @@ describe('ComposerContextRows comment edit dictation', () => {
       text: 'note',
     });
     await act(async () => root.render(
-      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} />,
+      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} surfaceActive={true} />,
     ));
 
     const collapsed = browser.document.querySelector('[role="button"][aria-expanded="false"]');
@@ -199,7 +199,7 @@ describe('ComposerContextRows comment edit dictation', () => {
       text: 'note',
     });
     await act(async () => root.render(
-      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} />,
+      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} surfaceActive={true} />,
     ));
 
     const collapsed = browser.document.querySelector('[role="button"][aria-expanded="false"]');
@@ -235,7 +235,7 @@ describe('ComposerContextRows comment edit dictation', () => {
     useCommentDictationPendingStore.getState().markPending('draft-1');
 
     await act(async () => root.render(
-      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} />,
+      <ComposerContextRows draftTarget={target} isMobile={false} onOpenAttachment={() => {}} surfaceActive={true} />,
     ));
 
     const collapsed = browser.document.querySelector('[role="button"][aria-expanded="false"]');

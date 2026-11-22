@@ -190,9 +190,9 @@ import { createInsideSpaceTaskNaming, SPACE_TASK_TITLE_ROUTE } from './lib/space
 import { dockerHostOf } from './lib/spaces/places/ssh-host.js';
 import { SPACE_IDLE_EXIT_CODE } from './lib/spaces/layout.js';
 import { createSwitchController, registerSpaceRoutes } from './lib/spaces/routes.js';
-import { configureGitEnvironment, getCheckedOutBranch, getWorktreeBootstrapGateStatus, getWorktrees, isWorktreeDirectoryPinned, readRenameableGeneratedBranch, renameGeneratedWorktreeBranch, resolvePrimaryWorktreeRoot, setWorktreeTaskTitle } from './lib/git/service.js';
+import { getCheckedOutBranch, getWorktreeBootstrapGateStatus, getWorktrees, isWorktreeDirectoryPinned, readRenameableGeneratedBranch, renameGeneratedWorktreeBranch, resolvePrimaryWorktreeRoot, setWorktreeTaskTitle } from './lib/git/service.js';
 import { createEnvironmentStore } from './lib/environment/store.js';
-import { createEnvironmentRuntime } from './lib/environment/runtime.js';
+import { composeEnvironmentRuntime } from './lib/environment/composition.js';
 import { readOpenCodeServiceEnv } from './lib/environment/opencode-service-env.js';
 import { OPENCODE_CONFIG_DIR } from './lib/opencode/config-files.js';
 import { createWorktreeBootstrapStore } from './lib/git/worktree-bootstrap-storage.js';
@@ -211,7 +211,9 @@ import { createDevServerScanner } from './lib/dev-servers/routes.js';
 import { createDevTunnelRuntime } from './lib/dev-tunnel/runtime.js';
 import { registerBrowserControlRoutes } from './lib/browser-control/routes.js';
 import { createUploadStore, registerUploadRoute } from './lib/browser-control/uploads.js';
-import { createManagedConfigRuntime } from './lib/opencode/managed-config-file.js';
+import { createManagedConfigRuntime, retireClaudePlugin } from './lib/opencode/managed-config-file.js';
+import { createSharedOpenCodeServiceConnector, resolveServiceCliBinary } from './lib/opencode/shared-service.js';
+import { createAdaptivePluginSwitchStore, createGlobalConfigPluginSwitchStore } from './lib/opencode/global-plugin-switches.js';
 import { openCodePluginDelivery } from './lib/guests/opencode-plugin.js';
 import { createLimitFailoverRuntime } from './lib/limit-failover/runtime.js';
 import { prepareInstanceDir } from './lib/opencode/instance-dir.js';
@@ -608,7 +610,7 @@ const pushRuntime = createPushRuntime({
   loadWebPush: () => import('web-push').then((module) => module.default),
   PUSH_SUBSCRIPTIONS_FILE_PATH,
   readSettingsFromDiskMigrated,
-  writeSettingsToDisk,
+  updateSettingsFromDisk: settingsRuntime.updateSettingsFromDisk,
   getInvalidSessionKeys: () => clientPushAccess.invalidSessionKeys(),
 });
 
@@ -1660,7 +1662,7 @@ const listConfiguredProjects = async () => {
   const settings = await readSettingsFromDiskMigrated();
   return sanitizeProjects(settings?.projects || []) ?? [];
 };
-const environmentRuntime = createEnvironmentRuntime({
+const environmentRuntime = composeEnvironmentRuntime({
   store: environmentStore,
   listProjects: listConfiguredProjects,
   spawn,
@@ -1668,7 +1670,6 @@ const environmentRuntime = createEnvironmentRuntime({
   readOpenCodeServiceEnv: () => readOpenCodeServiceEnv(OPENCODE_CONFIG_DIR),
   isEnterpriseMode: () => isEnterpriseMode(),
 });
-configureGitEnvironment(environmentRuntime);
 const staticRoutesRuntime = createStaticRoutesRuntime({
   fs,
   path,
@@ -1707,13 +1708,9 @@ const featureRoutesRuntime = createFeatureRoutesRuntime({
   clientReloadDelayMs: CLIENT_RELOAD_DELAY_MS,
   trackers: trackerRegistry,
   trackerSessionStatus,
-  pluginSwitchStore,
-  isPluginSwitchAvailable: () => !isExternalOpenCode && !ENV_SKIP_OPENCODE_START,
-  refreshPluginSwitches: async () => (
-    managedConfigRuntime
-      ? managedConfigRuntime.refreshManagedConfigFile()
-      : { updated: false, reason: 'no-managed-opencode' }
-  ),
+  pluginSwitchStore: createAdaptivePluginSwitchStore({ managedStore: pluginSwitchStore, globalStore: createGlobalConfigPluginSwitchStore(), isGlobalMode: () => isExternalOpenCode || ENV_SKIP_OPENCODE_START }),
+  isPluginSwitchAvailable: () => openCodePluginDelivery({ external: isExternalOpenCode || ENV_SKIP_OPENCODE_START, origin: ENV_CONFIGURED_OPENCODE_HOST?.origin || openCodeBaseUrl || null, ownsConfigFile: managedConfigRuntime?.ownsConfigFile() ?? true }) !== 'remote',
+  refreshPluginSwitches: async () => ((isExternalOpenCode || ENV_SKIP_OPENCODE_START) ? { updated: true } : (managedConfigRuntime ? managedConfigRuntime.refreshManagedConfigFile() : { updated: false, reason: 'no-managed-opencode' })),
 });
 const bootstrapRuntime = createBootstrapRuntime({
   createUiAuth,
@@ -1802,7 +1799,7 @@ const openCodeLifecycleState = {
   get openCodeNotReadySince() { return openCodeNotReadySince; },
   set openCodeNotReadySince(value: typeof openCodeNotReadySince) { openCodeNotReadySince = value; },
   get isExternalOpenCode() { return isExternalOpenCode; },
-  set isExternalOpenCode(value: typeof isExternalOpenCode) { isExternalOpenCode = value; },
+  set isExternalOpenCode(value: typeof isExternalOpenCode) { if (isExternalOpenCode !== value) { isExternalOpenCode = value; void managedConfigRuntime?.syncExternalBridge().catch(() => {}); } },
   get isShuttingDown() { return isShuttingDown; },
   set isShuttingDown(value: typeof isShuttingDown) { isShuttingDown = value; },
   get healthCheckInterval() { return healthCheckInterval; },
@@ -1872,7 +1869,7 @@ const openCodeLifecycleRuntime = createOpenCodeLifecycleRuntime({
   noProjectDirectory: OPENCHAMBER_CHATS_DIR,
   // external: #2638 A managed restart can change the upstream port, so event readers reconnect to the current endpoint.
   onOpenCodeRestarted: () => {
-    resetOpenCodeRuntimeProviders();
+    resetOpenCodeRuntimeProviders(); if (!isExternalOpenCode && !healthCheckInterval) startHealthMonitoring();
     try {
       messageStreamRuntime?.rebindUpstream();
     } catch (error) {
@@ -1886,8 +1883,9 @@ const openCodeLifecycleRuntime = createOpenCodeLifecycleRuntime({
       console.warn('Failed to reconcile sessions after OpenCode restart:', isRecord(error) ? error.message ?? error : error);
     }
   },
-  getManagedOpenCodeEnv: async () => (managedConfigRuntime ? managedConfigRuntime.buildManagedChildEnv() : {}),
+  getManagedOpenCodeEnv: async () => (retireClaudePlugin({ buildOpenCodeUrl, getOpenCodeAuthHeaders, directory: openCodeLifecycleRuntime.getDefaultOpenCodeDirectory(), notify: (payload) => broadcastUiNotification(payload) }), managedConfigRuntime ? managedConfigRuntime.buildManagedChildEnv() : {}),
   getUserEnvironment: () => environmentRuntime.forOpenCode(),
+  sharedService: createSharedOpenCodeServiceConnector({ readSettings: () => readSettingsFromDiskMigrated(), resolveBinary: () => ensureOpencodeCliEnv(), buildEnv: () => ({ ...getLoginShellEnvSnapshot(), ...process.env, PATH: buildManagedOpenCodePath() }), setAuthPassword: (password, source) => openCodeAuthStateRuntime.setOpenCodeAuthState(password, source), resolveLaunch: (binary) => resolveManagedOpenCodeLaunchSpec(binary) }),
 });
 
 configureOpenCodeCredentials(openCodeCredentialSource({
@@ -1911,12 +1909,14 @@ const getOpenCodeCompatibility = async () => {
   return describeOpenCodeCompatibility(version, installation, supportsOpenCodeV2Install() && !pinnedByPolicy, binary || null);
 };
 
+const getSharedServiceCliBinary = () => (openCodeLifecycleRuntime.isConnectedViaSharedService() && !isEnterpriseMode() ? resolveServiceCliBinary(ensureOpencodeCliEnv(), { ...getLoginShellEnvSnapshot(), ...process.env, PATH: buildManagedOpenCodePath() }) : null);
 const getOpenCodeUpgradeCapability = () => {
   const activeBinary = lastOpenCodeLaunchDiagnostics?.sourceBinary
     || lastOpenCodeLaunchDiagnostics?.binary
     || resolvedOpencodeBinary;
   return resolveOpenCodeUpgradeCapability({
     isExternal: isExternalOpenCode,
+    isSharedService: getSharedServiceCliBinary() !== null,
     hasManagedProcess: Boolean(openCodeProcess),
     activeBinary,
     isBundledBinary: isBundledOpenCodePath,
@@ -2384,10 +2384,7 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   getRelayService: () => relayServiceInstance,
   getRelayReconcileTimer: () => relayReconcileTimer,
   getSpacesHost: () => spacesHost,
-  stopFolderWatches: () => {
-    stopEnterprisePolicyWatch();
-    featureRoutesRuntime.stopFolderWatches();
-  },
+  stopFolderWatches: async () => { stopEnterprisePolicyWatch(); featureRoutesRuntime.stopFolderWatches(); await managedConfigRuntime?.cleanupExternalBridge(); },
 });
 
 const gracefulShutdown: typeof gracefulShutdownRuntime.gracefulShutdown = (...args) => gracefulShutdownRuntime.gracefulShutdown(...args);
@@ -2430,10 +2427,12 @@ async function main(options: WebUiServerOptions = {}) {
     },
     broadcastUiEvent: (event) => broadcastOpenChamberUiEvent(event),
   });
+  const getOpenCodePluginDelivery = () => openCodePluginDelivery({ external: isExternalOpenCode || ENV_SKIP_OPENCODE_START, origin: ENV_CONFIGURED_OPENCODE_HOST?.origin || openCodeBaseUrl || null, ownsConfigFile: managedConfigRuntime?.ownsConfigFile() ?? true });
   managedConfigRuntime = createManagedConfigRuntime({
     fsPromises,
     path,
     instanceDir,
+    dataDir: OPENCHAMBER_DATA_DIR,
     env: process.env,
     agentToolRuntime,
     limitFailoverRuntime,
@@ -2442,6 +2441,7 @@ async function main(options: WebUiServerOptions = {}) {
     listExtensionPluginDirectories: guestAgentContext.pluginDirectories,
     openchamberVersion: OPENCHAMBER_VERSION,
     readPluginDenials: () => pluginSwitchStore.denials(),
+    getOpenCodePluginDelivery,
   });
   stopEnterprisePolicyWatch = watchEnterprisePolicy({
     onChange: () => {
@@ -2694,7 +2694,7 @@ async function main(options: WebUiServerOptions = {}) {
     gracefulShutdown,
     readOpenCodeLoad: () => readOpenCodeLoad({ buildOpenCodeUrl, getOpenCodeAuthHeaders }),
     getHealthSnapshot: () => {
-      const launchSpec = resolvedOpencodeBinary && !useWslForOpencode
+      const launchSpec = resolvedOpencodeBinary && !useWslForOpencode && !isExternalOpenCode
         ? resolveManagedOpenCodeLaunchSpec(resolvedOpencodeBinary)
         : null;
       return {
@@ -2711,7 +2711,7 @@ async function main(options: WebUiServerOptions = {}) {
         lastManagedOpenCodeProcess,
         lastOpenCodeRestartDiagnostics,
         opencodeBinaryResolved: resolvedOpencodeBinary || null,
-        opencodeBinarySource: resolvedOpencodeBinarySource || null,
+        opencodeBinarySource: isExternalOpenCode ? (openCodeLifecycleRuntime.isConnectedViaSharedService() ? 'shared-service' : 'external') : resolvedOpencodeBinarySource || null,
         opencodeLaunchBinary: launchSpec?.binary || null,
         opencodeLaunchArgs: launchSpec?.args || [],
         opencodeLaunchWrapperType: launchSpec?.wrapperType || null,
@@ -2762,7 +2762,7 @@ async function main(options: WebUiServerOptions = {}) {
     ensureGlobalWatcherStarted,
     getOrCreateVapidKeys,
     getUiSessionTokenFromRequest,
-    writeSettingsToDisk,
+    updateSettingsFromDisk: settingsRuntime.updateSettingsFromDisk,
     addOrUpdatePushSubscription,
     removePushSubscription,
     addOrUpdateApnsToken,
@@ -2790,6 +2790,7 @@ async function main(options: WebUiServerOptions = {}) {
     isLocalOnlyPushRequest: (req, uiSessionToken) => clientPushAccess.isLocalOnlyRequest(req, uiSessionToken),
     agentToolRuntime,
     limitFailoverRuntime,
+    registerExternalBridgeRoutes: (expressApp) => managedConfigRuntime?.registerExternalBridgeRoutes(expressApp),
     desktopUpdater,
     getOpenCodeCompatibility,
     skipBodyParsing: (req) => spacesHost?.skipsBodyParsing(req) === true,
@@ -2841,7 +2842,7 @@ async function main(options: WebUiServerOptions = {}) {
   const relayService = createRelayService({
     crypto,
     readSettingsFromDiskMigrated,
-    writeSettingsToDisk,
+    updateSettingsFromDisk: settingsRuntime.updateSettingsFromDisk,
     relayKeyStore,
     getLocalPort: () => tunnelRuntimeContext.getActivePort(),
     hostLock: createRelayHostLock({
@@ -2937,11 +2938,7 @@ async function main(options: WebUiServerOptions = {}) {
       ]);
     },
     onExtensionWaitsChanged: () => extensionWaitsRuntime.reconcile(),
-    getOpenCodePluginDelivery: () => openCodePluginDelivery({
-      external: isExternalOpenCode || ENV_SKIP_OPENCODE_START,
-      origin: ENV_CONFIGURED_OPENCODE_HOST?.origin || openCodeBaseUrl || null,
-      ownsConfigFile: managedConfigRuntime?.ownsConfigFile() ?? true,
-    }),
+    getOpenCodePluginDelivery,
     extensionNotificationChannels,
     surfaceViewerHeaders: (guestId, viewerId) => guestSurfaceRuntime?.viewerHeaders(guestId, viewerId) ?? null,
     builtInExtensionsDir: options.builtInExtensionsDir,
@@ -2968,13 +2965,11 @@ async function main(options: WebUiServerOptions = {}) {
       await waitForOpenCodeReady();
     },
     upgradeOpenCodeCli: () => {
-      const launch = resolveManagedOpenCodeLaunchSpec(lastOpenCodeLaunchDiagnostics?.sourceBinary || resolvedOpencodeBinary);
-      const upgrade = () => runOpenCodeCliUpgrade(launch, {
-        env: { ...getLoginShellEnvSnapshot(), ...process.env, PATH: buildManagedOpenCodePath() },
-        cwd: os.homedir(),
-      });
+      const sharedServiceCli = getSharedServiceCliBinary();
+      const launch = resolveManagedOpenCodeLaunchSpec(sharedServiceCli || lastOpenCodeLaunchDiagnostics?.sourceBinary || resolvedOpencodeBinary);
+      const upgrade = () => runOpenCodeCliUpgrade(launch, { env: { ...getLoginShellEnvSnapshot(), ...process.env, PATH: buildManagedOpenCodePath() }, cwd: os.homedir() });
       // external: https://learn.microsoft.com/en-us/windows/win32/fileio/creating-and-opening-files Windows cannot replace the running executable; the managed process stops during installation.
-      if (process.platform !== 'win32') return upgrade();
+      if (sharedServiceCli || process.platform !== 'win32') return upgrade();
       return restartOpenCode('opencode-upgrade', { whileStopped: upgrade });
     },
     formatSettingsResponse,
@@ -3095,6 +3090,7 @@ async function main(options: WebUiServerOptions = {}) {
   terminalRuntime = startupPipelineResult.terminalRuntime;
   dictationRuntime = startupPipelineResult.dictationRuntime;
   messageStreamRuntime = startupPipelineResult.messageStreamRuntime;
+  await managedConfigRuntime.syncExternalBridge().catch((error) => console.warn('[ExternalOpenCodePlugin] Failed to sync runtime bridge:', (isRecord(error) && error.message) || error));
 
   try {
     await scheduledTasksRuntime.start();

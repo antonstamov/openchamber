@@ -429,6 +429,7 @@ export function renderComposerForm({
                         >
                             <ComposerEditor
                                 ref={composerRef}
+                                scriptAwareWords
                                 viewStore={composerViewStore}
                                 data-testid="chat-input"
                                 value={composerText.get()}

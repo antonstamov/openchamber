@@ -34,6 +34,9 @@
     "opencodeBinary": {
       "scope": "instance"
     },
+    "useGlobalOpenCodeService": {
+      "scope": "instance"
+    },
     "serverUpdateChannel": {
       "scope": "instance",
       "surfaces": [
@@ -299,6 +302,9 @@
       "scope": "instance"
     },
     "sttLanguage": {
+      "scope": "profile"
+    },
+    "sttPrompt": {
       "scope": "profile"
     },
     "sttCorrectTranscript": {

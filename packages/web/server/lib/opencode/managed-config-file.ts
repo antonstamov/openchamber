@@ -3,7 +3,11 @@ import { managedPermissionRules } from '../agent-tool/runtime.js';
 import { isLimitFailoverConfigured } from '../limit-failover/policy.js';
 import { isSharingAvailable } from '../share-pages/relay-client.js';
 import { materializeSessionTitlePlugin } from './session-title-plugin.js';
+export { retireClaudePlugin } from './retired-plugins.js';
+import { collectSkillEntriesFromRoots, createExternalPluginBridgeRuntime, registerExternalPluginBridgeRoutes } from './external-plugin-bridge.js';
 import { EXTENSION_AUTHORING_COMMAND, materializeAuthoringSkill } from '../guests/agent-context.js';
+import type { OpenCodePluginDelivery } from '../guests/opencode-plugin.js';
+import type { Application } from '../shared/http-contracts.js';
 import type { createAgentToolRuntime } from '../agent-tool/runtime.js';
 import type { LimitFailoverConfigurationInput } from '../limit-failover/policy.js';
 
@@ -26,14 +30,16 @@ export interface ManagedConfigDependencies {
   fsPromises: typeof import('node:fs/promises');
   path: typeof import('node:path');
   instanceDir: string;
+  dataDir?: string;
   env?: NodeJS.ProcessEnv;
-  agentToolRuntime?: Pick<ReturnType<typeof createAgentToolRuntime>, 'materializePlugin' | 'createChildEnv'> | null;
+  agentToolRuntime?: Pick<ReturnType<typeof createAgentToolRuntime>, 'materializePlugin' | 'createChildEnv'> & Partial<Pick<ReturnType<typeof createAgentToolRuntime>, 'ensureBridgeCredentials'>> | null;
   limitFailoverRuntime?: { materializePlugin: () => Promise<string> } | null;
   readSettings: () => ManagedConfigSettings | null | Promise<ManagedConfigSettings | null>;
   listExtensionSkillDirectories?: () => Promise<string[]>;
   listExtensionPluginDirectories?: () => Promise<string[]>;
   openchamberVersion?: string;
   readPluginDenials?: () => Array<{ action: string; resource: string; effect: string }>;
+  getOpenCodePluginDelivery?: () => OpenCodePluginDelivery;
 }
 
 interface ManagedConfigFile {
@@ -56,6 +62,7 @@ export const createManagedConfigRuntime = ({
   fsPromises,
   path,
   instanceDir,
+  dataDir,
   env = process.env,
   agentToolRuntime = null,
   limitFailoverRuntime = null,
@@ -64,8 +71,26 @@ export const createManagedConfigRuntime = ({
   listExtensionPluginDirectories = async () => [],
   openchamberVersion,
   readPluginDenials = () => [],
+  getOpenCodePluginDelivery,
 }: ManagedConfigDependencies) => {
   const filePath = path.join(instanceDir, MANAGED_CONFIG_FILE_NAME);
+  const externalBridge = dataDir && getOpenCodePluginDelivery && agentToolRuntime?.ensureBridgeCredentials
+    ? createExternalPluginBridgeRuntime({
+      fsPromises,
+      path,
+      dataDir,
+      readSettings,
+      ensureCredentials: () => agentToolRuntime.ensureBridgeCredentials?.() ?? null,
+      isExternalLocal: () => getOpenCodePluginDelivery() === 'none',
+      collectSkillsAndCommands: async () => {
+        const authoring = await materializeAuthoringSkill({ fsPromises, instanceDir, openchamberVersion });
+        const skillRoots = [authoring.skillsRoot, ...await listExtensionSkillDirectories()];
+        const skills = await collectSkillEntriesFromRoots(fsPromises, path, skillRoots);
+        const commands = [{ name: EXTENSION_AUTHORING_COMMAND, description: authoring.command.description, template: authoring.command.template }];
+        return { skills, commands };
+      },
+    })
+    : null;
 
   const ownsConfigFile = () => (env.OPENCODE_CONFIG ?? '').trim().length === 0;
 
@@ -158,7 +183,18 @@ export const createManagedConfigRuntime = ({
     return { ...childEnv, OPENCODE_CONFIG_CONTENT: content };
   };
 
+  const syncExternalBridge = async () => (externalBridge ? externalBridge.syncBridge() : { active: false });
+  const cleanupExternalBridge = async () => { await externalBridge?.cleanupBridge(); };
+  const registerExternalBridgeRoutes = (app: Application) => {
+    if (!getOpenCodePluginDelivery) return;
+    registerExternalPluginBridgeRoutes(app, {
+      getBridge: () => externalBridge,
+      getDelivery: getOpenCodePluginDelivery,
+    });
+  };
+
   const refreshManagedConfigFile = async () => {
+    await externalBridge?.syncBridge().catch(() => {});
     if (!ownsConfigFile()) return { updated: false, reason: 'external-config' };
     await writeLatestConfigFile();
     return { updated: true };
@@ -169,5 +205,8 @@ export const createManagedConfigRuntime = ({
     ownsConfigFile,
     buildManagedChildEnv,
     refreshManagedConfigFile,
+    syncExternalBridge,
+    cleanupExternalBridge,
+    registerExternalBridgeRoutes,
   };
 };

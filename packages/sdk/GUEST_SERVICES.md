@@ -327,6 +327,26 @@ OpenChamber names the host `ext-<panel.id>` (provider ids are at most 32 charact
 
 ### `contributes.sourceControl`
 
+An optional `presentation.urls.resolve` names a service path, for example
+`"/handle-url"`. An explicit paste on an existing `instanceAlias` uses this
+converter before native templates, since an alias may use a different path
+layout. Native templates retain priority on the canonical instance; a template
+miss there can also call the converter. The host calls the path through the
+ordinary service proxy with `POST` and JSON `{ "url": "…", "instance": "…" }`.
+Return HTTP 200 with `{ "url": "<canonical change request URL>" }`, or JSON
+`null`. The answer must be a change request on the same provider instance,
+matched by this provider's own `changeRequest` templates; an issue or any other
+URL draws no chip. The host then uses its existing change request reader,
+account and chip. This is URL conversion only; no source-control RPC method or
+new permission is involved. Only a paste into the composer calls the converter:
+a link typed by hand, a send, a queued message and agent tools never do.
+
+**Performance warning.** The same URL may be resolved again on every paste.
+OpenChamber does not cache conversion results.
+If resolution performs expensive I/O, the extension should manage its own
+caching and concurrent-request deduplication, with freshness appropriate to
+the service.
+
 Declared in the manifest, not answered by the service: OpenChamber reads it to draw the card, route Git transport and recognise remotes without starting a process, and the approval dialog shows it. Every object is strict; an unknown key fails.
 
 | Field | Contents |
@@ -409,7 +429,9 @@ Answer HTTP 200 with `{ "ok": true, "data": … }` or `{ "ok": false, "error": {
 | `auth.probe` | `{ supported, version?, message? }`: whether the instance is this forge; the handle carries no token |
 | `auth.status` | `{ user: { id, login, name?, email?, avatarUrl? } \| null }`: the service's current login for this exact instance; called only when `login` is declared, with no candidate token |
 | `changeRequestStatus` | The branch's status as the badge shows it (`ChangeRequestStatus` in the UI): its open pull request, else its most recent closed or merged one, so a merged branch is not offered a new pull request |
-| `listChangeRequests`, `changeRequestContext`, `listIssues`, `getIssue`, `issueComments`, `projectUpstream`, `projectBranches`, `listLabels`, `listReviewerCandidates` | A JSON object or array within `SOURCE_CONTROL_PROVIDER_RESPONSE_MAX`; the UI parses these DTOs itself |
+| `listChangeRequests`, `listIssues`, `issueComments`, `projectUpstream`, `projectBranches`, `listLabels`, `listReviewerCandidates` | A JSON object or array within `SOURCE_CONTROL_PROVIDER_RESPONSE_MAX`; the UI parses these DTOs itself |
+ | `changeRequestContext` | The UI's `ChangeRequestContext`: comments, files and diff, and with `includeTimeline` its `verdicts`, `reviewers`, and `reviewerStates` (`[{ user: { id, username, avatarUrl? }, state: "pending" \| "approved" \| "changes_requested" \| "commented" \| "dismissed" }]`). Invalid reviewer entries are dropped, and the field is omitted when none survive. Also carries `references` as in `getIssue` when `includeReferences` is set |
+ | `getIssue` | The issue detail as the UI's own DTO. With `includeReferences` (the Source Board asks for it), both detail methods can carry `references`, `[{ kind: "issue" \| "pull", number, url, createdAt, title?, repo?, author? }]` (`author` is `{ login, avatarUrl? }`), one per URL and oldest first. Malformed entries are dropped without failing the read. The field is omitted when no usable links remain |
 | `readChangeRequestPatch` | `{ patch, meta: { owner, repo, number } }`: the change request's whole unified diff (`diff --git` per file) and the repository it was read from. Served to the Changes view and walkthroughs only when `capabilities.changeRequestPatch` is on. `sourceRepo`, when given, names the repository the change request lives in; read only within the bound repository's network |
 | `readChangeRequestFile` | `{ original, modified }`: one file at the diff's base (the merge base) and at the head, for `path` (`previousPath` for the old side of a rename). `status` `A` has an empty `original`, `D` an empty `modified`. Same capability and network rule as the patch |
 | `liveSummaries` | `{ summaries, issueSummaries }` for the refs asked; an item the forge cannot answer is left out, a 401 fails the batch |

@@ -1,10 +1,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { dictationClient, type DictationStartOptions } from '@/lib/dictation/dictation-client';
+import { dictationClient, type DictationClient, type DictationStartOptions } from '@/lib/dictation/dictation-client';
 import { DictationStreamSender } from '@/lib/dictation/dictation-stream-sender';
 import { useDictationAudioSource, type DictationLevelListener } from '@/lib/dictation/use-dictation-audio-source';
 import { useConfigStore } from '@/stores/useConfigStore';
+import { readTranscriptionPrompt } from '@/stores/useTranscriptionPromptStore';
 
 export type DictationStatus = 'idle' | 'recording' | 'uploading' | 'failed';
 
@@ -63,15 +64,18 @@ export const getDictationStartOptions = (): DictationStartOptions => {
     const language = state.sttLanguage?.trim();
     const correct = state.sttCorrectTranscript ? { correct: true } : {};
     if (state.sttProvider === 'openai-compatible') {
+        const openaiCompatible: NonNullable<DictationStartOptions['openaiCompatible']> = {
+            baseUrl: state.sttServerUrl,
+            model: state.sttModel,
+            endpointPath: state.sttEndpointPath || undefined,
+        };
+        const prompt = readTranscriptionPrompt().trim();
+        if (prompt) openaiCompatible.prompt = prompt;
         return {
             provider: 'openai-compatible',
             ...(language ? { language } : {}),
             ...correct,
-            openaiCompatible: {
-                baseUrl: state.sttServerUrl,
-                model: state.sttModel,
-                endpointPath: state.sttEndpointPath || undefined,
-            },
+            openaiCompatible,
         };
     }
     return {
@@ -82,7 +86,7 @@ export const getDictationStartOptions = (): DictationStartOptions => {
     };
 };
 
-export function useDictation(options: UseDictationOptions = {}): UseDictationResult {
+export function useDictation(options: UseDictationOptions = {}, client: DictationClient = dictationClient): UseDictationResult {
     const { onTranscript, onError, canStart, handoffRef } = options;
 
     const [status, setStatus] = useState<DictationStatus>('idle');
@@ -110,7 +114,7 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
     const senderRef = useRef<DictationStreamSender | null>(null);
     if (!senderRef.current) {
         senderRef.current = new DictationStreamSender({
-            client: dictationClient,
+            client,
             getStartOptions: getDictationStartOptions,
         });
     }
@@ -151,7 +155,7 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
     }, []);
 
     useEffect(() => {
-        return dictationClient.onPartial((dictationId, text) => {
+        return client.onPartial((dictationId, text) => {
             const activeDictationId = senderRef.current?.getDictationId();
             if (!activeDictationId || dictationId !== activeDictationId) {
                 return;
@@ -159,21 +163,23 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
             latestPartialRef.current = text;
             setPartialTranscript(text);
         });
-    }, []);
+    }, [client]);
 
     useEffect(() => {
-        return dictationClient.subscribeConnectionStatus((connected) => {
+        return client.subscribeConnectionStatus((connected) => {
             if (!connected) {
                 return;
             }
-            if (statusRef.current !== 'recording') {
+            if (statusRef.current !== 'recording' && statusRef.current !== 'uploading') {
                 return;
             }
-            void senderRef.current?.restartStream().catch((err) => {
-                reportError(err);
+            void senderRef.current?.resumeStream().catch((err) => {
+                if (!actionGateRef.current.confirming) {
+                    reportError(err);
+                }
             });
         });
-    }, [reportError]);
+    }, [client, reportError]);
 
     const audio = useDictationAudioSource({
         onPcmSegment: (audioData) => {
@@ -218,6 +224,33 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
         },
         [reportError],
     );
+
+    useEffect(() => {
+        return client.subscribeStreamError((dictationId, streamError) => {
+            if (senderRef.current?.getDictationId() !== dictationId) {
+                return;
+            }
+            const gate = actionGateRef.current;
+            if (gate.starting) {
+                return;
+            }
+            if (streamError.reasonCode === 'model_download_in_progress') {
+                reportError(streamError);
+                return;
+            }
+            if (gate.confirming) {
+                senderRef.current?.stopWaitingForDrain();
+                return;
+            }
+            if (statusRef.current !== 'recording' && statusRef.current !== 'uploading') {
+                return;
+            }
+            client.abandonDictationStream(dictationId);
+            stopDurationTracking();
+            void audioStopRef.current().catch(() => undefined);
+            handleFailure(streamError);
+        });
+    }, [client, handleFailure, reportError, stopDurationTracking]);
 
     const startDictation = useCallback(async () => {
         const gate = actionGateRef.current;
@@ -315,7 +348,9 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
             const result = await senderRef.current!.finish(finalSeq);
             return handleSuccess(result.text);
         } catch (err) {
-            handleFailure(err);
+            if (statusRef.current === 'uploading') {
+                handleFailure(err);
+            }
             return null;
         } finally {
             gate.confirming = false;
@@ -323,9 +358,11 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
     }, [audio, clearError, handleFailure, handleSuccess, stopDurationTracking]);
 
     const retryFailedDictation = useCallback(async (): Promise<string | null> => {
-        if (statusRef.current !== 'failed' || !senderRef.current?.hasSegments()) {
+        const gate = actionGateRef.current;
+        if (gate.confirming || statusRef.current !== 'failed' || !senderRef.current?.hasSegments()) {
             return null;
         }
+        gate.confirming = true;
         clearError();
         setStatus('uploading');
         statusRef.current = 'uploading';
@@ -336,8 +373,12 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
             const result = await senderRef.current.finish(finalSeq);
             return handleSuccess(result.text);
         } catch (err) {
-            handleFailure(err);
+            if (statusRef.current === 'uploading') {
+                handleFailure(err);
+            }
             return null;
+        } finally {
+            gate.confirming = false;
         }
     }, [clearError, handleFailure, handleSuccess]);
 

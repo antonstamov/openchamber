@@ -41,11 +41,14 @@ import { useInputStore } from '@/sync/input-store';
 import { useChatQuoteHighlightApi, type ChatQuoteMark } from '../../hooks/chatQuoteHighlightStore';
 import { withAttachmentChips } from '../../message/parts/attachmentCitationChips';
 import { useMobileCommentComposerController } from '../comment/MobileCommentComposerContext';
+import { foldContextRows } from './contextRowFold';
+import { useRevealOnOpen } from './useRevealOnOpen';
 
 interface ComposerContextRowsProps {
     draftTarget: InlineCommentDraftTarget | null;
     isMobile: boolean;
     onOpenAttachment: (filename: string) => void;
+    surfaceActive: boolean;
 }
 
 const VISIBLE_ROWS = 4;
@@ -91,16 +94,21 @@ const DraftRow: React.FC<{
     onClose: () => void;
     onRemove: () => void;
     onSaveComment: (text: string) => boolean;
+    composing: boolean;
+    onComposeText: (text: string) => boolean;
+    onComposeFinish: (text: string) => void;
+    onComposeCancel: () => void;
     onFocusQuote: ((focused: boolean) => void) | null;
     onRevealQuote: (() => void) | null;
     attachmentFilenames: readonly string[];
     onOpenScreenshot: (() => void) | null;
     onRemoveScreenshot: () => void;
-}> = ({ draft, target, view, open, editsInPlace, phoneLayout, onToggle, onClose, onRemove, onSaveComment, onFocusQuote, onRevealQuote, attachmentFilenames, onOpenScreenshot, onRemoveScreenshot }) => {
+}> = ({ draft, target, view, open, editsInPlace, phoneLayout, onToggle, onClose, onRemove, onSaveComment, composing, onComposeText, onComposeFinish, onComposeCancel, onFocusQuote, onRevealQuote, attachmentFilenames, onOpenScreenshot, onRemoveScreenshot }) => {
     const { t } = useI18n();
     const [editText, setEditText] = React.useState(view.comment);
     const imagePaste = useCommentImagePaste();
-    const editing = open && editsInPlace && view.editable;
+    const editing = open && (editsInPlace || composing) && view.editable;
+    const writeThrough = editing && composing;
     // A late transcript from an attach-while-busy outlives the field that
     // recorded it; the open row stays mounted and shows it pending.
     const dictationPending = useCommentDictationPendingStore((state) => Boolean(state.pending[draft.id]));
@@ -232,12 +240,41 @@ const DraftRow: React.FC<{
         imagePaste.discardPastedImages();
         onClose();
     };
+    const composeRejectedRef = React.useRef(false);
+    const composeText = (text: string) => {
+        setEditText(text);
+        if (onComposeText(text)) {
+            composeRejectedRef.current = false;
+            return;
+        }
+        if (!composeRejectedRef.current) toast.error(t('inlineComment.toast.noRoom'));
+        composeRejectedRef.current = true;
+    };
+    const finishComposing = () => {
+        if (settledRef.current) return;
+        if (editText !== view.comment && !onComposeText(editText)) {
+            toast.error(t('inlineComment.toast.noRoom'));
+            return;
+        }
+        settledRef.current = true;
+        void imagePaste.attachCitedImages(editText);
+        onComposeFinish(editText);
+    };
+    const cancelComposing = () => {
+        settledRef.current = true;
+        imagePaste.discardPastedImages();
+        onComposeCancel();
+    };
+    const finish = writeThrough ? finishComposing : commitEdit;
+    const cancel = writeThrough ? cancelComposing : cancelEdit;
     const openRowRef = React.useRef<HTMLDivElement>(null);
+    const fieldRef = React.useRef<HTMLDivElement>(null);
+    useRevealOnOpen(fieldRef, writeThrough);
     const handleRowBlur = () => {
         const row = openRowRef.current;
         window.setTimeout(() => {
             if (row?.isConnected && row.contains(document.activeElement)) return;
-            commitEdit();
+            finish();
         }, 0);
     };
     const keepEditorFocus = (event: React.PointerEvent) => {
@@ -370,12 +407,12 @@ const DraftRow: React.FC<{
                 tabIndex={0}
                 aria-expanded
                 onPointerDown={keepEditorFocus}
-                onClick={editing ? commitEdit : onToggle}
+                onClick={editing ? finish : onToggle}
                 onKeyDown={(event) => {
                     if (event.target !== event.currentTarget) return;
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();
-                    if (editing) commitEdit();
+                    if (editing) finish();
                     else onToggle();
                 }}
             >
@@ -430,12 +467,12 @@ const DraftRow: React.FC<{
                 </div>
             ) : null}
             {editing ? (
-                <div className="mx-1.5 mt-1.5 flex items-end gap-1">
+                <div ref={fieldRef} className="mx-1.5 mt-1.5 flex items-end gap-1">
                     <CommentTextEditor
                         value={editText}
-                        onChange={setEditText}
-                        onSubmit={commitEdit}
-                        onCancel={cancelEdit}
+                        onChange={writeThrough ? composeText : setEditText}
+                        onSubmit={finish}
+                        onCancel={cancel}
                         enterSubmits
                         imagePaste={imagePaste}
                         placeholder={t('chat.textSelection.comment.placeholder')}
@@ -472,7 +509,7 @@ const DraftRow: React.FC<{
     );
 };
 
-function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: ComposerContextRowsProps) {
+function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment, surfaceActive }: ComposerContextRowsProps) {
     const { t } = useI18n();
     const draftKey = draftTarget
         ? getInlineCommentDraftKey(getRuntimeKey(), draftTarget.directory, draftTarget.sessionKey)
@@ -591,18 +628,27 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
         return () => quoteHighlights.publishMarks(quotePublisher, []);
     }, [quoteHighlights, quoteMarks, quotePublisher]);
 
-    const hiddenCount = showAll ? 0 : Math.max(0, drafts.length - VISIBLE_ROWS);
-    const visibleDrafts = hiddenCount > 0 ? drafts.slice(0, VISIBLE_ROWS) : drafts;
+    const composingDraftId = surfaceActive
+        ? drafts.filter((draft) => draft.composing).at(-1)?.id ?? null
+        : null;
+    const openDraftId = composingDraftId ?? openId;
+
+    const { visible: visibleDrafts, hiddenCount } = foldContextRows(drafts, {
+        limit: VISIBLE_ROWS,
+        showAll,
+        keepId: composingDraftId,
+    });
 
     React.useEffect(() => {
-        if (openId && !visibleDrafts.some((draft) => draft.id === openId)) setOpenId(null);
-    }, [openId, visibleDrafts]);
+        if (composingDraftId && openId && openId !== composingDraftId) setOpenId(null);
+        if (openDraftId && !visibleDrafts.some((draft) => draft.id === openDraftId)) setOpenId(null);
+    }, [composingDraftId, openId, openDraftId, visibleDrafts]);
     React.useEffect(() => {
         if (drafts.length <= VISIBLE_ROWS) setShowAll(false);
     }, [drafts.length]);
 
     React.useEffect(() => {
-        if (!openId) return;
+        if (!openDraftId) return;
         const handlePointerDown = (event: PointerEvent) => {
             // SAFETY: a pointer event target inside the document is always a Node; `contains` only needs that.
             if (listRef.current?.contains(event.target as Node)) return;
@@ -611,7 +657,7 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
         };
         document.addEventListener('pointerdown', handlePointerDown);
         return () => document.removeEventListener('pointerdown', handlePointerDown);
-    }, [openId]);
+    }, [openDraftId]);
 
     if (!draftTarget || drafts.length === 0) return null;
 
@@ -628,7 +674,7 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
     };
 
     const toggle = (draft: InlineCommentDraft, view: RowView) => {
-        if (openId === draft.id) {
+        if (openDraftId === draft.id) {
             setOpenId(null);
             return;
         }
@@ -648,7 +694,7 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
     };
 
     const editsInPlace = !isMobile || !mobileComment;
-    const openDraft = openId ? visibleDrafts.find((draft) => draft.id === openId) : undefined;
+    const openDraft = openDraftId ? visibleDrafts.find((draft) => draft.id === openDraftId) : undefined;
     openRowEditsRef.current = Boolean(openDraft && editsInPlace && viewOf(openDraft).editable);
 
     const rows = visibleDrafts.map((draft) => {
@@ -660,7 +706,7 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
                 draft={draft}
                 target={draftTarget}
                 view={view}
-                open={openId === draft.id}
+                open={openDraftId === draft.id}
                 editsInPlace={editsInPlace}
                 phoneLayout={isMobile}
                 onToggle={() => toggle(draft, view)}
@@ -675,6 +721,13 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment }: Co
                     removeScreenshotFile(draft);
                 }}
                 onSaveComment={(text) => saveComment(draft, text)}
+                composing={draft.composing === true}
+                onComposeText={(text) => updateDraft(draftTarget, draft.id, { text })}
+                onComposeFinish={(text) => {
+                    if (!text.trim()) removeDraft(draftTarget, draft.id);
+                    else updateDraft(draftTarget, draft.id, { composing: false });
+                }}
+                onComposeCancel={() => removeDraft(draftTarget, draft.id)}
                 onFocusQuote={quoteHighlights && draft.source === 'chat-quote'
                     ? (focused) => quoteHighlights.focusMark(focused ? draft.id : null)
                     : null}

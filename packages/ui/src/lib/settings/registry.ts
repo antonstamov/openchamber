@@ -14,6 +14,7 @@ import { sanitizeWorkStatusHiddenSections, sanitizeWorkStatusSectionOrder } from
 import { useInputHistoryStore } from '@/stores/useInputHistoryStore';
 import { useMessageQueueStore } from '@/stores/messageQueueStore';
 import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
+import { STT_PROMPT_MAX_LENGTH, readTranscriptionPrompt, setTranscriptionPrompt } from '@/stores/useTranscriptionPromptStore';
 import { useUIStore, type DocumentAttachBehavior, type FileEditorKeymap, type LargeTextPasteBehavior } from '@/stores/useUIStore';
 import { isSessionGoalMaxAutoTurns } from '@/lib/sessionGoalTurnLimit';
 import { hiddenSidebarSectionsSchema, SIDEBAR_SESSION_BATCH_MAX, SIDEBAR_SESSION_BATCH_MIN, sidebarPinListsSchema, sidebarSectionsSchema } from '@/lib/sidebarSections';
@@ -189,6 +190,7 @@ export const SETTINGS_REGISTRY = {
   lastDirectory: field({ scope: 'instance', adopt: 'bootstrap-only', parse: parseNonEmptyString }),
   homeDirectory: field({ scope: 'instance', parse: parseNonEmptyString }),
   opencodeBinary: field({ scope: 'instance', parse: parseTrimmedString }),
+  useGlobalOpenCodeService: field({ scope: 'instance', parse: parseBoolean }),
   serverUpdateChannel: field({ scope: 'instance', surfaces: ['web'], parse: parseOneOf(['stable', 'canary']) }),
   projects: field<ProjectEntry[]>({ scope: 'instance', parse: parseProjects }),
   activeProjectId: field({ scope: 'instance', adopt: 'bootstrap-only', parse: parseNonEmptyString }),
@@ -302,6 +304,7 @@ export const SETTINGS_REGISTRY = {
   sttModel: field({ scope: 'instance', parse: parseTrimmedStringUpTo(256), ui: configField('sttModel') }),
   sttLocalModel: field({ scope: 'instance', parse: parseTrimmedStringUpTo(256), ui: configField('sttLocalModel') }),
   sttLanguage: field({ scope: 'profile', parse: parseTrimmedStringUpTo(64), ui: configField('sttLanguage') }),
+  sttPrompt: field({ scope: 'profile', parse: parseTextUpTo(STT_PROMPT_MAX_LENGTH), ui: { read: readTranscriptionPrompt, write: setTranscriptionPrompt, autoSave: false } }),
   sttCorrectTranscript: field({ scope: 'profile', parse: parseBoolean, ui: configField('sttCorrectTranscript') }),
 
   tunnelProvider: field({ scope: 'instance', parse: mapParser(parseNonEmptyTrimmedString, (value) => value.toLowerCase()) }),

@@ -40,6 +40,7 @@ const args = (overrides: Partial<Omit<Args, 't'>> & { selectedPath: string; snif
     pdfSrc: '',
     rawAsset: { src: '', loading: false, renew: async () => '' },
     saveOfficeBytes: async () => true,
+    tableDelimiter: ',',
   },
   fileDocument: {
     artifactSize: overrides.size,

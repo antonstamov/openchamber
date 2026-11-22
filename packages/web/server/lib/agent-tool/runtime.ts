@@ -49,6 +49,7 @@ import {
 } from '../share-pages/runtime.js';
 import { SECRET_REQUEST_CLOSED_IN_CHAT_NOTE } from '../openchamber-control/secret-request.js';
 import { secretRunCommand, secretRunCommandLine } from '../openchamber-control/secret-run.js';
+import { RENDER_PAGE_UI_DESCRIPTION } from './render-tool.js';
 import { SECRET_PARAMETER_PROPERTIES, SECRET_TOOL_DESCRIPTION } from './secret-tool.js';
 import { createCallbackAddress } from './callback-address.js';
 import { LEAD_COMPACTION_HOOK } from '../session-lead/agent-tool-plugin.js';
@@ -232,7 +233,7 @@ const ALL_PARAMETER_PROPERTIES = {
   goal: { type: 'boolean', description: 'Goal Mode; only when the user asks' },
   goalTokenBudget: { type: 'integer', minimum: 1000, maximum: 100_000_000, description: 'Requires goal' },
   returnResult: { type: 'boolean', description: 'create, send or fork with a prompt: the final answer arrives here as a message when the session finishes. Only when the user wants the outcome or your next step needs it' },
-  ownWork: { type: 'boolean', description: 'session.create: the session is part of your own task, not one the user asked for. It nests under this session in the sidebar, the user does not talk to it, it cannot ask questions with tools, and with a prompt its final answer comes back here unless returnResult is false. Leave it out when the user wants the session for themselves, to follow and talk to' },
+  ownWork: { type: 'boolean', description: 'session.create: the session is part of your own task, not one the user asked for. It nests under this session in the sidebar, the user does not talk to it, it cannot ask questions with tools, and with a prompt every answer it ends a turn with comes back here, whatever started that turn (your prompt, its own subagents finishing, a wait firing), until it is archived, unless returnResult is false. Leave it out when the user wants the session for themselves, to follow and talk to' },
   lastAssistant: { type: 'boolean', description: 'Only the last assistant message' },
   limit: { type: 'integer', minimum: 1, description: 'Default 10' },
   all: { type: 'boolean', description: 'Include archived sessions, all messages, or older model versions' },
@@ -358,11 +359,6 @@ const RENDER_PAGE_LATER_DESCRIPTION = [
   "What it asked is the page's static text, at most 2,000 characters, so write the question itself in the HTML, near the top, not with a script; the message says when it holds only part of the page.",
 ].join(' ');
 
-const RENDER_PAGE_UI_DESCRIPTION = [
-  "Instead of html: one complete openui-lang program, the language of UI blocks, without the fence. Prefer it to html for a question: Choice and Input fields, drawn with the chat's own controls.",
-  "With awaitAnswer the call returns summary (the button and the values in words) and data: { button, value, values, note }: the pressed button's label and value, each field's value under its name, and the note the user added, if any.",
-].join(' ');
-
 const RENDER_PARAMETER_PROPERTIES = {
   ui: { type: 'string', description: RENDER_PAGE_UI_DESCRIPTION },
   html: { type: 'string', description: RENDER_PAGE_HTML_DESCRIPTION },
@@ -408,7 +404,7 @@ const TERMINAL_PARAMETER_PROPERTIES = {
 
 const WORKFLOW_SCRIPT_DESCRIPTION = [
   "JavaScript. It starts with export const meta = { name: 'audit-routes', description: 'One sentence', phases: ['Find', 'Audit'] }, then a body with top-level await and return.",
-  "The body sees: agent(prompt, { label, phase, agent, model, schema }) runs one agent in a fresh session and resolves to its final answer text, to the JSON value matching schema (JSON Schema: type, properties, required, items, enum; the agent hands it over through a checking tool), or to null when it failed. model is provider/model, optionally #variant; without it the agent runs on this session's model. The agent has none of this conversation, so the prompt carries everything it needs: paths, the question, what to answer.",
+  "The body sees: agent(prompt, { id, forkFrom, label, phase, agent, model, schema }) runs one agent in a fresh session and resolves to its final answer text, to the JSON value matching schema (JSON Schema: type, properties, required, items, enum; the agent hands it over through a checking tool), or to null when it failed. model is provider/model, optionally #variant; without it the agent runs on this session's model. The agent has none of this conversation, so the prompt carries everything it needs: paths, the question, what to answer. To branch, name a call with id and, once it has completed, pass forkFrom: that id to a later call: it runs in a fork of that agent's session, with its history and its agent and model unless given; ids are unique within a run, and a bad id or forkFrom fails the run.",
   "parallel([() => agent(...), ...]) runs tasks together and waits for all of them: a barrier, resolving to their results, null for a failed one. pipeline(items, stage1, stage2, ...) runs each item through the stages on its own, each stage called as (previous, item, index) with previous the last stage's result (the item itself for the first), with no wait between stages; a stage that gives null ends that item as null; prefer it, and use parallel() between steps only when a step needs every earlier result at once, such as deduplicating across them. phase(title) groups the agents that follow under a title listed in meta.phases; inside parallel() or pipeline() pass phase to agent() instead. log(message) shows a line in the run. args is the JSON passed to workflow.run, {} when none was.",
   `At most ${MAX_CONCURRENT_AGENTS} agents work at once and ${MAX_AGENTS_PER_RUN} per run. No imports, files, network, timers, Date.now(), new Date() or Math.random(): agents read and write files and run commands, the script only coordinates them, and a resumed run replays it.`,
   "Return a short report value: each agent's full answer stays readable with workflow.result.",
@@ -682,8 +678,9 @@ ${reviveDependsOn}${actionSchema.normalize}${secretRunNormalize}${normalizeBoole
           },
         })
         await progress()
-        const endpoint = process.env.OPENCHAMBER_AGENT_TOOL_URL
-        const token = process.env.OPENCHAMBER_AGENT_TOOL_TOKEN
+        const connection = resolveConnection()
+        const endpoint = connection?.url
+        const token = connection?.token
         // No output schema is declared, so a result must never carry an output
         // field: OpenCode rejects that with "Tool result declared output
         // without an output schema". The envelope travels as text content.
@@ -730,7 +727,7 @@ ${secretRun ? SECRET_RUN_PERMISSION : ''}${answers ? answerWaitSetup(answers.wai
 `;
 };
 
-const CODE_MODE_CATALOG_LINES = {
+export const CODE_MODE_CATALOG_LINES = {
   openchamber: 'OpenChamber projects, sessions and worktrees: dispatch a session, link a PR, list models, move this session into a worktree (it can help when the checkout looks busy; ask unless the request already calls for separate work)',
   openchamber_schedule: 'Scheduled tasks: prompts OpenChamber runs on a schedule',
   openchamber_web: "OpenChamber's browser panel, to check your work by looking at it: open a page, read it, click and type",
@@ -741,9 +738,43 @@ const CODE_MODE_CATALOG_LINES = {
   openchamber_terminal: "OpenChamber's terminal panel, read-only: list a folder's terminals and read what one printed. Read it when the answer is in a terminal the user is looking at",
 };
 
-const OPENCODE_TOOLS_REPLACED_BY_CONTROL = ['opencode_worktree_create', 'opencode_models'];
+export const OPENCODE_TOOLS_REPLACED_BY_CONTROL = ['opencode_worktree_create', 'opencode_models'];
 
-const createPluginSource = ({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeShare, includeImage, includeSecret, includeUsage, includeTerminal, includeWorkflow }: Required<PluginOptions>) => {
+export const buildAgentToolEntries = ({ includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeShare, includeImage, includeSecret, includeUsage, includeTerminal, includeWorkflow }: Required<PluginOptions>) => ({
+  control: includeControl ? createToolEntry({ name: 'openchamber', description: CONTROL_TOOL_DESCRIPTION, definitions: OPENCHAMBER_AGENT_TOOL_ACTION_DEFINITIONS, parameters: CONTROL_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  schedule: includeSchedule ? createToolEntry({ name: 'openchamber_schedule', description: SCHEDULE_TOOL_DESCRIPTION, definitions: OPENCHAMBER_SCHEDULE_ACTION_DEFINITIONS, parameters: SCHEDULE_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  web: includeWeb ? createToolEntry({ name: 'openchamber_web', description: WEB_TOOL_DESCRIPTION, definitions: OPENCHAMBER_WEB_ACTION_DEFINITIONS, parameters: WEB_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  memory: includeMemory ? createToolEntry({ name: 'openchamber_memory', description: MEMORY_TOOL_DESCRIPTION, definitions: OPENCHAMBER_MEMORY_ACTION_DEFINITIONS, parameters: MEMORY_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  knowledge: includeKnowledge ? createToolEntry({ name: 'openchamber_knowledge', description: KNOWLEDGE_TOOL_DESCRIPTION, definitions: OPENCHAMBER_KNOWLEDGE_ACTION_DEFINITIONS, parameters: KNOWLEDGE_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  notify: includeNotify ? createToolEntry({ name: 'openchamber_notify', description: NOTIFY_TOOL_DESCRIPTION, definitions: OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS, parameters: NOTIFY_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  render: includeRender ? createToolEntry({
+    name: 'openchamber_render',
+    description: includeShare ? `${RENDER_TOOL_DESCRIPTION}${RENDER_TOOL_SHARE_SENTENCE}` : RENDER_TOOL_DESCRIPTION,
+    definitions: OPENCHAMBER_RENDER_ACTION_DEFINITIONS,
+    parameters: includeShare ? { ...RENDER_PARAMETER_PROPERTIES, share: RENDER_SHARE_PARAMETER } : RENDER_PARAMETER_PROPERTIES,
+    codeMode: false,
+    answers: { waitsWhen: 'args.awaitAnswer === true', closedInChatNote: RENDER_PAGE_CLOSED_IN_CHAT_NOTE },
+  }) : '',
+  secret: includeSecret ? createToolEntry({
+    name: 'openchamber_secret',
+    description: SECRET_TOOL_DESCRIPTION,
+    definitions: OPENCHAMBER_SECRET_ACTION_DEFINITIONS,
+    parameters: SECRET_PARAMETER_PROPERTIES,
+    codeMode: false,
+    answers: { waitsWhen: '(args.action !== "secret.forget" && args.action !== "forget") || args.saved === true', closedInChatNote: SECRET_REQUEST_CLOSED_IN_CHAT_NOTE },
+    secretRun: true,
+  }) : '',
+  image: includeImage ? createToolEntry({ name: 'openchamber_image', description: IMAGE_TOOL_DESCRIPTION, definitions: OPENCHAMBER_IMAGE_ACTION_DEFINITIONS, parameters: IMAGE_PARAMETER_PROPERTIES, codeMode: false }) : '',
+  usage: includeUsage ? createToolEntry({ name: 'openchamber_usage', description: USAGE_TOOL_DESCRIPTION, definitions: OPENCHAMBER_USAGE_ACTION_DEFINITIONS, parameters: USAGE_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  terminal: includeTerminal ? createToolEntry({ name: 'openchamber_terminal', description: TERMINAL_TOOL_DESCRIPTION, definitions: OPENCHAMBER_TERMINAL_ACTION_DEFINITIONS, parameters: TERMINAL_PARAMETER_PROPERTIES, codeMode: true }) : '',
+  workflow: includeWorkflow
+    ? createToolEntry({ name: 'openchamber_workflow', description: WORKFLOW_TOOL_DESCRIPTION, definitions: OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS, parameters: WORKFLOW_PARAMETER_PROPERTIES, codeMode: false })
+      + createToolEntry({ name: WORKFLOW_ANSWER_TOOL, description: WORKFLOW_ANSWER_TOOL_DESCRIPTION, definitions: OPENCHAMBER_WORKFLOW_ANSWER_ACTION_DEFINITIONS, parameters: WORKFLOW_ANSWER_PARAMETER_PROPERTIES, codeMode: false })
+    : '',
+});
+
+const createPluginSource = (options: Required<PluginOptions>) => {
+  const { includeControl, includeSchedule, includeWeb, includeMemory, includeKnowledge, includeNotify, includeRender, includeSecret, includeUsage, includeTerminal } = options;
   const entries = [];
   const included = { openchamber: includeControl, openchamber_schedule: includeSchedule, openchamber_web: includeWeb, openchamber_memory: includeMemory, openchamber_knowledge: includeKnowledge, openchamber_notify: includeNotify, openchamber_usage: includeUsage, openchamber_terminal: includeTerminal };
   for (const [name, description] of Object.entries(CODE_MODE_CATALOG_LINES)
@@ -755,131 +786,22 @@ const createPluginSource = ({ includeControl, includeSchedule, includeWeb, inclu
     entries.push(`    for (const id of ${JSON.stringify(OPENCODE_TOOLS_REPLACED_BY_CONTROL)}) tools.remove(id)
 `);
   }
-  if (includeControl) {
-    entries.push(createToolEntry({
-      name: 'openchamber',
-      description: CONTROL_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_AGENT_TOOL_ACTION_DEFINITIONS,
-      parameters: CONTROL_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeSchedule) {
-    entries.push(createToolEntry({
-      name: 'openchamber_schedule',
-      description: SCHEDULE_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_SCHEDULE_ACTION_DEFINITIONS,
-      parameters: SCHEDULE_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeWeb) {
-    entries.push(createToolEntry({
-      name: 'openchamber_web',
-      description: WEB_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_WEB_ACTION_DEFINITIONS,
-      parameters: WEB_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeMemory) {
-    entries.push(createToolEntry({
-      name: 'openchamber_memory',
-      description: MEMORY_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_MEMORY_ACTION_DEFINITIONS,
-      parameters: MEMORY_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeKnowledge) {
-    entries.push(createToolEntry({
-      name: 'openchamber_knowledge',
-      description: KNOWLEDGE_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_KNOWLEDGE_ACTION_DEFINITIONS,
-      parameters: KNOWLEDGE_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeNotify) {
-    entries.push(createToolEntry({
-      name: 'openchamber_notify',
-      description: NOTIFY_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS,
-      parameters: NOTIFY_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeRender) {
-    entries.push(createToolEntry({
-      name: 'openchamber_render',
-      description: includeShare ? `${RENDER_TOOL_DESCRIPTION}${RENDER_TOOL_SHARE_SENTENCE}` : RENDER_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_RENDER_ACTION_DEFINITIONS,
-      parameters: includeShare ? { ...RENDER_PARAMETER_PROPERTIES, share: RENDER_SHARE_PARAMETER } : RENDER_PARAMETER_PROPERTIES,
-      codeMode: false,
-      answers: { waitsWhen: 'args.awaitAnswer === true', closedInChatNote: RENDER_PAGE_CLOSED_IN_CHAT_NOTE },
-    }));
-  }
-  if (includeSecret) {
-    entries.push(createToolEntry({
-      name: 'openchamber_secret',
-      description: SECRET_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_SECRET_ACTION_DEFINITIONS,
-      parameters: SECRET_PARAMETER_PROPERTIES,
-      codeMode: false,
-      answers: { waitsWhen: '(args.action !== "secret.forget" && args.action !== "forget") || args.saved === true', closedInChatNote: SECRET_REQUEST_CLOSED_IN_CHAT_NOTE },
-      secretRun: true,
-    }));
-  }
-  if (includeImage) {
-    entries.push(createToolEntry({
-      name: 'openchamber_image',
-      description: IMAGE_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_IMAGE_ACTION_DEFINITIONS,
-      parameters: IMAGE_PARAMETER_PROPERTIES,
-      codeMode: false,
-    }));
-  }
-  if (includeUsage) {
-    entries.push(createToolEntry({
-      name: 'openchamber_usage',
-      description: USAGE_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_USAGE_ACTION_DEFINITIONS,
-      parameters: USAGE_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeTerminal) {
-    entries.push(createToolEntry({
-      name: 'openchamber_terminal',
-      description: TERMINAL_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_TERMINAL_ACTION_DEFINITIONS,
-      parameters: TERMINAL_PARAMETER_PROPERTIES,
-      codeMode: true,
-    }));
-  }
-  if (includeWorkflow) {
-    entries.push(createToolEntry({
-      name: 'openchamber_workflow',
-      description: WORKFLOW_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_WORKFLOW_ACTION_DEFINITIONS,
-      parameters: WORKFLOW_PARAMETER_PROPERTIES,
-      codeMode: false,
-    }));
-    entries.push(createToolEntry({
-      name: WORKFLOW_ANSWER_TOOL,
-      description: WORKFLOW_ANSWER_TOOL_DESCRIPTION,
-      definitions: OPENCHAMBER_WORKFLOW_ANSWER_ACTION_DEFINITIONS,
-      parameters: WORKFLOW_ANSWER_PARAMETER_PROPERTIES,
-      codeMode: false,
-    }));
+  for (const entry of Object.values(buildAgentToolEntries(options))) {
+    if (entry) entries.push(entry);
   }
 
   const secretRunHelpers = includeSecret ? `const secretRunCommand = ${secretRunCommand.toString()}
 const secretRunCommandLine = ${secretRunCommandLine.toString()}
 
 ` : '';
-  return `${secretRunHelpers}const exemptCallbackFromProxy = () => {
-  const endpoint = process.env.OPENCHAMBER_AGENT_TOOL_URL
+  return `${secretRunHelpers}const resolveConnection = () => {
+  const url = process.env.OPENCHAMBER_AGENT_TOOL_URL
+  const token = process.env.OPENCHAMBER_AGENT_TOOL_TOKEN
+  return url && token ? { url, token } : null
+}
+
+const exemptCallbackFromProxy = () => {
+  const endpoint = resolveConnection()?.url
   if (!endpoint || !URL.canParse(endpoint)) return
   const host = new URL(endpoint).hostname.replace(/^\\[|\\]$/g, "")
   for (const key of ["NO_PROXY", "no_proxy"]) {
@@ -935,6 +857,28 @@ ${entries.join('')}    })${includeRender || includeSecret ? `
 `;
 };
 
+export const AGENT_TOOL_DYNAMIC_HELPERS = `const secretRunCommand = ${secretRunCommand.toString()}
+const secretRunCommandLine = ${secretRunCommandLine.toString()}
+const pagesWaitingForChat = new Map()
+const isAgentPrompt = ${isAgentPrompt.toString()}
+const endWaits = (sessionID) => {
+  for (const controller of pagesWaitingForChat.get(sessionID) ?? []) controller.abort()
+}
+const pendingByUser = new Map()
+const followUserPrompts = async (events) => {
+  for await (const event of events) {
+    if (event.type === "session.deleted") {
+      for (const [inboxID, sessionID] of pendingByUser) if (sessionID === event.data?.sessionID) pendingByUser.delete(inboxID)
+      continue
+    }
+    const sessionID = pendingByUser.get(event.data?.inboxID)
+    if (!sessionID) continue
+    if (event.type !== "session.inbox.delivery.changed") pendingByUser.delete(event.data.inboxID)
+    else if (event.data.delivery === "steer") endWaits(sessionID)
+  }
+}
+`;
+
 const PLUGIN_PACKAGE_JSON = `${JSON.stringify({
   name: 'openchamber-agent-tool',
   version: '0.0.0',
@@ -981,6 +925,20 @@ export const createAgentToolRuntime = (dependencies: AgentToolDependencies) => {
     return {
       OPENCHAMBER_AGENT_TOOL_URL: `http://${callbackHost()}:${port}/api/openchamber/agent-tool`,
       OPENCHAMBER_AGENT_TOOL_TOKEN: activeToken,
+    };
+  };
+
+  const ensureBridgeCredentials = () => {
+    const port = getActivePort();
+    if (!Number.isInteger(port) || port === null || port <= 0) {
+      return null;
+    }
+    if (!activeToken) {
+      activeToken = crypto.randomBytes(32).toString('base64url');
+    }
+    return {
+      url: `http://${callbackHost()}:${port}/api/openchamber/agent-tool`,
+      token: activeToken,
     };
   };
 
@@ -1097,6 +1055,7 @@ export const createAgentToolRuntime = (dependencies: AgentToolDependencies) => {
     pluginDirectory,
     materializePlugin,
     createChildEnv,
+    ensureBridgeCredentials,
     authorizeRequest: authorize,
     registerRoutes,
     execute,

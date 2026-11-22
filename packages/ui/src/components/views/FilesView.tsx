@@ -5,6 +5,7 @@ import { renderFileHtmlPreview } from './files/view/renderFileHtmlPreview';
 import { renderFileHtmlUnavailable } from './files/view/renderFileHtmlUnavailable';
 import { renderFileMarkdownPreview } from './files/view/renderFileMarkdownPreview';
 import { renderFileDiscardDialog } from './files/view/renderFileDiscardDialog';
+import { getRuntimeKey } from '@/lib/runtime-switch';
 import React from 'react';
 import { useI18n } from '@/lib/i18n';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
@@ -70,11 +71,24 @@ export const FilesView: React.FC<FilesViewProps> = ({ visible = true, onCloseFil
   const closeState = useFileCloseState();
   const navigationRequests = useFileNavigationRequests();
   const externalActions = useFileExternalActions({ scope, tabs, files, t });
-  const fileComments = useFileComments({ draft, editor, fileDocument, tabs, isMobile });
+  const fileComments = useFileComments({ draft, editor, fileDocument, tabs, isMobile, visible });
   const fileDirectory = useFileDirectory({ fileDocument, layout, scope, tabs, files });
   const uploads = useFileUploads({ fileDirectory, scope });
   const operations = useFileOperations({ fileDirectory, fileDocument, layout, scope, tabs, files, isMobile, t });
   const search = useFileSearch({ scope });
+  const treeSearchQuery = search.debouncedSearchQuery.trim();
+  const treeRuntimeKey = getRuntimeKey();
+  const treeMemoryKey = isMobile && !layout.showMobilePageContent
+    ? (treeSearchQuery
+      ? `tree:${treeRuntimeKey}:${scope.root}:search:${scope.currentDirectory}:${treeSearchQuery}`
+      : `tree:${treeRuntimeKey}:${scope.root}`)
+    : null;
+  const treeMemoryReady = treeSearchQuery
+    ? !search.searching
+      && search.resultsFor?.directory === scope.currentDirectory
+      && search.resultsFor.query === treeSearchQuery
+    : Boolean(scope.root && fileDirectory.childrenByDir[scope.root]) && !fileDirectory.loadErrorsByDir[scope.root]
+      && !search.searching && search.searchResults.length === 0;
   const fileSaving = useFileSaving({ canvasState, diagram, draft, fileDocument, scope, tabs, files, t });
   useFileKeybinds({
     canvasState, editor, fileSaving, markdownPreview,
@@ -109,7 +123,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ visible = true, onCloseFil
   });
   const mobileKeyboard = useFileMobileKeyboard({ editor, isMobile });
   useFileEditorKeybinds({ editor, fileKinds, viewModes, isMobile });
-  const fileEditorExtensions = useFileEditorExtensions({ editor, fileLanguage, mobileKeyboard, scope, tabs, themes, files, git, isMobile, t });
+  const fileEditorExtensions = useFileEditorExtensions({ editor, fileComments, fileLanguage, mobileKeyboard, scope, tabs, themes, files, git, isMobile, t });
   const fileAssets = useFileAssets({ draft, fileDocument, fileKinds, fileSaving, scope, tabs, viewModes, files, isMobile, runtime, t });
   const artifacts = useArtifactPreview({
     draft, fileAssets, fileDocument, fileFreshness, fileKinds, fileSaving, imageFullscreen, imageNavigation, layout, tabs, viewModes,
@@ -150,6 +164,8 @@ export const FilesView: React.FC<FilesViewProps> = ({ visible = true, onCloseFil
   });
   const fileTreePanel = renderFileTreePanel({
     fileDirectory, fileOpening, fileTreeRendering, operations, scope, search, tabs, uploads, t,
+    memoryKey: treeMemoryKey,
+    memoryReady: treeMemoryReady,
   });
   const imageFullscreenViewer = renderFileImageFullscreen({ artifacts, fileDocument, imageFullscreen, tabs, t });
   const { showMobilePageContent } = layout;
@@ -171,6 +187,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ visible = true, onCloseFil
       />
       {imageFullscreenViewer}
       {uploadElements}
+      {fileComments.codeSelectionComment.menu}
       {isMobile ? (
         showMobilePageContent ? (
           fileViewer

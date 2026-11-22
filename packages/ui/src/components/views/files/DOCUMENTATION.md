@@ -68,8 +68,15 @@ panel's tab strip owns the open files: closing
 a file from the editor (Cmd/Ctrl+W in the desktop app, which the window menu
 turns into `openchamber:close-tab` through `lib/closeTabTarget.ts`, or the
 unsaved-changes prompt that may come first) goes through `onCloseFile` to
-`closeContextFile`, which closes that tab exactly as its close button does. Mobile retains its tree. The context panel passes actual visibility,
-including the panel's open state, its active tab, and the editor toggle, to each file surface.
+`closeContextFile`, which closes that tab exactly as its close button does. Mobile
+retains its tree. Opening a file replaces the tree in the same scroll area on a
+phone, so the tree keeps its offset per workspace root and returns to it before
+repainting; a search's results and a folder child's listing are their own lists
+(`memoryKey` on the tree's scroller). A root read still loading or failed,
+search results of another folder or query, a failed search, and a cleared
+search's rows still on screen are not the list. The context panel passes actual
+visibility, including the panel's open state, its active tab, and the editor
+toggle, to each file surface.
 Hidden surfaces retain drafts, loaded content and scroll state. They stop
 directory and file metadata polling; reopening checks freshness once before
 normal polling resumes. The visible open file is watched by OpenCode
@@ -253,7 +260,8 @@ drawn by pdf.js, see below), `MediaArtifact` (native audio/video
 element, duration and dimensions once metadata loads, a stated failure when
 the runtime cannot decode the codec), `FontArtifact` (a specimen under a
 throwaway `FontFace` family removed when the tab closes), `TableArtifact`
-(CSV/TSV through `delimitedText.ts`, capped rows stated in the meta line),
+(CSV/TSV through `delimitedText.ts`, the separator read from the file's first
+records rather than its extension, see below; capped rows stated in the meta line),
 `OfficeArtifact` (docx, xlsx, pptx, odt, ods, odp, read-only, see below),
 and `BinaryArtifact` (name, type, size, download, and the desktop's open in
 the default app; never a decode attempt, except the explicit read-only
@@ -506,7 +514,8 @@ An empty last column takes what is left of a wide pane. Without it the browser
 stretches every column past its width, and a drag starts from a width the column
 does not hold, so its edge jumps away from the pointer.
 
-A CSV edit replaces one field in the text (`setDelimitedField`) and goes through
+A CSV edit replaces one field in the text (`setDelimitedField`, with the same
+separator `resolveDelimiter` gave the table) and goes through
 the editor's draft, so it saves and guards like typing. A workbook edit goes
 through `workbook/WorkbookSession`, and these must stay true:
 
@@ -561,6 +570,14 @@ step each:
   An ODS document is refused whole when it holds named ranges, database ranges,
   validations, conditional formats, drawings, merged or matrix cells: those keep
   addresses in their own notation or span the lines that would move.
+
+### Why the separator comes from the content and not the extension
+
+A `.csv` file is not always comma-separated. Spreadsheets in locales that use a decimal comma export semicolon-separated files under the `.csv` extension, and a tab-separated file saved as `.csv` is just as common. Reading by extension alone turned those files into a single column, with every value on a line inside one cell.
+
+`resolveDelimiter` (`previews/tableDelimiter.ts`) reads the first records with each candidate separator, comma, semicolon and tab, and compares only the candidates the file actually uses. Among those it prefers one whose split keeps quotes where RFC 4180 allows them (at the start of a field, closed before the next separator or line end), then the one that holds its column count over the most records it actually splits, then the one that gives the wider table, then the comma. The order matters in every direction: a semicolon export reads as one column under a comma, so the wider table wins that tie; a comma file whose values happen to contain semicolons reads as two ragged columns under a semicolon, so the steadier column count keeps the comma; and a comma file with a quoted header next to a semicolon-laden value would read as wider under the semicolon, but that split puts a quote in the middle of a field, so the comma wins. A separator that never appears does not compete, so a comma file with a missing trailing field is not handed to a semicolon that splits nothing. A file with no separator at all keeps the comma it would have had before, so nothing changes for a one-column file. The parser itself stays forgiving for files no candidate reads cleanly.
+
+A `.tsv` path stays a hard hint for the tab and is not sniffed, because that extension names the separator itself. The separator belongs to the loaded file, not to the draft: `view/useTableDelimiter` reads it once per loaded source (the file revision, plus whether the path is `.tsv`) and hands the same value to the preview, the cell and row edits, and the XLSX export. An edit can write a field that reads differently under another separator (a semicolon file accepts an unquoted comma), so sniffing the draft would move the column boundaries mid-edit; a save and a rename or move of the open file keep the separator, a reload or another file reads it again. The sniffer lives apart from `delimitedText.ts` so the view hooks can hold it without importing the lazily loaded parser.
 
 ### Large tables
 

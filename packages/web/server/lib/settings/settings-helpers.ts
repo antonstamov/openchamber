@@ -12,6 +12,7 @@ import type { normalizeTunnelProvider, normalizeTunnelMode, normalizeOptionalPat
 import { idleStopSchema } from '../spaces/idle-stop.js';
 import { sshHostSchema } from '../spaces/places/ssh-host.js';
 import { PROVIDER_LOGO_MIMES } from '../appearance/provider-logo-routes.js';
+import { sanitizeDictationSettings } from './settings-dictation.js';
 
 const settingsDocumentSchema = z.looseObject({});
 export type SettingsDocument = z.infer<typeof settingsDocumentSchema>;
@@ -234,7 +235,7 @@ type BooleanSettingsKey =
   | 'summarizeLastMessage' | 'autoDeleteEnabled' | 'sessionRetentionOnlyArchived' | 'sessionRetentionIncludeInWork'
   | 'mergedWorktreeCleanupEnabled' | 'worktreeArchiveOnDoneEnabled' | 'smallModelUseDefault' | 'autoCreateWorktree'
   | 'gitmojiEnabled' | 'defaultFileViewerPreview' | 'inputSpellcheckEnabled' | 'enterToSend' | 'enterToSendConfigured'
-  | 'mobileReturnKeySends' | 'showOpenCodeUpdateNotifications' | 'agentWebToolEnabled' | 'isolatedSpacesEnabled'
+  | 'mobileReturnKeySends' | 'showOpenCodeUpdateNotifications' | 'useGlobalOpenCodeService' | 'agentWebToolEnabled' | 'isolatedSpacesEnabled'
   | 'showToolFileIcons' | 'showTurnChangedFiles' | 'collapsibleUserMessages' | 'stickyUserHeader'
   | 'promptNavigatorEnabled' | 'wideChatLayoutEnabled' | 'showSplitAssistantMessageActions' | 'showMessageTimestamps' | 'directoryShowHidden'
   | 'filesViewShowGitignored' | 'reportUsage' | 'responseStyleEnabled' | 'dictationEnabled' | 'dictationAutoSend'
@@ -248,7 +249,7 @@ type StringSettingsKey =
   | 'pwaAppName' | 'pwaOrientation' | 'mobileKeyboardMode' | 'browserProvider' | 'agentMemoryDreamingModel'
   | 'agentMemoryDreamingVariant' | 'agentImageModel' | 'isolatedSpacesSshHost' | 'openCodeUpdateToastDismissedVersion'
   | 'terminalShell' | 'openInAppId' | 'globalBehaviorPrompt' | 'responseStylePreset' | 'responseStyleCustomInstructions'
-  | 'sttServerUrl' | 'sttModel' | 'sttEndpointPath' | 'sttLocalModel' | 'sttLanguage' | 'sidebarProjectDisplayMode'
+  | 'sttServerUrl' | 'sttModel' | 'sttEndpointPath' | 'sttLocalModel' | 'sttLanguage' | 'sttPrompt' | 'sidebarProjectDisplayMode'
   | 'sidebarViewMode' | 'sidebarListSessionGrouping' | 'sidebarGrouping' | 'sidebarProjectSortOrder'
   | 'selectionApprovalText';
 
@@ -321,7 +322,7 @@ export type SanitizedSettings = Partial<Record<BooleanSettingsKey, boolean>>
     weekStartPreference?: 'auto' | 'sunday' | 'monday';
     chatRenderMode?: 'sorted' | 'live';
     messageStreamTransport?: 'auto' | 'ws' | 'sse';
-    activityRenderMode?: 'collapsed' | 'summary';
+    activityRenderMode?: 'collapsed' | 'text' | 'summary';
     mermaidRenderingMode?: 'svg' | 'ascii';
     userMessageRenderingMode?: 'markdown' | 'plain';
     chatWidth?: 'default' | 'wider' | 'full';
@@ -365,10 +366,6 @@ export const createSettingsHelpers = (dependencies: SettingsHelpersDependencies)
   } = dependencies;
 
   const PWA_APP_NAME_MAX_LENGTH = 64;
-  const STT_SERVER_URL_MAX_LENGTH = 2048;
-  const STT_ENDPOINT_PATH_MAX_LENGTH = 1024;
-  const STT_MODEL_MAX_LENGTH = 256;
-  const STT_LANGUAGE_MAX_LENGTH = 64;
   const VERSION_STRING_MAX_LENGTH = 128;
   const SHORTCUT_OVERRIDE_KEY_MAX_LENGTH = 128;
   const SHORTCUT_OVERRIDE_VALUE_MAX_LENGTH = 128;
@@ -1093,11 +1090,8 @@ export const createSettingsHelpers = (dependencies: SettingsHelpersDependencies)
     if (candidate.mobileReturnKeySends === true || candidate.mobileReturnKeySends === false) {
       result.mobileReturnKeySends = candidate.mobileReturnKeySends;
     }
-    if (isBoolean(candidate.showOpenCodeUpdateNotifications)) {
-      result.showOpenCodeUpdateNotifications = candidate.showOpenCodeUpdateNotifications;
-    }
-    if (isBoolean(candidate.agentWebToolEnabled)) {
-      result.agentWebToolEnabled = candidate.agentWebToolEnabled;
+    for (const key of ['showOpenCodeUpdateNotifications', 'useGlobalOpenCodeService', 'agentWebToolEnabled'] as const) {
+      if (isBoolean(candidate[key])) result[key] = candidate[key];
     }
     if (isString(candidate.browserProvider) && candidate.browserProvider.trim()) {
       result.browserProvider = candidate.browserProvider.trim();
@@ -1157,7 +1151,7 @@ export const createSettingsHelpers = (dependencies: SettingsHelpersDependencies)
     }
     if (isString(candidate.activityRenderMode)) {
       const mode = candidate.activityRenderMode.trim();
-      if (mode === 'collapsed' || mode === 'summary') {
+      if (mode === 'collapsed' || mode === 'text' || mode === 'summary') {
         result.activityRenderMode = mode;
       }
     }
@@ -1445,52 +1439,7 @@ export const createSettingsHelpers = (dependencies: SettingsHelpersDependencies)
       }
     }
 
-    if (isBoolean(candidate.dictationEnabled)) {
-      result.dictationEnabled = candidate.dictationEnabled;
-    }
-    const dictationAutoSend = z.boolean().safeParse(candidate.dictationAutoSend);
-    if (dictationAutoSend.success) result.dictationAutoSend = dictationAutoSend.data;
-    if (isString(candidate.sttProvider)) {
-      const provider = candidate.sttProvider.trim();
-      if (provider === 'local' || provider === 'openai-compatible') {
-        result.sttProvider = provider;
-      } else if (provider === 'server') {
-        result.sttProvider = 'openai-compatible';
-      } else if (provider === 'browser' || provider === 'wasm') {
-        result.sttProvider = 'local';
-      }
-    }
-    if (isString(candidate.sttServerUrl)) {
-      const trimmed = candidate.sttServerUrl.trim();
-      if (trimmed.length <= STT_SERVER_URL_MAX_LENGTH) {
-        result.sttServerUrl = trimmed;
-      }
-    }
-    if (isString(candidate.sttModel)) {
-      const trimmed = candidate.sttModel.trim();
-      if (trimmed.length <= STT_MODEL_MAX_LENGTH) {
-        result.sttModel = trimmed;
-      }
-    }
-    const sttEndpointPath = z.string().trim().safeParse(candidate.sttEndpointPath);
-    if (sttEndpointPath.success && sttEndpointPath.data.length <= STT_ENDPOINT_PATH_MAX_LENGTH) {
-      result.sttEndpointPath = sttEndpointPath.data;
-    }
-    if (isString(candidate.sttLocalModel)) {
-      const trimmed = candidate.sttLocalModel.trim();
-      if (trimmed.length <= STT_MODEL_MAX_LENGTH) {
-        result.sttLocalModel = trimmed;
-      }
-    }
-    if (isString(candidate.sttLanguage)) {
-      const trimmed = candidate.sttLanguage.trim();
-      if (trimmed.length <= STT_LANGUAGE_MAX_LENGTH) {
-        result.sttLanguage = trimmed;
-      }
-    }
-    if (candidate.sttCorrectTranscript === true || candidate.sttCorrectTranscript === false) {
-      result.sttCorrectTranscript = candidate.sttCorrectTranscript;
-    }
+    sanitizeDictationSettings(candidate, result);
 
     for (const key of Object.keys(result)) {
       if (!isPersistableSettingsKey(key)) {

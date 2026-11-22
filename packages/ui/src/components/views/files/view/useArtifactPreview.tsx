@@ -31,7 +31,7 @@ import { useI18n } from '@/lib/i18n';
 
 export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshness, fileKinds, fileSaving, imageFullscreen, imageNavigation, layout, tabs, viewModes, files, t }: {
   draft: Pick<ReturnType<typeof useFileDraft>, 'draftContent' | 'setDraftContent'>;
-  fileAssets: Pick<ReturnType<typeof useFileAssets>, 'assetAuthErrorFallback' | 'binaryFileActions' | 'downloadButton' | 'imageSrc' | 'isPdfAssetAuthLoading' | 'loadDataBytes' | 'loadOfficeBytes' | 'maxDataBytes' | 'pdfSrc' | 'rawAsset' | 'saveOfficeBytes'>;
+  fileAssets: Pick<ReturnType<typeof useFileAssets>, 'assetAuthErrorFallback' | 'binaryFileActions' | 'downloadButton' | 'imageSrc' | 'isPdfAssetAuthLoading' | 'loadDataBytes' | 'loadOfficeBytes' | 'maxDataBytes' | 'pdfSrc' | 'rawAsset' | 'saveOfficeBytes' | 'tableDelimiter'>;
   fileDocument: Pick<ReturnType<typeof useFileDocument>, 'artifactSize' | 'contentDetectedBinary' | 'fileContent' | 'fileContentRevision' | 'fileError' | 'fileLoading'>;
   fileFreshness: Pick<ReturnType<typeof useFileFreshness>, 'reloadSelectedFile'>;
   fileKinds: Pick<ReturnType<typeof useFileKinds>, 'canEdit' | 'isMermaid' | 'isNotebook' | 'isSelectedFont' | 'isSelectedImage' | 'isSelectedMedia' | 'isSelectedPdf' | 'isSelectedVideo' | 'isSvgSource' | 'isTable' | 'isUnsupportedBinary'>;
@@ -45,7 +45,7 @@ export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshn
   t: ReturnType<typeof useI18n>['t'];
 }) {
   const { draftContent, setDraftContent } = draft;
-  const { assetAuthErrorFallback, binaryFileActions, downloadButton, imageSrc, isPdfAssetAuthLoading, loadDataBytes, loadOfficeBytes, maxDataBytes, pdfSrc, rawAsset, saveOfficeBytes } = fileAssets;
+  const { assetAuthErrorFallback, binaryFileActions, downloadButton, imageSrc, isPdfAssetAuthLoading, loadDataBytes, loadOfficeBytes, maxDataBytes, pdfSrc, rawAsset, saveOfficeBytes, tableDelimiter } = fileAssets;
   const { artifactSize, contentDetectedBinary, fileContent, fileContentRevision, fileError, fileLoading } = fileDocument;
   const { reloadSelectedFile } = fileFreshness;
   const { canEdit, isMermaid, isNotebook, isSelectedFont, isSelectedImage, isSelectedMedia, isSelectedPdf, isSelectedVideo, isSvgSource, isTable, isUnsupportedBinary } = fileKinds;
@@ -184,6 +184,7 @@ export function useArtifactPreview({ draft, fileAssets, fileDocument, fileFreshn
         <TableArtifact
           path={file.path}
           content={canEdit ? draftContent : fileContent}
+          delimiter={tableDelimiter}
           sizeBytes={artifactSize}
           onContentChange={canEdit ? setDraftContent : undefined}
         />,

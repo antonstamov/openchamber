@@ -47,8 +47,8 @@ typing; panels keep the standard 140/100ms. Text-field lists
 list itself, since they are fixed-position. The fade stays on the glass element itself, since an ancestor
 with opacity below 1 is a backdrop root and the blur would go flat mid-fade.
 Exit needs `AnimatePresence` around the conditional popup, so each dock keys
-its panel there (BTW keys each stage, forms key the form id); switching panels
-cross-fades. The frame's clearance cleanup leaves the variable alone while
+its panel there (BTW keys each stage, forms key the draft's identity: runtime,
+directory, session and form id); switching panels cross-fades. The frame's clearance cleanup leaves the variable alone while
 another panel is still mounted, because the outgoing panel unmounts after the
 incoming one has written its own height.
 
@@ -68,7 +68,23 @@ header toggles it by hand at any time: opened while reading, it stays open;
 collapsed while reading, it opens again at the end like an automatic
 collapse; collapsed at the end, it stays collapsed. The BTW sheet keeps
 the inline `FormCard` for its child session's forms; both render a field
-through `FormFieldControl`.
+through `FormFieldControl`. A caller can choose a form's id, so another
+session or directory can hold a form with the same id. The sheet stays
+mounted when the chat moves to another parent session, so it keys each card on
+runtime, directory, session and form id (`formCardKey`), and its live cards keep their
+answer under the dock's draft key (`keepDraft`): a card keyed on the id alone
+would carry the first fork's answers into the second fork's form, and a card
+keyed on the full identity without a draft would lose its own answer when the
+chat comes back to it. The card has no steps, so when it saves it leaves the
+step a dock stored for the same form as it is. A draft stays until its form is
+answered or cancelled on that surface, or until the form leaves the fork the
+sheet shows (settled on another page) without staying on as a recovered
+question: OpenCode can reuse an expired form's id, and a new form with the same
+fields would open with the old answer. A form settled while the sheet shows
+another fork, or is closed, keeps its draft until OpenCode creates a form with
+that id again: `sync-event-dispatch.ts` drops every draft of a `form.created`
+whose id is not pending in its session, so the new request starts empty, while
+a fork whose form is still pending gets its answer back.
 
 With Settings → Chat → Composer → Questions set to "In the chat"
 (`questionsInChat` in `useUIStore`, a device-local key), `ChatContainer`
@@ -85,7 +101,10 @@ unmounting and a switch back to the dock. A draft the dock left is taken with
 its link steps acknowledged, since the card shows every link at once. A card
 in a retained session that is shown again first takes up the draft another
 surface saved meanwhile: a location-scoped form shows in every session of its
-directory. The choice applies only while the transcript is on screen and not
+directory. Each card's block is keyed and named on session and form id
+(`formWaitingBlockId`), since a parent and its child can recover questions that
+share an id and the timeline remembers revealed blocks by that name; the dock's
+line and a form's toast reveal the card by the same name. The choice applies only while the transcript is on screen and not
 in a chat pinned in the side panel (`resolveFormsInChat`); an empty or
 loading session, an expanded composer and a pinned chat show the dock as
 before.
@@ -115,11 +134,17 @@ it saves the shared draft when its own answers or its step change. Its draft
 key follows the form's id and session, not the form object, so a reconnect
 that hands it the same form again no longer saves over the card's answer or
 another dock's. A second dock whose step moves (Next or Back) still saves its
-own values over the shared draft. The panel is also keyed on the runtime:
-App and MobileApp remount on a runtime switch, VS Code and the desktop mini
-chat do not, and two runtimes can hold a form with the same id, session and directory, so a
-switch starts the panel over from the new runtime's draft instead of saving the
-old runtime's answers into it.
+own values over the shared draft. The panel is keyed on the whole draft
+identity (`dockKey`: runtime, directory, session and form id), because a form
+id alone does not name a form. Another session or directory can reuse an id,
+and a panel keyed on it stays mounted when the composer moves to that
+session: its answers and step carry over and Submit sends them to the second
+form. The runtime is in the key for the same reason: App and MobileApp remount
+on a runtime switch, VS Code and the desktop mini chat do not, and two
+runtimes can hold a form with the same id, session and directory, so a switch
+starts the panel over from the new runtime's draft instead of saving the old
+runtime's answers into it. The directory stays in the key, so a form on screen
+whose directory changes starts over as a different scope.
 The setting is device-local, not a
 synced preference: syncing it would need a server-side validator, and a phone
 and a desktop can reasonably want different answers. A chat pinned in the
@@ -175,7 +200,8 @@ shrinking after deletion.
 
 Recovered questions appear on both surfaces with a warning that Submit starts
 a new paid turn in the asking session. Dismissal is local; rejected sends keep
-the card and its answer draft. Eligibility belongs to `sync/recoverable-questions.ts`.
+the card and its answer draft. Eligibility belongs to `sync/recoverable-questions.ts`,
+which records each question by session and form id, not by form id alone.
 
 `formCardState.ts` decides what both surfaces show and send, mirroring
 OpenCode's `Form.validateAnswer`: fields are evaluated in declaration order,
@@ -605,6 +631,79 @@ it renders only when what it shows changes.
 per streamed session update, and sends a text whose Enter lands before any
 render.
 
+### Why a share waits for the draft to be the one on screen
+
+A share (the Android share intent) always opens a new-session draft of its own
+(`openSharedFilesSession` in `apps/deepLinkNavigation.ts`) in the last-used
+project: the projects store's active project, which opening a session keeps
+current, or the first project when none is active. A project draft is listed in
+the sidebar under its project and can be reopened after the user leaves it; the
+Chat target has no such list, so a share opens in Chat only when the app has no
+project. An empty project cache before the server's project list arrives is not
+"no project": `openSharedFilesSession` then returns false, the share queue keeps
+the share, and a change of the project list, `hasServerSnapshot` or
+`serverSnapshotFailed` flushes it on the next microtask, because
+`synchronizeFromSettings` marks the snapshot before it writes the projects. The
+wait has no deadline: until the page takes the share the native side keeps it,
+so a relaunch hands it over again, and choosing Chat early would put it where it
+cannot be reopened. Its work draft id is marked with `keepWorkDraftOwnSlot`
+(`lib/chatDraftPersistence.ts`), so it never claims the folder's draft text, and
+in the Chat case it gets its own work-draft composer key instead of the one slot
+every chat draft shares. A draft the user was writing keeps its text and
+attachments and receives nothing. The mark lives in memory: after a reload the
+share's draft is an ordinary draft again.
+
+The share leaves its files, text and the names the native side refused in
+`input-store.pendingDraftContent`, addressed by the draft's id. Taking it there
+calls its `accept`, which tells the native side the draft holds it.
+`usePendingSharedDraftContent` applies it from the composer that renders that
+draft, and only once the composer's column shows no session. The column renders
+the deferred selection (`chatColumnSession`, `sync/DOCUMENTATION.md` "Session
+switch commit"), so for one commit after `openNewSessionDraft()` it still names
+the session the user left; taking the share there would file its attachments
+under that session's draft and the draft would look empty.
+
+Files go through `attachSharedFiles`, not `attachFilesWithCitation`, and reach
+OpenCode only at Send:
+
+- Every file names the share's draft identity and attaches with
+  `addAttachedFile(..., { shared: true })`. It lands in that draft even when the
+  user opened something else while it was read, and a HEIC the decoder cannot
+  read is held for Send like a dropped one (`sync/DOCUMENTATION.md`). Each
+  step resolves the draft's current identity by its work draft id
+  (`resolveOpenWorkDraftIdentity`), so a destination changed mid-read takes the
+  late files and their citations along.
+- When the share's draft is no longer on screen, its text and citations go to
+  that draft through `restoreDraft`, never into the editor that is showing.
+- The names are fixed before any read and held in
+  `pendingPastedAttachmentFilenamesRef` until each file lands, so a paste or drop
+  into the same draft meanwhile cannot take one of them.
+- Office documents follow the "Attach documents" setting and get the same
+  choice a dropped document gets. "Convert to text" attaches them locally.
+  "Attach as is" (and the Save setting) keeps the original in the draft with
+  `saveOnSend` (`addAttachedFile`'s `saveOnSend: 'reference'`), as a dropped
+  document attached as is does; `saveAttachmentsHeldForSend` writes
+  it where OpenCode runs when Send or Queue is pressed and swaps it for the same
+  path reference a dropped document gets; a message queued that way returns the
+  document still held for Send when its row is edited. A write that fails keeps the message
+  unsent with a toast naming the file. Each write is bound to the runtime the
+  send started on, and when the user left that draft or instance during the
+  writes the send stops instead of running in the composer now on screen. A
+  choice that goes away unanswered (the user leaves the draft, or another offer
+  replaces it and the offer's `onDismiss` runs) keeps
+  the originals held for Send, the choice that loses nothing, so Send never
+  waits on a choice nobody can answer.
+
+The work is tracked like every other intake, so a Send that arrives while a
+large file is still being prepared waits for it instead of going without it.
+The call returns the files the composer's policy refused, so the share reports
+them by name in the same toast as the native refusals; a share sheet gives no
+second chance, and a file that vanished silently is the failure mode to avoid.
+Shared text rides along as the attach call's `leadingText` rather than being set
+first: the citation is inserted into the editor's document, which still holds
+the text from before the commit, and that document overwrites `composerText` on
+the next edit, so text set first is lost.
+
 ### Why the draft text lives outside React state
 
 As `ChatInput` state, every keystroke rendered the whole composer: about
@@ -653,6 +752,15 @@ the prompt the model reads carries no `Comment:` line. The row and the sent
 card read the page and element text out of the prompt
 (`lib/browser/annotationPrompt.ts`); an annotation saved before keeps its
 comment in the prompt and shows it all the same, and editing it moves it out.
+
+### Why a composing draft is typed in its row, not a floating field
+
+The float above the composer — a glass pill with the attach button, Enter to
+save — was the chips design's field for a draft, and it left with the chips. A
+glass surface inside the composer's own glass box stacks two blurs, and a field
+that floats over the box needs the portal and the height cap the rows removed.
+A composing draft opens where every other draft is read and edited, its row, and
+the row's head states the file and line it anchors to.
 
 ## Invariants
 
@@ -729,6 +837,28 @@ comment in the prompt and shows it all the same, and editing it moves it out.
 - Context-row editing saves once after focus leaves the entire row. Its own
   controls retain focus, and a remount that returns focus inside the row cannot
   save it prematurely. Completion guards reject a later unmount blur.
+- A composing draft's row is the open one while `composing` is set, and only an
+  active surface opens it: a chat that is not on screen cannot take the keyboard.
+  The row's head names the file and line a field with no text cannot.
+- A composing draft owns its text: every keystroke reaches the store, so a
+  reload, session switch or surface swap loses nothing. When the store refuses a
+  write at its size bound, the field keeps the typed text, the storage-limit
+  toast says why, and finishing waits until that text is saved.
+- Finishing a composing draft clears `composing` and closes the row; Escape
+  removes the draft, and one finished with no text goes with its field. Every
+  other draft survives an empty edit.
+- A composing row is never folded behind "+N more" (`foldContextRows`); it takes
+  the last visible slot so its field stays mounted. When its row opens, the
+  field is scrolled into view once: the field focuses with `preventScroll`, and
+  a long quote can push it below the capped context list. Later scrolling is
+  the user's.
+- Arriving with a composing draft switches the layout to the chat, including out
+  of a run overview. The reveal belongs to the arrival, so the user can reopen a
+  run overview while the field is open, and a reload that restores an unfinished
+  composing draft leaves the view where it was. Arrival is counted per draft id
+  (`takeArrivedComposingDraft`), not by whether any draft is composing: a
+  restored unfinished composition stays composing, and the next comment filed
+  must still bring the chat forward.
 - Collapsed context text before a chip keeps its width until its cap; fractional
   shrinking would ellipsize a word that fits. Space runs at chip boundaries remain
   explicit so truncation cannot collapse them.
@@ -780,10 +910,11 @@ comment in the prompt and shows it all the same, and editing it moves it out.
 | `largeTextPasteOffer.ts` | Offer id begin/resolve for the choice above the composer, large paste or office documents (supersede + double-apply guards) |
 
 `ChatInput.handlePaste` owns paste orchestration: URL-over-selection markdown
-links, clipboard files, and large plain-text pastes. Pasted and dropped files
+links, clipboard files, and large plain-text pastes. Pasted, dropped and picked files
 share `attachFilesWithCitation`: every file attaches and is cited in the draft
 as `[name]`; images get a generated unique name first, other files keep their
-own name and are cited only after they attached. A copied file's filename text
+own name and are cited only after they attached. Pickers allow all file types;
+binary formats no model reads stay local chips and become path notes at Send. A copied file's filename text
 is suppressed so only the citation lands in the draft.
 
 ### Attachments are chips in the text
@@ -838,23 +969,26 @@ element takes focus and that can be before the report arrives. The paste handler
 focus as a backstop for that window. Every other runtime pastes images through `handlePaste` unchanged, and an IME
 without content insertion keeps refusing.
 With the profile setting `savePastedImagesAsFiles` on, pasted, dropped and
-picked images (`attachFilesWithCitation`, `attachFiles`) are written into a new
-folder under OpenCode's own temp folder (`opencodeClient.writeOpenCodeTempFiles`:
-`GET /api/info` names the folder, `POST /api/experimental/fs/write` writes it)
-and cited as `[name](absolute path)` (a plain link: a draft starting with `!`
-turns into a shell command), so the model, a subagent or a tool reads the file
-by path; OpenCode's agents may read that folder without asking.
-`imageSaveModeForModel` picks one of three cases. A model whose metadata lists
-no `image` input gets only the link, since it could not read the attachment
-(#5087), and the modality toast says where the images went. Any other model,
-unknown metadata included, also gets the image attached under the link's name,
-with no second `[name]` citation (#5218). An image that could not be saved
-attaches as before, with an error toast. A HEIC the bundled decoder cannot read
-(Apple's HDR gain-map photos) is saved unconverted under its own name and gets
-only its link in both cases: providers refuse HEIC image parts, and the store's
-own fallback for it (`sync/DOCUMENTATION.md`) would write a second copy and add
-a chip that repeats the link. With the setting off nothing is
-saved at paste, and the send step below covers a text-only model.
+picked images (`attachFilesWithCitation`, `attachFiles`) attach with an
+ordinary `[name]` citation and stay in the draft; nothing is written while the
+user composes. Send or Queue writes each into a new folder under OpenCode's own
+temp folder (`saveAttachmentsHeldForSend`, through
+`opencodeClient.writeOpenCodeTempFiles`: `GET /api/info` names the folder,
+`POST /api/experimental/fs/write` writes it), so the model, a subagent or a tool
+reads the file by path; OpenCode's agents may read that folder without asking.
+`imageSaveModeForModel` picks one of three cases when the image lands. A model
+whose metadata lists no `image` input gets only the path note, since it could
+not read the attachment (#5087): the image is held with `saveOnSend:
+'reference'` and swapped for its path note at Send, and the modality notice
+says the images go as paths. Any other model, unknown metadata included, gets
+the image itself plus a path note to the saved copy (`saveOnSend: 'copy'`): the
+note shares the image's name, so the image's one citation sends both (#5218).
+A HEIC the bundled decoder cannot read (Apple's HDR gain-map photos) goes as
+its path note only in both cases, since providers refuse HEIC image parts, and
+so does an image too large to attach inline (over 10 MB). A
+write that fails at Send stops the send with a toast naming the file and keeps
+the draft. With the setting off the image attaches as an image, and the send
+step below covers a text-only model.
 The browser annotation screenshot and comment-field image pastes keep
 attaching. The bytes go through the active runtime's OpenCode route (the
 OpenChamber server's proxy, the VS Code bridge, the relay for a phone), so the
@@ -867,12 +1001,13 @@ A model whose metadata lists no `image` input never receives an image part,
 whatever the setting says: an image part to such a model fails the turn. Every
 image a send or a launch still carries (a pasted image attached with the
 setting off or under a model picked earlier, the annotation screenshot, a
-comment-field paste) goes through `sync/text-model-images.ts` and arrives as a
+comment-field paste) goes through `sync/model-attachment-paths.ts` and arrives as a
 text note naming the file under the same filename (`sync/DOCUMENTATION.md`).
-The composer says so once per model in a toast when such an image lands or the
-model changes to a text-only one. Converting at send, and not at attach, keeps
-the image a real attachment while the model can still change: picking a model
-that reads images sends the picture itself.
+The same send-time conversion saves PDFs and other attachments when the model
+lacks their input type. The composer tells the user where the files will go
+when the file lands or the model changes. Converting at send keeps the original
+attachment in the draft and lets a later model choice accept the bytes directly.
+Saving failure stops the send and restores the draft.
 Large pastes (about 2,000 characters or 25 lines) follow the composer setting
 `largeTextPasteBehavior` (`ask` / `attach` / `inline` / `inline-double-paste`). Attaching creates an
 in-memory `text/plain` file named `pasted-context-N.txt`, inserts a bracket
@@ -909,23 +1044,23 @@ Office documents (docx, pptx, xlsx, odt, odp, ods) that arrive through
 Code's picker) follow the profile setting `documentAttachBehavior` (`ask` /
 `save` / `convert`, default `ask`). The other files of the same batch attach at
 once as before. `convert` sends the documents down the ordinary attachment
-path, where the store extracts their text (`sync/DOCUMENTATION.md`). `save`
-(shown as "Attach as is") writes the original bytes with
-`opencodeClient.writeOpenCodeTempFiles`, as a saved image is written, and
-links each as `[name](absolute path)`, with `<` and `>` in the name replaced by
-`_` so the link's `<path>` destination still parses. A converted file or
-image never reuses a name already in such a link, whatever the image setting,
-so a link's label cannot cite an unrelated attachment. A file that could not be read or written
-is named in an error toast, gets no link and is not converted, and the rest of
-the batch keeps its links. A document over the 20 MB send limit
-(`MAX_ATTACHMENT_BYTES`) is refused by name before anything is read, and the
-writer reads each file right before its own write, so a batch holds one
-document in memory at a time. No model check applies: the link replaces the
-extraction for every model. The draft and the runtime instance
-(`captureRuntimeInstance`, so switching away and back still counts as a
-change) are captured when the files arrive; the writer stops before its next request once the runtime
-changed, and a draft or runtime that changed before the write answered gets
-no link. `ask` posts one choice for the batch's documents in the large-paste
+path, where the store extracts their text (`sync/DOCUMENTATION.md`). On the
+desktop a document the store cannot convert (over 10 MB, or unreadable) still
+attaches as its path note, and an info toast says the agent gets the path
+instead of text: refusing it would leave the agent nothing. `save`
+(shown as "Attach as is") attaches each document with `[name]` and holds its
+original bytes in the draft (`saveOnSend: 'reference'`), as a share from
+another app does; Send or Queue writes it where OpenCode runs and sends its
+path note, and Edit of a queued message gets the document back still held.
+The desktop holds the bytes too, even for a document with its own path: a
+desktop app can run against an OpenCode on another machine, where that path
+does not exist. A converted file or image never reuses a name
+already in a `[name](path)` link in the draft, so a link's label cannot cite
+an unrelated attachment. A document over the 20 MB send limit
+(`MAX_ATTACHMENT_BYTES`) is refused by name before anything is read. No model
+check applies: the path note replaces the extraction for every model. A draft
+that changed while a document was read drops it, like any attachment read.
+`ask` posts one choice for the batch's documents in the large-paste
 slot (`kind: 'documents'`) with "Attach as is" first. The choice keeps its two
 actions: `attach` keeps the content whole (Attach as is) and `inline` is the
 fallback (Convert to text). Keys, focus, blur and the draft, mode and runtime
@@ -937,6 +1072,17 @@ A choice for files picked from a phone's collapsed pill expands the composer,
 where the choice shows, and holds the mobile shell expanded until it is
 answered, so a tap outside the editor cannot hide it behind the pill. A path-only drop (a Files panel row, a VS Code
 explorer URI) still becomes an `@` mention and never reaches the setting.
+
+### Why saved images and documents are written at Send and not when they land
+
+The user may remove a pasted image or a document before sending, switch the
+draft to another server, or never send at all. A write at attach time left a
+copy on whichever machine was open then, and a link in the text that pointed
+at it. Holding the bytes in the draft and writing at Send or Queue writes only
+what is sent, on the runtime the send starts on, once (the maintainer's rule:
+nothing is uploaded before Send). The path then reaches the model as a path
+note attachment instead of a link typed into the text, because the path is not
+known until Send.
 
 ### Why office documents ask in the large-paste slot and not a choice of their own
 
@@ -1075,6 +1221,31 @@ DOM-only tests cannot verify these.
 `editor/` wraps CodeMirror. The document is a plain string: `getValue()` is
 exactly what gets sent, so nothing downstream serializes a rich document model
 back into a prompt.
+
+### Why word gestures share a script-aware boundary
+
+CodeMirror groups adjacent alphabetic characters into one word, so it treats
+`检查openchamber的配置` as a single run. The composer keeps CodeMirror's
+grouping and whitespace transitions and adds one stop: a word run never crosses
+between Han and Latin (`editor/wordBoundaries.ts`). Digits, underscores, kana and
+every other script are neutral and stay with the run around them, so `設定を確認`
+or `إصدار٢` group exactly as CodeMirror groups them. Neutral characters between
+Han and Latin go with the run on their left (`API2|中`, `中2|API`), so gestures
+from either direction stop at the same offset. A double-click drag compares the
+hit side as well as the offset, because one offset at that boundary is the edge
+of two words. A broader per-script split
+was rejected because it changed grouping in text with no Han/Latin boundary.
+Double-click selection, word movement and selection extension, and word
+deletion use the same rule.
+Single and triple clicks still use CodeMirror's selection rules.
+Chat and comment composers opt in when creating their editor. The source
+control preview reuses the editor for Markdown with CodeMirror's word rules.
+
+Word shortcuts use Ctrl, or Alt on macOS, plus CodeMirror's macOS Ctrl+Alt+H
+word delete. Left and right follow
+`textDirectionAt` to preserve visual direction. Word deletion keeps a single
+adjacent space with the word, joins lines only from the line edge, and deletes
+atomic chips whole.
 
 Attachment citations (`[name.png]`) and finished skill tokens (`$name` followed
 by whitespace) render in the editor as atomic replace widgets shaped like the
@@ -1634,8 +1805,15 @@ picker uses, and then draws as a chip where it stands: its number and title.
 - Only a paste that lands in the text reads a link, afresh each time, as the
   picker does; a large paste that goes as a file reads none. A link
   typed by hand stays text: typing passes through `/issues/1` on the way to
-  `/issues/12`, and a read per keystroke would attach the wrong item. A link
-  this composer has read before draws as its chip again wherever it reappears
+  `/issues/12`, and a read per keystroke would attach the wrong item. This
+  holds for an extension's review-portal address too (`urls.resolve`): only a
+  paste asks the extension to convert it, and only a change request comes
+  back as a chip, which opens that change request rather than the portal
+  address. A pasted link read again that now finds no item, or another one,
+  loses its earlier result, including the item a restored queued message
+  attached to it (unless another link in the text still names that item); a
+  failed read keeps it.
+  A link this composer has read before draws as its chip again wherever it reappears
   (typed or restored), with that read.
 - An item attached any other way (the issue, PR and tracker pickers, an
   extension's `attach`, a handed-over or restored item, a shared page) is its
@@ -1650,6 +1828,13 @@ picker uses, and then draws as a chip where it stands: its number and title.
   in Markdown mode through `MarkdownLink`, by the link's `href`). A link names
   an item whatever page of it opens (`isSameRepositoryItemLink`, the tracker's
   identifier), so a picker item whose link the user also typed draws there too.
+  A change request can also carry optional `sourceLinks` in its existing context
+  metadata. These original portal addresses take precedence over template
+  matching, so every address draws inline while the MR context stays deduplicated.
+  Sending and restoring a queued message preserve this association without
+  rewriting the user's text or adding source links to the model's context text.
+  History display makes no resolver request; older messages without the field
+  keep native-template matching.
   An item drawn inline leaves the message's preview strip; one the text does
   not link (messages sent before items were links in the text), or links only
   inside code, stays there. Both chips open the item in the Tracker
@@ -1659,6 +1844,12 @@ picker uses, and then draws as a chip where it stands: its number and title.
   network is read again as a linked item, as the Tracker does. Discussions stay
   text. A change request goes without its diff, the picker's default.
 - `/btw` and VS Code read no links, as they take no picker chips.
+
+### Why portal MR links stay with their context
+
+The canonical MR address cannot recover the portal addresses that named it.
+An optional source-link list on the existing MR context keeps that association
+through send and reload, without another resolver, cache or persisted store.
 
 ### Why every item is a chip in the text
 
