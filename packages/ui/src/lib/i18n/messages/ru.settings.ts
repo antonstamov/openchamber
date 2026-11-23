@@ -1270,6 +1270,8 @@ export const settingsDict = {
   "settings.openchamber.tools.field.agentNotifyToolSummary": "Пусть агенты сообщают вам, когда работа готова или они застряли.",
   'settings.openchamber.tools.field.agentTerminalTool': 'Панель терминала',
   "settings.openchamber.tools.field.agentTerminalToolSummary": "Разрешить агенту смотреть терминалы этой папки и читать их вывод. Терминал хранит всё, что в него вводили, включая секреты, поэтому опция выключена, пока вы её не включите.",
+  'settings.openchamber.tools.field.agentActionsTool': 'Действия проекта',
+  "settings.openchamber.tools.field.agentActionsToolSummary": "Пусть агент запускает действия этого проекта, например его dev-сервер, читает их вывод и останавливает запущенные им выполнения. Его запуски показаны в меню действий с пометкой «Запущено агентом».",
   'settings.openchamber.tools.field.agentKnowledgeTool': 'Инструмент знаний о проекте',
   'settings.openchamber.tools.field.agentKnowledgeToolAria': 'Инструмент знаний о проекте',
   'settings.openchamber.tools.field.agentKnowledgeToolSummary': 'Разрешить агентам читать и обновлять заметки, задачи и планы проекта.',

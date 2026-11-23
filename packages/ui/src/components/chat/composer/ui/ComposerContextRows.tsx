@@ -96,7 +96,7 @@ const DraftRow: React.FC<{
     onSaveComment: (text: string) => boolean;
     composing: boolean;
     onComposeText: (text: string) => boolean;
-    onComposeFinish: (text: string) => void;
+    onComposeFinish: () => void;
     onComposeCancel: () => void;
     onFocusQuote: ((focused: boolean) => void) | null;
     onRevealQuote: (() => void) | null;
@@ -105,7 +105,8 @@ const DraftRow: React.FC<{
     onRemoveScreenshot: () => void;
 }> = ({ draft, target, view, open, editsInPlace, phoneLayout, onToggle, onClose, onRemove, onSaveComment, composing, onComposeText, onComposeFinish, onComposeCancel, onFocusQuote, onRevealQuote, attachmentFilenames, onOpenScreenshot, onRemoveScreenshot }) => {
     const { t } = useI18n();
-    const [editText, setEditText] = React.useState(view.comment);
+    const [typedText, setTypedText] = React.useState<string | null>(null);
+    const editText = typedText ?? view.comment;
     const imagePaste = useCommentImagePaste();
     const editing = open && (editsInPlace || composing) && view.editable;
     const writeThrough = editing && composing;
@@ -162,7 +163,7 @@ const DraftRow: React.FC<{
         editSettledRef.current = true;
         if (!target) {
             const trimmed = spoken.trim();
-            if (trimmed) setEditText((prev) => appendInlineText(prev, trimmed));
+            if (trimmed) setTypedText((prev) => appendInlineText(prev ?? view.comment, trimmed));
             disarmEditHandoff();
             return;
         }
@@ -171,11 +172,11 @@ const DraftRow: React.FC<{
             toast.error(t('inlineComment.toast.noRoom'));
         } else if (routed === 'appended') {
             const trimmed = spoken.trim();
-            setEditText((prev) => appendInlineText(prev, trimmed));
+            setTypedText((prev) => appendInlineText(prev ?? view.comment, trimmed));
             editBaseRef.current = appendInlineText(editBaseRef.current, trimmed);
         }
         disarmEditHandoff();
-    }, [disarmEditHandoff, draft.id, t, target]);
+    }, [disarmEditHandoff, draft.id, t, target, view.comment]);
 
     const handleEditDictationError = React.useCallback((error: Error) => {
         if (mountedRef.current) return;
@@ -195,7 +196,7 @@ const DraftRow: React.FC<{
         settledRef.current = false;
         editSettledRef.current = false;
         expectLateTranscriptRef.current = false;
-        setEditText(view.comment);
+        setTypedText(null);
         editBaseRef.current = view.comment;
         // The comment at edit start is the baseline; later store updates are our own saves.
         // oxlint-disable-next-line react-hooks/exhaustive-deps
@@ -242,11 +243,12 @@ const DraftRow: React.FC<{
     };
     const composeRejectedRef = React.useRef(false);
     const composeText = (text: string) => {
-        setEditText(text);
         if (onComposeText(text)) {
+            setTypedText(null);
             composeRejectedRef.current = false;
             return;
         }
+        setTypedText(text);
         if (!composeRejectedRef.current) toast.error(t('inlineComment.toast.noRoom'));
         composeRejectedRef.current = true;
     };
@@ -258,7 +260,7 @@ const DraftRow: React.FC<{
         }
         settledRef.current = true;
         void imagePaste.attachCitedImages(editText);
-        onComposeFinish(editText);
+        onComposeFinish();
     };
     const cancelComposing = () => {
         settledRef.current = true;
@@ -470,7 +472,7 @@ const DraftRow: React.FC<{
                 <div ref={fieldRef} className="mx-1.5 mt-1.5 flex items-end gap-1">
                     <CommentTextEditor
                         value={editText}
-                        onChange={writeThrough ? composeText : setEditText}
+                        onChange={writeThrough ? composeText : setTypedText}
                         onSubmit={finish}
                         onCancel={cancel}
                         enterSubmits
@@ -723,8 +725,9 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment, surf
                 onSaveComment={(text) => saveComment(draft, text)}
                 composing={draft.composing === true}
                 onComposeText={(text) => updateDraft(draftTarget, draft.id, { text })}
-                onComposeFinish={(text) => {
-                    if (!text.trim()) removeDraft(draftTarget, draft.id);
+                onComposeFinish={() => {
+                    const stored = useInlineCommentDraftStore.getState().getDrafts(draftTarget).find((item) => item.id === draft.id);
+                    if (!stored?.text.trim()) removeDraft(draftTarget, draft.id);
                     else updateDraft(draftTarget, draft.id, { composing: false });
                 }}
                 onComposeCancel={() => removeDraft(draftTarget, draft.id)}

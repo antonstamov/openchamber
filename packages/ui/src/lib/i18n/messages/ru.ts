@@ -61,6 +61,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
@@ -266,6 +267,7 @@ export const dict = {
   ...tooltipsChatI18n.ru,
   ...integrationsCatalogI18n['ru'],
   ...diffFindI18n['ru'],
+  ...contextWindowI18n['ru'],
   ...markdownOutlineI18n['ru'],
   ...markdownGithubI18n['ru'],
   ...autocompleteScopeI18n['ru'],
@@ -1333,6 +1335,8 @@ export const dict = {
   'worktree.bootstrap.toast.authorizationRequired': 'OpenChamber не достаёт до репозитория или его подмодулей. Настройте доступ в разделе «Настроить репозиторий», затем повторите.',
   'worktree.bootstrap.toast.branchNameConflict': 'Имя ветки конфликтует с существующей веткой: такое же имя или вложенное. Переименуйте ветку и создайте worktree заново.',
   'worktree.bootstrap.toast.lfsClientMissing': 'Установите Git LFS на сервере, затем повторите настройку worktree.',
+  'worktree.bootstrap.toast.submoduleSourceLocal': 'Подмодули не получены: OpenChamber получает их только через сетевой remote, а у этого worktree нет подходящего. Remote репозитория — это папка на этом компьютере, remote отсутствует или ветка ни за чем не следит. Работайте в самой папке репозитория или создайте worktree из ветки, чей upstream — сетевой remote.',
+  'worktree.bootstrap.toast.lfsSourceLocal': 'Файлы Git LFS не получены: OpenChamber получает их только через сетевой remote, а у этого worktree нет подходящего. Remote репозитория — это папка на этом компьютере, remote отсутствует или ветка ни за чем не следит. Работайте в самой папке репозитория или создайте worktree из ветки, чей upstream — сетевой remote.',
   'worktree.bootstrap.toast.invalidConfiguration': 'Проверьте настройку подмодулей и Git LFS в репозитории, затем повторите.',
   'worktree.bootstrap.toast.repositoryTooManyFiles': 'В репозитории слишком много файлов.',
   'worktree.bootstrap.toast.cancelled': 'Настройка worktree отменена. Повторите, когда будете готовы.',
@@ -1929,6 +1933,7 @@ export const dict = {
   'contextSidebar.tokens.cacheWrite': 'Запись в кэш',
   'contextSidebar.tokens.cacheHit': 'Попадание в кеш',
   'chat.workStatus.replyCacheHit': 'Попадание в кэш (ответ)',
+  'chat.workStatus.replyCacheHitDescription': 'Доля промпта, прочитанная из кэша в последнем ответе.',
   'contextSidebar.actions.copyJson': 'Копировать JSON',
   'contextSidebar.actions.copy': 'Копировать',
   'contextSidebar.actions.copied': 'Скопировано',
