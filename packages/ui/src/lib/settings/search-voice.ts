@@ -22,6 +22,17 @@ export const VOICE_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['stt', 'dictation', 'voice input', 'transcribe', 'whisper', 'parakeet', 'qwen', 'microphone', 'misheard', 'correct', 'fix', 'small model'],
   },
   {
+    id: 'voice.microphone-source',
+    page: 'voice',
+    titleKey: 'settings.voice.page.field.microphone',
+    descriptionKey: 'settings.voice.page.field.microphoneInfo',
+    keywords: ['stt', 'dictation', 'microphone', 'bluetooth', 'headset', 'built-in', 'microphone source'],
+    isAvailable: (ctx) => {
+      const state = ctx.voiceSettings ?? useConfigStore.getState();
+      return state.dictationEnabled;
+    },
+  },
+  {
     id: 'voice.dictation-auto-send',
     page: 'voice',
     titleKey: 'settings.voice.page.field.dictationAutoSend',

@@ -299,6 +299,7 @@ export const SETTINGS_REGISTRY = {
   openInAppId: field({ scope: 'instance', parse: parseNonEmptyTrimmedString }),
   dictationEnabled: field({ scope: 'profile', parse: parseBoolean, ui: configField('dictationEnabled') }),
   dictationAutoSend: field({ scope: 'profile', parse: parseBoolean, ui: configField('dictationAutoSend') }),
+  dictationMicrophoneSource: field({ scope: 'profile', parse: parseOneOf(['default', 'built-in']), ui: configField('dictationMicrophoneSource') }),
   sttProvider: field({ scope: 'instance', parse: parseSttProvider, ui: configField('sttProvider') }),
   sttServerUrl: field({ scope: 'instance', parse: parseTrimmedStringUpTo(2048), ui: configField('sttServerUrl') }),
   sttEndpointPath: field({ scope: 'instance', parse: fromSchema(z.string().trim().max(1024)), ui: configField('sttEndpointPath') }),

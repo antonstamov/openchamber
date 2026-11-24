@@ -188,6 +188,7 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
         onError: (err) => {
             onErrorRef.current?.(err);
         },
+        microphoneSource: useConfigStore((state) => state.dictationMicrophoneSource),
     });
     const audioStopRef = useRef(audio.stop);
     useEffect(() => {

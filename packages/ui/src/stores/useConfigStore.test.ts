@@ -5125,4 +5125,24 @@ describe('voice endpoint path settings', () => {
     expect(useConfigStore.getState().sttEndpointPath).toBe('/speech_to_text');
     expect(localStorage.getItem('sttEndpointPath')).toBe('/speech_to_text');
   });
+
+  test('keeps the dictation microphone source in local storage', () => {
+    useConfigStore.getState().setDictationMicrophoneSource('default');
+
+    expect(useConfigStore.getState().dictationMicrophoneSource).toBe('default');
+
+    useConfigStore.getState().setDictationMicrophoneSource('built-in');
+
+    expect(useConfigStore.getState().dictationMicrophoneSource).toBe('built-in');
+    expect(localStorage.getItem('dictationMicrophoneSource')).toBe('built-in');
+  });
+
+  test('loads the dictation microphone source from server settings', async () => {
+    useConfigStore.setState({ dictationMicrophoneSource: 'default' });
+    persistedOpenChamberSettings = { dictationMicrophoneSource: 'built-in' };
+
+    await useConfigStore.getState().loadSessionDefaults();
+
+    expect(useConfigStore.getState().dictationMicrophoneSource).toBe('built-in');
+  });
 });

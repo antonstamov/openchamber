@@ -260,6 +260,7 @@ export type SanitizedSettings = Partial<Record<BooleanSettingsKey, boolean>>
     usageExpandedFamilies?: Record<string, string[]>;
     usageModelGroups?: Record<string, UsageModelGroups>;
     sttProvider?: 'local' | 'openai-compatible';
+    dictationMicrophoneSource?: 'default' | 'built-in';
   };
 
 export const isMessageSearchEnabled = (settings: SettingsDocument | null | undefined) => settings?.messageSearchEnabled !== false;

@@ -14,6 +14,9 @@ export const sanitizeDictationSettings = (candidate: SettingsDocument, result: S
   }
   const dictationAutoSend = z.boolean().safeParse(candidate.dictationAutoSend);
   if (dictationAutoSend.success) result.dictationAutoSend = dictationAutoSend.data;
+  if (candidate.dictationMicrophoneSource === 'built-in' || candidate.dictationMicrophoneSource === 'default') {
+    result.dictationMicrophoneSource = candidate.dictationMicrophoneSource;
+  }
   if (isString(candidate.sttProvider)) {
     const provider = candidate.sttProvider.trim();
     if (provider === 'local' || provider === 'openai-compatible') {

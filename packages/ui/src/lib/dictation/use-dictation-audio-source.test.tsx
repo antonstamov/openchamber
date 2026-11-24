@@ -40,7 +40,22 @@ class FakeAudioContext {
 }
 
 let grantMicrophone: (() => void) | null = null;
+let notifyPrompt: (() => void) | null = null;
 const stoppedTracks: string[] = [];
+const seenConstraints: unknown[] = [];
+
+const waitForPrompt = (): Promise<void> => {
+    if (grantMicrophone) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+        notifyPrompt = resolve;
+    });
+};
+
+const answerPrompt = (): void => {
+    notifyPrompt?.();
+    notifyPrompt = null;
+    grantMicrophone?.();
+};
 
 const stream = () => ({ getTracks: () => [{ stop: () => stoppedTracks.push('track') }] });
 
@@ -53,21 +68,31 @@ const Probe = () => {
     return null;
 };
 
+const BuiltInProbe = () => {
+    audio = useDictationAudioSource({ onPcmSegment: () => {}, microphoneSource: 'built-in' });
+    return null;
+};
+
 beforeEach(async () => {
     events.length = 0;
     stoppedTracks.length = 0;
+    seenConstraints.length = 0;
     closeResult = Promise.resolve();
     grantMicrophone = null;
+    notifyPrompt = null;
     dom = new Window();
     Object.assign(dom, { AudioContext: FakeAudioContext });
     Object.assign(globalThis, { window: dom, document: dom.document, IS_REACT_ACT_ENVIRONMENT: true });
     Object.defineProperty(globalThis.navigator, 'mediaDevices', {
         configurable: true,
         value: {
-            getUserMedia: () => {
+            getUserMedia: (constraints: unknown) => {
                 events.push('getUserMedia');
+                seenConstraints.push(constraints);
                 return new Promise((resolve) => {
                     grantMicrophone = () => resolve(stream());
+                    notifyPrompt?.();
+                    notifyPrompt = null;
                 });
             },
         },
@@ -125,4 +150,62 @@ test('stopping does not wait for the audio context to close', async () => {
 
     expect(order).toEqual(['stopped', 'closed']);
     expect(stoppedTracks).toEqual(['track']);
+});
+
+test('passes the built-in device id to getUserMedia', async () => {    Object.defineProperty(globalThis.navigator, 'mediaDevices', {
+        configurable: true,
+        value: {
+            enumerateDevices: async () => [
+                { deviceId: 'bt', kind: 'audioinput', label: 'Bluetooth Headset' },
+                { deviceId: 'builtin', kind: 'audioinput', label: 'Built-in Microphone' },
+            ],
+            getUserMedia: (constraints: unknown) => {
+                events.push('getUserMedia');
+                seenConstraints.push(constraints);
+                return new Promise((resolve) => {
+                    grantMicrophone = () => resolve(stream());
+                    notifyPrompt?.();
+                    notifyPrompt = null;
+                });
+            },
+        },
+    });
+    await act(async () => root.render(<BuiltInProbe />));
+
+    const started = audio.start();
+    await waitForPrompt();
+    answerPrompt();
+    expect(await started).toBe(true);
+    expect(seenConstraints).toEqual([
+        {
+            audio: {
+                channelCount: 1,
+                noiseSuppression: true,
+                echoCancellation: true,
+                autoGainControl: true,
+                deviceId: { exact: 'builtin' },
+            },
+        },
+    ]);
+    await audio.stop();
+});
+
+test('records with the default microphone when no device can be identified', async () => {
+    await act(async () => root.render(<BuiltInProbe />));
+
+    const started = audio.start();
+    await waitForPrompt();
+    answerPrompt();
+    expect(await started).toBe(true);
+    expect(seenConstraints).toEqual([
+        {
+            audio: {
+                channelCount: 1,
+                noiseSuppression: true,
+                echoCancellation: true,
+                autoGainControl: true,
+            },
+        },
+    ]);
+    await audio.stop();
 });

@@ -35,6 +35,7 @@ import { useI18n } from '@/lib/i18n';
 import { useLocalTTS } from '@/hooks/useLocalTTS';
 import { disposePreviewAudio } from './voicePreviewAudio';
 import { TranscriptionPromptField } from './TranscriptionPromptField';
+import { DictationMicrophoneField } from './DictationMicrophoneField';
 import { TranscriptCorrectionRow } from './TranscriptCorrectionRow';
 import { toast } from '@/components/ui';
 import type { VoiceApiKeyKind } from '@/lib/voiceKeysApi';
@@ -958,6 +959,7 @@ export const VoiceSettings: React.FC = () => {
 
                 {dictationEnabled && (
                     <>
+                        <DictationMicrophoneField />
                         <SettingsFieldRow
                             label={t('settings.voice.page.field.provider')}
                             info={(

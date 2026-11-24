@@ -289,6 +289,9 @@
     "dictationAutoSend": {
       "scope": "profile"
     },
+    "dictationMicrophoneSource": {
+      "scope": "profile"
+    },
     "sttProvider": {
       "scope": "instance"
     },

@@ -8,6 +8,7 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { fromDirectoryKey } from './directories';
 import { getProjectDefaultsForConfigDirectory, isChatDraftOpen } from './projectDefaults';
 import { resolveGitGenerationModelSelection, resolveVariantFromSelection } from './selectionResolution';
+import { parseDictationMicrophoneSource } from '@/lib/dictation/microphone-source';
 
 interface OpenChamberDefaults {
     defaultModel?: string;
@@ -23,6 +24,7 @@ interface OpenChamberDefaults {
     messageStreamTransport?: 'auto' | 'ws' | 'sse';
     dictationEnabled?: boolean;
     dictationAutoSend?: boolean;
+    dictationMicrophoneSource?: 'default' | 'built-in';
     sttProvider?: 'local' | 'openai-compatible';
     sttServerUrl?: string;
     sttEndpointPath?: string;
@@ -92,6 +94,7 @@ const toOpenChamberDefaults = (data: DesktopSettings): OpenChamberDefaults => {
         messageStreamTransport: data.messageStreamTransport,
         dictationEnabled: data.dictationEnabled,
         dictationAutoSend: data.dictationAutoSend,
+        dictationMicrophoneSource: parseDictationMicrophoneSource(data.dictationMicrophoneSource),
         sttProvider: data.sttProvider,
         sttServerUrl: data.sttServerUrl,
         sttEndpointPath: data.sttEndpointPath,
@@ -197,6 +200,7 @@ export const createSettingsDefaults: ConfigSlice<
                 settingsMessageStreamTransport: defaults.messageStreamTransport ?? state.settingsMessageStreamTransport,
                 dictationEnabled: typeof defaults.dictationEnabled === 'boolean' ? defaults.dictationEnabled : state.dictationEnabled,
                 dictationAutoSend: defaults.dictationAutoSend ?? state.dictationAutoSend,
+                dictationMicrophoneSource: defaults.dictationMicrophoneSource ?? state.dictationMicrophoneSource,
                 sttProvider: defaults.sttProvider ?? state.sttProvider,
                 sttServerUrl: defaults.sttServerUrl ?? state.sttServerUrl,
                 sttModel: defaults.sttModel ?? state.sttModel,

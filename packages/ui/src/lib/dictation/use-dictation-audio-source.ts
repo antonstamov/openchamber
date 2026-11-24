@@ -1,9 +1,12 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { acquireDictationMicrophoneStream, type DictationMicrophoneSource } from './microphone-source';
+
 export interface DictationAudioSourceConfig {
     onPcmSegment: (base64Pcm: string) => void;
     onError?: (error: Error) => void;
+    microphoneSource?: DictationMicrophoneSource;
 }
 
 export type DictationLevelListener = (level: number) => void;
@@ -144,10 +147,12 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
 
     const onPcmSegmentRef = useRef(config.onPcmSegment);
     const onErrorRef = useRef(config.onError);
+    const microphoneSourceRef = useRef<DictationMicrophoneSource>(config.microphoneSource ?? 'default');
     useEffect(() => {
         onPcmSegmentRef.current = config.onPcmSegment;
         onErrorRef.current = config.onError;
-    }, [config.onPcmSegment, config.onError]);
+        microphoneSourceRef.current = config.microphoneSource ?? 'default';
+    }, [config.onPcmSegment, config.onError, config.microphoneSource]);
 
     const graphRef = useRef<CaptureGraph>(emptyGraph());
 
@@ -177,14 +182,7 @@ export function useDictationAudioSource(config: DictationAudioSourceConfig): Dic
             const resumed = context.state === 'suspended'
                 ? context.resume().catch(() => undefined)
                 : Promise.resolve();
-            const acquired = navigator.mediaDevices.getUserMedia({
-                audio: {
-                    channelCount: 1,
-                    noiseSuppression: true,
-                    echoCancellation: true,
-                    autoGainControl: true,
-                },
-            }).then((stream) => {
+            const acquired = acquireDictationMicrophoneStream(microphoneSourceRef.current).then((stream) => {
                 graph.stream = stream;
                 return stream;
             });
