@@ -355,7 +355,10 @@ describe('OpenChamber foreground update route', () => {
 
   it('queues the install in a transient systemd unit and returns its job identifier', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
-    childProcess.spawnSync.mockReturnValue({ status: 0, stdout: '', stderr: '' });
+    childProcess.spawnSync.mockImplementation((command) => {
+      if (command === 'systemctl') return { status: 0, stdout: 'active\nloaded\n', stderr: '' };
+      return { status: 0, stdout: '', stderr: '' };
+    });
     const { app } = createApp({
       environment: {
         INVOCATION_ID: 'systemd-invocation',
@@ -373,10 +376,23 @@ describe('OpenChamber foreground update route', () => {
         packageManager: 'npm',
         autoRestart: true,
         restartManager: 'systemd',
+        serviceUnit: 'openchamber@wsl.service',
         jobId: 'openchamber-update-1700000000000',
         logPath: 'journalctl --user-unit openchamber-update-1700000000000.service',
       });
 
+    expect(childProcess.spawnSync).toHaveBeenCalledWith('systemctl', [
+      '--user',
+      'show',
+      '--property=ActiveState',
+      '--property=LoadState',
+      '--value',
+      'openchamber@wsl.service',
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 5000,
+    });
     expect(childProcess.spawnSync).toHaveBeenCalledWith('systemd-run', [
       '--user',
       '--unit=openchamber-update-1700000000000',
@@ -391,6 +407,54 @@ describe('OpenChamber foreground update route', () => {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 5000,
     });
+  });
+
+  it('queues the install while the systemd unit is still activating', async () => {
+    childProcess.spawnSync.mockImplementation((command) => {
+      if (command === 'systemctl') return { status: 0, stdout: 'activating\nloaded\n', stderr: '' };
+      return { status: 0, stdout: '', stderr: '' };
+    });
+    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation' } });
+
+    const response = await request(app).post('/api/openchamber/update-install').expect(200);
+
+    expect(response.body.restartManager).toBe('systemd');
+    expect(response.body.serviceUnit).toBe('openchamber.service');
+    expect(childProcess.spawnSync).toHaveBeenCalledWith('systemd-run', expect.anything(), expect.anything());
+  });
+
+  it('refuses a foreground update when the systemd unit is not running instead of stalling the UI', async () => {
+    childProcess.spawnSync.mockImplementation((command) => {
+      if (command === 'systemctl') return { status: 0, stdout: 'inactive\nloaded\n', stderr: '' };
+      return { status: 0, stdout: '', stderr: '' };
+    });
+    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation' } });
+
+    await request(app)
+      .post('/api/openchamber/update-install')
+      .expect(409, {
+        code: 'SYSTEMD_UNIT_NOT_ACTIVE',
+        error: 'OpenChamber service openchamber.service is not running (state: inactive), so the update cannot restart it. Start it with "systemctl --user start openchamber.service" and retry, or run "openchamber update".',
+      });
+
+    expect(childProcess.spawnSync).toHaveBeenCalledOnce();
+    expect(childProcess.spawnSync).not.toHaveBeenCalledWith('systemd-run', expect.anything(), expect.anything());
+    expect(packageManager.cleanStaleGlobalBins).not.toHaveBeenCalled();
+  });
+
+  it('refuses a foreground update when the user manager is unreachable', async () => {
+    childProcess.spawnSync.mockImplementation(() => ({ status: 1, stdout: '', stderr: 'Failed to connect to bus' }));
+    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation' } });
+
+    await request(app)
+      .post('/api/openchamber/update-install')
+      .expect(409, {
+        code: 'SYSTEMD_UNIT_NOT_ACTIVE',
+        error: 'OpenChamber service openchamber.service is not running (state: unknown), so the update cannot restart it. Start it with "systemctl --user start openchamber.service" and retry, or run "openchamber update". (Failed to connect to bus)',
+      });
+
+    expect(childProcess.spawnSync).toHaveBeenCalledOnce();
+    expect(childProcess.spawnSync).not.toHaveBeenCalledWith('systemd-run', expect.anything(), expect.anything());
   });
 
   it('rejects foreground update on macOS when launchd plist does not exist', async () => {

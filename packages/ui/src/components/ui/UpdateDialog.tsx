@@ -156,6 +156,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   const [copied, setCopied] = useState(false);
   const [webUpdateState, setWebUpdateState] = useState<WebUpdateState>('idle');
   const [webError, setWebError] = useState<string | null>(null);
+  const [webManualCommand, setWebManualCommand] = useState<string | null>(null);
 
   const releaseUrl = info?.version
     ? (info.releaseUrl || `${GITHUB_RELEASES_URL}/tag/${parseCanaryVersion(info.version) ? 'canary' : `v${info.version}`}`)
@@ -180,16 +181,18 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   const needsNewerOpenCode = isWebRuntime && info?.installBlocked === 'opencode-version';
   const isMobileRuntime = runtimeType === 'mobile';
   const updateCommand = info?.updateCommand || 'openchamber update';
+  const manualUpdateCommand = webManualCommand ?? updateCommand;
 
   useEffect(() => {
     if (!open) {
       setWebUpdateState('idle');
       setWebError(null);
+      setWebManualCommand(null);
     }
   }, [open]);
 
   const handleCopyCommand = async () => {
-    const result = await copyTextToClipboard(updateCommand);
+    const result = await copyTextToClipboard(manualUpdateCommand);
     if (result.ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -202,6 +205,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   const handleWebUpdate = useCallback(async () => {
     setWebUpdateState('updating');
     setWebError(null);
+    setWebManualCommand(null);
 
     const result = await installWebUpdate();
 
@@ -222,9 +226,19 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
 
     if (applied.status === 'applied') {
       window.location.reload();
+    } else if (applied.status === 'failed') {
+      setWebUpdateState('error');
+      setWebError(applied.error);
+    } else if (applied.stage === 'restart') {
+      setWebUpdateState('error');
+      setWebError(t('updateDialog.error.restartFailed'));
+      if (applied.manualCommand) setWebManualCommand(applied.manualCommand);
+    } else if (applied.stage === 'install') {
+      setWebUpdateState('error');
+      setWebError(t('updateDialog.error.updateFailed'));
     } else {
       setWebUpdateState('error');
-      setWebError(applied.status === 'failed' ? applied.error : t('updateDialog.error.takingLonger'));
+      setWebError(t('updateDialog.error.takingLonger'));
     }
   }, [info?.currentVersion, t]);
 
@@ -396,7 +410,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
               </div>
               <div className="flex items-center gap-2 p-1 ps-3 bg-surface-elevated/50 rounded-md border border-border">
                 <ScrollableOverlay as="code" outerClassName="overlay-scrollbar-wrapper--no-gutter flex-1 min-w-0" fillContainer={false} className="font-mono text-sm text-foreground whitespace-nowrap">
-                  {updateCommand}
+                  {manualUpdateCommand}
                 </ScrollableOverlay>
                 <button
                   onClick={handleCopyCommand}

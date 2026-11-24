@@ -67,6 +67,15 @@ function quotePosixShell(value: string | null) {
 
 const LAUNCHD_SERVICE_ID = 'dev.openchamber.web';
 
+const SYSTEMD_RESTARTABLE_ACTIVE_STATES = new Set(['active', 'activating', 'reloading']);
+
+function parseSystemdShowState(stdout: string | null | undefined) {
+  const [activeState = '', loadState = ''] = String(stdout || '')
+    .split('\n')
+    .map((line) => line.trim().toLowerCase());
+  return { activeState, loadState };
+}
+
 const resolveLaunchdPlistPath = (pathModule: typeof import('node:path'), osModule: Pick<typeof import('node:os'), 'homedir'>) =>
   pathModule.join(osModule.homedir(), 'Library', 'LaunchAgents', `${LAUNCHD_SERVICE_ID}.plist`);
 
@@ -373,6 +382,28 @@ export const registerOpenChamberRoutes = (app: Application, dependencies: OpenCh
         }
 
         if (systemdServiceUnit) {
+          const unitState = spawnSync('systemctl', [
+            '--user',
+            'show',
+            '--property=ActiveState',
+            '--property=LoadState',
+            '--value',
+            systemdServiceUnit,
+          ], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 5000,
+          });
+          const { activeState, loadState } = parseSystemdShowState(unitState.stdout);
+          if (unitState.status !== 0 || loadState !== 'loaded' || !SYSTEMD_RESTARTABLE_ACTIVE_STATES.has(activeState)) {
+            const detail = (unitState.stderr || '').trim();
+            const state = activeState || loadState || 'unknown';
+            return res.status(409).json({
+              code: 'SYSTEMD_UNIT_NOT_ACTIVE',
+              error: `OpenChamber service ${systemdServiceUnit} is not running (state: ${state}), so the update cannot restart it. Start it with "systemctl --user start ${systemdServiceUnit}" and retry, or run "openchamber update".${detail ? ` (${detail})` : ''}`,
+            });
+          }
+
           const updateJobName = `openchamber-update-${Date.now()}`;
           const updateLogPath = `journalctl --user-unit ${updateJobName}.service`;
           const updateScript = [
@@ -410,6 +441,7 @@ export const registerOpenChamberRoutes = (app: Application, dependencies: OpenCh
             packageManager: pm,
             autoRestart: true,
             restartManager: 'systemd',
+            serviceUnit: systemdServiceUnit,
             jobId: updateJobName,
             logPath: updateLogPath,
           });

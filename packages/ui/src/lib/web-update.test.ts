@@ -169,4 +169,116 @@ describe('browser host updates', () => {
     });
     expect(result).toEqual({ status: 'applied' });
   });
+
+  test('keeps the systemd restart identity returned by the install request', async () => {
+    const result = await installWebUpdate(async () => Response.json({
+      success: true, autoRestart: true, restartManager: 'systemd',
+      serviceUnit: 'openchamber.service', jobId: 'openchamber-update-1',
+      logPath: 'journalctl --user-unit openchamber-update-1.service',
+    }));
+    expect(result).toEqual({
+      success: true,
+      autoRestart: true,
+      target: {
+        owner: 'package-manager',
+        restartManager: 'systemd',
+        serviceUnit: 'openchamber.service',
+        jobId: 'openchamber-update-1',
+        logPath: 'journalctl --user-unit openchamber-update-1.service',
+      },
+    });
+  });
+
+  test('reports a stalled restart with the service command when files flip but health stays old', async () => {
+    const result = await waitForUpdateApplied(
+      {
+        owner: 'package-manager', restartManager: 'systemd', serviceUnit: 'openchamber.service',
+        jobId: 'openchamber-update-1', logPath: 'journalctl --user-unit openchamber-update-1.service',
+      },
+      '1.22.2',
+      {
+        intervalMs: 1, maxWaitMs: 50,
+        fetchUpdate: async (url) => {
+          if (String(url).startsWith('/health')) {
+            return Response.json({ status: 'ok', openchamberVersion: '1.22.2' });
+          }
+          if (String(url) === '/') {
+            return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+          }
+          return Response.json({ available: false, currentVersion: '1.22.3' });
+        },
+      },
+    );
+    expect(result).toEqual({
+      status: 'timeout',
+      stage: 'restart',
+      manualCommand: 'systemctl --user restart openchamber.service',
+      restartManager: 'systemd',
+      serviceUnit: 'openchamber.service',
+      jobId: 'openchamber-update-1',
+      logPath: 'journalctl --user-unit openchamber-update-1.service',
+    });
+  });
+
+  test('reports a stalled restart without a service command when no unit is known', async () => {
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
+      intervalMs: 1, maxWaitMs: 50,
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          return Response.json({ status: 'ok', openchamberVersion: '1.22.2' });
+        }
+        if (String(url) === '/') {
+          return new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
+    });
+    expect(result).toEqual({ status: 'timeout', stage: 'restart' });
+  });
+
+  test('reports a stalled install when the disk version never flips', async () => {
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
+      intervalMs: 1, maxWaitMs: 50,
+      fetchUpdate: async () => Response.json({ available: true, currentVersion: '1.22.2' }),
+    });
+    expect(result).toEqual({ status: 'timeout', stage: 'install' });
+  });
+
+  test('reports a stalled interface when health is new but the document is not servable', async () => {
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
+      intervalMs: 1, maxWaitMs: 50,
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          return Response.json({ status: 'ok', openchamberVersion: '1.22.3' });
+        }
+        if (String(url) === '/') {
+          return new Response('OpenChamber is updating', {
+            status: 503,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          });
+        }
+        return Response.json({ available: false, currentVersion: '1.22.3' });
+      },
+    });
+    expect(result).toEqual({ status: 'timeout', stage: 'serve' });
+  });
+
+  test('names a serve stall behind an auth-gated update check instead of an install failure', async () => {
+    const result = await waitForUpdateApplied({ owner: 'package-manager' }, '1.22.2', {
+      intervalMs: 1, maxWaitMs: 50,
+      fetchUpdate: async (url) => {
+        if (String(url).startsWith('/health')) {
+          return Response.json({ status: 'ok', openchamberVersion: '1.22.3' });
+        }
+        if (String(url) === '/') {
+          return new Response('OpenChamber is updating', {
+            status: 503,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          });
+        }
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      },
+    });
+    expect(result).toEqual({ status: 'timeout', stage: 'serve' });
+  });
 });
