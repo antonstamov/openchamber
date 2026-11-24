@@ -3,6 +3,12 @@ import { EMPTY_VOICE_API_KEYS, updateVoiceApiKeys, migrateLegacyVoiceApiKeys, fe
 import { getSafeStorage } from '../utils/safeStorage';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { updateDesktopSettings } from '@/lib/persistence';
+import {
+    DEFAULT_DICTATION_MICROPHONE_SOURCE,
+    DICTATION_MICROPHONE_SOURCE_STORAGE_KEY,
+    parseDictationMicrophoneSource,
+    type DictationMicrophoneSource,
+} from '@/lib/dictation/microphone-source';
 
 let voiceApiKeysLoad: { runtimeKey: string; promise: Promise<void> } | null = null;
 
@@ -24,6 +30,7 @@ export const createVoiceSettings: ConfigSlice<
     | 'openaiCompatibleTtsEndpointPath'
     | 'dictationEnabled'
     | 'dictationAutoSend'
+    | 'dictationMicrophoneSource'
     | 'sttProvider'
     | 'sttServerUrl'
     | 'sttModel'
@@ -58,6 +65,7 @@ export const createVoiceSettings: ConfigSlice<
     | 'setDictationEnabled'
     | 'setSttCorrectTranscript'
     | 'setDictationAutoSend'
+    | 'setDictationMicrophoneSource'
     | 'setSttProvider'
     | 'setSttServerUrl'
     | 'setSttModel'
@@ -187,6 +195,8 @@ export const createVoiceSettings: ConfigSlice<
         return true;
     })(),
     dictationAutoSend: getSafeStorage().getItem('dictationAutoSend') === 'true',
+    dictationMicrophoneSource: parseDictationMicrophoneSource(getSafeStorage().getItem(DICTATION_MICROPHONE_SOURCE_STORAGE_KEY))
+        ?? DEFAULT_DICTATION_MICROPHONE_SOURCE,
     sttProvider: (() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('sttProvider');
@@ -433,6 +443,12 @@ export const createVoiceSettings: ConfigSlice<
         set({ dictationAutoSend: enabled });
         getSafeStorage().setItem('dictationAutoSend', String(enabled));
         updateDesktopSettings({ dictationAutoSend: enabled }).catch(() => {});
+    },
+
+    setDictationMicrophoneSource: (source: DictationMicrophoneSource) => {
+        set({ dictationMicrophoneSource: source });
+        getSafeStorage().setItem(DICTATION_MICROPHONE_SOURCE_STORAGE_KEY, source);
+        updateDesktopSettings({ dictationMicrophoneSource: source }).catch(() => {});
     },
 
     setSttProvider: (provider: 'local' | 'openai-compatible') => {
