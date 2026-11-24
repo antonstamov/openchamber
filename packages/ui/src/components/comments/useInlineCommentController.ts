@@ -107,9 +107,12 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
   const drafts = React.useMemo(() => {
     if (!target || !fileLabel) return [];
     return sessionDrafts.filter((draft) => (
-      draft.source === source && draft.fileLabel === fileLabel && diffCommentOriginKey(draft.origin) === originKey
+      draft.source === source && draft.fileLabel === fileLabel && (
+        diffCommentOriginKey(draft.origin) === originKey
+        || (draft.origin === undefined && (origin?.kind === 'working-tree' || origin?.kind === 'turn'))
+      )
     ));
-  }, [fileLabel, originKey, sessionDrafts, source, target]);
+  }, [fileLabel, origin?.kind, originKey, sessionDrafts, source, target]);
 
   React.useEffect(() => {
     if (!target) return;
@@ -235,7 +238,7 @@ export function useInlineCommentController<TRange extends LineRangeBase>(
         ...anchor,
         language,
         text: mergedText,
-        origin,
+        origin: stored?.origin ?? origin,
       });
       if (!updated) {
         toast.error(t('inlineComment.toast.noRoom'));

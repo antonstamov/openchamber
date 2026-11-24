@@ -622,6 +622,7 @@ export const LOCAL_DEVICE_KEYS = [
   'contextEditorTreeVisible',
   'contextEditorVisible',
   'contextEditorTreeWidth',
+  'gitSidebarWidth',
   'workStatusExpandedSections',
   'messageQueueExpanded',
   'workStatusScrollTop',

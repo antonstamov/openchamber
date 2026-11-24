@@ -1015,6 +1015,10 @@
       "scope": "device",
       "local": true
     },
+    "gitSidebarWidth": {
+      "scope": "device",
+      "local": true
+    },
     "workStatusExpandedSections": {
       "scope": "device",
       "local": true
