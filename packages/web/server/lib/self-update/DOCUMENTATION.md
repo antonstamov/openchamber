@@ -24,7 +24,12 @@ newer release as installation success. A package-manager install additionally
 waits for the restarted server to serve the interface: the check flips when
 package.json lands on disk, before the restart, so the client requires
 `/health` to report the checked version plus a 200 `text/html` document
-before reloading.
+before reloading. When the wait times out the client names the stall it saw:
+`install` (the disk version never flipped), `restart` (the disk flipped but
+health still reports the old process), or `serve` (health is new but the
+document is not servable yet). A `restart` stall on a systemd host carries
+the exact fix, `systemctl --user restart <serviceUnit>`, so the dialog can
+offer it with copy instead of another ten vague minutes.
 Poll requests have individual deadlines
 within a ten-minute overall deadline.
 
@@ -83,6 +88,13 @@ within a ten-minute overall deadline.
     - Foreground servers running under a systemd user unit queue installation in
       a separate transient unit and restart the configured service afterwards.
       `OPENCHAMBER_SYSTEMD_UNIT` overrides the default `openchamber.service`.
+      Before queueing, the route verifies the unit is loaded and running
+      (`systemctl --user show`): a unit the manager does not know or that is
+      not active answers 409 `SYSTEMD_UNIT_NOT_ACTIVE` at once, naming the
+      unit and the manual start command, instead of queueing a job whose
+      restart can never land while the UI waits out its deadline. The queued
+      answer carries `serviceUnit` beside `jobId` and `logPath`, so the
+      client can name the unit in its stall message without guessing it.
     - Foreground servers running under a macOS launchd User LaunchAgent update the
       package and trigger a `launchctl kickstart` (with a `launchctl bootstrap`
       fallback, as `openchamber startup enable` uses) against

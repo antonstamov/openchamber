@@ -6,6 +6,10 @@ const installResponse = z.object({
   autoRestart: z.boolean().optional(),
   updateOwner: z.string().optional(),
   version: z.string().min(1).optional(),
+  restartManager: z.string().optional(),
+  serviceUnit: z.string().optional(),
+  jobId: z.string().optional(),
+  logPath: z.string().optional(),
 });
 const checkResponse = z.object({
   available: z.boolean(),
@@ -31,25 +35,28 @@ async function isRestartedServerServingUI(
   fetchUpdate: typeof runtimeFetch,
   signal: AbortSignal | undefined,
   options: { expectedVersion?: string; previousVersion?: string },
-): Promise<boolean> {
+): Promise<{ serving: boolean; healthMatched: boolean }> {
+  const noMatch = { serving: false, healthMatched: false };
   const expectedVersion = options.expectedVersion === 'unknown' ? undefined : options.expectedVersion;
   const previousVersion = options.previousVersion === 'unknown' ? undefined : options.previousVersion;
+  let healthMatched = false;
   try {
     const health = await fetchUpdate('/health', {
       headers: { Accept: 'application/json' },
       signal,
     });
-    if (!health.ok) return false;
+    if (!health.ok) return noMatch;
     const parsed = healthResponse.safeParse(await health.json().catch(() => null));
     const version = parsed.success ? parsed.data.openchamberVersion : undefined;
-    if (version === undefined || version.length === 0) return false;
+    if (version === undefined || version.length === 0) return noMatch;
     if (expectedVersion !== undefined) {
-      if (version !== expectedVersion) return false;
+      if (version !== expectedVersion) return noMatch;
     } else if (previousVersion !== undefined && version === previousVersion) {
-      return false;
+      return noMatch;
     }
+    healthMatched = true;
   } catch {
-    return false;
+    return noMatch;
   }
 
   try {
@@ -57,21 +64,32 @@ async function isRestartedServerServingUI(
       headers: { Accept: 'text/html' },
       signal,
     });
-    if (!document.ok) return false;
+    if (!document.ok) return { serving: false, healthMatched };
     const contentType = document.headers.get('content-type') || '';
-    if (!contentType.includes('text/html')) return false;
+    if (!contentType.includes('text/html')) return { serving: false, healthMatched };
   } catch {
-    return false;
+    return { serving: false, healthMatched };
   }
 
-  return true;
+  return { serving: true, healthMatched };
 }
 
-type UpdateTarget = { owner: 'electron'; version: string } | { owner: 'package-manager' };
+type RestartManagerInfo = {
+  restartManager?: string;
+  serviceUnit?: string;
+  jobId?: string;
+  logPath?: string;
+};
+
+type UpdateTarget = { owner: 'electron'; version: string } | ({ owner: 'package-manager' } & RestartManagerInfo);
 type InstallResult =
   | { success: true; autoRestart: boolean; target: UpdateTarget }
   | { success: false; error?: string };
-type AppliedResult = { status: 'applied' } | { status: 'timeout' } | { status: 'failed'; error: string };
+type UpdateStallStage = 'install' | 'restart' | 'serve';
+type AppliedResult =
+  | { status: 'applied' }
+  | ({ status: 'timeout' } & Partial<{ stage: UpdateStallStage; manualCommand: string } & RestartManagerInfo>)
+  | { status: 'failed'; error: string };
 
 export async function installWebUpdate(fetchUpdate = runtimeFetch): Promise<InstallResult> {
   try {
@@ -91,7 +109,16 @@ export async function installWebUpdate(fetchUpdate = runtimeFetch): Promise<Inst
       if (!data.version) return { success: false };
       return { success: true, autoRestart: data.autoRestart !== false, target: { owner: 'electron', version: data.version } };
     }
-    return { success: true, autoRestart: data.autoRestart !== false, target: { owner: 'package-manager' } };
+    const target: UpdateTarget = { owner: 'package-manager' };
+    if (data.restartManager) target.restartManager = data.restartManager;
+    if (data.serviceUnit) target.serviceUnit = data.serviceUnit;
+    if (data.jobId) target.jobId = data.jobId;
+    if (data.logPath) target.logPath = data.logPath;
+    return {
+      success: true,
+      autoRestart: data.autoRestart !== false,
+      target,
+    };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : undefined };
   }
@@ -103,6 +130,8 @@ export async function waitForUpdateApplied(
   { fetchUpdate = runtimeFetch, maxWaitMs = 10 * 60 * 1000, intervalMs = 2000 } = {},
 ): Promise<AppliedResult> {
   const deadline = Date.now() + maxWaitMs;
+  let diskFlipped = false;
+  let healthNew = false;
   while (Date.now() < deadline) {
     const signal = AbortSignal.timeout(Math.max(1, Math.min(10_000, deadline - Date.now())));
     try {
@@ -122,11 +151,13 @@ export async function waitForUpdateApplied(
             // restarted server serves the interface: the check flips when
             // package.json lands on disk, before the restart serves dist.
             if (target.owner === 'package-manager') {
-              const serving = await isRestartedServerServingUI(fetchUpdate, signal, {
+              diskFlipped = true;
+              const probe = await isRestartedServerServingUI(fetchUpdate, signal, {
                 expectedVersion: data.currentVersion,
                 previousVersion,
               });
-              if (serving) return { status: 'applied' };
+              if (probe.serving) return { status: 'applied' };
+              if (probe.healthMatched) healthNew = true;
               // Not ready yet: keep polling within the deadline.
             } else {
               return { status: 'applied' };
@@ -139,8 +170,9 @@ export async function waitForUpdateApplied(
           return { status: 'failed', error: parsed.data.error };
         }
         if (target.owner === 'package-manager' && (response.status === 401 || response.status === 403)) {
-          const serving = await isRestartedServerServingUI(fetchUpdate, signal, { previousVersion });
-          if (serving) return { status: 'applied' };
+          const probe = await isRestartedServerServingUI(fetchUpdate, signal, { previousVersion });
+          if (probe.serving) return { status: 'applied' };
+          if (probe.healthMatched) healthNew = true;
         }
       }
     } catch {
@@ -149,5 +181,20 @@ export async function waitForUpdateApplied(
     const remaining = deadline - Date.now();
     if (remaining > 0) await new Promise(resolve => setTimeout(resolve, Math.min(intervalMs, remaining)));
   }
-  return { status: 'timeout' };
+  if (target.owner === 'electron') {
+    return { status: 'timeout' };
+  }
+  const stage: UpdateStallStage = healthNew ? 'serve' : diskFlipped ? 'restart' : 'install';
+  const timeout: Extract<AppliedResult, { status: 'timeout' }> = { status: 'timeout', stage };
+  if (target.owner === 'package-manager') {
+    if (target.restartManager) timeout.restartManager = target.restartManager;
+    if (target.serviceUnit) timeout.serviceUnit = target.serviceUnit;
+    if (target.jobId) timeout.jobId = target.jobId;
+    if (target.logPath) timeout.logPath = target.logPath;
+  }
+  if (stage === 'restart' && target.owner === 'package-manager'
+    && target.restartManager === 'systemd' && target.serviceUnit) {
+    timeout.manualCommand = `systemctl --user restart ${target.serviceUnit}`;
+  }
+  return timeout;
 }
