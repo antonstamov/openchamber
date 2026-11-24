@@ -187,6 +187,7 @@ export interface UIStore {
   sessionRecapEnabled: boolean;
   sessionSuggestionEnabled: boolean;
   sessionWorkEnabled: boolean;
+  sessionWorkDoneHintEnabled: boolean;
   sessionReviewOfferEnabled: boolean;
   sessionGoalEnabled: boolean;
   sessionGoalChecker: SessionGoalChecker;
@@ -456,6 +457,7 @@ export interface UIStore {
   setSessionRecapEnabled: (value: boolean) => void;
   setSessionSuggestionEnabled: (value: boolean) => void;
   setSessionWorkEnabled: (value: boolean) => void;
+  setSessionWorkDoneHintEnabled: (value: boolean) => void;
   setSessionReviewOfferEnabled: (value: boolean) => void;
   setSessionGoalEnabled: (value: boolean) => void;
   setSessionGoalChecker: (value: SessionGoalChecker) => void;

@@ -809,6 +809,9 @@
     "sessionWorkEnabled": {
       "scope": "profile"
     },
+    "sessionWorkDoneHintEnabled": {
+      "scope": "profile"
+    },
     "sessionReviewOfferEnabled": {
       "scope": "profile",
       "surfaces": [

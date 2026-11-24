@@ -389,6 +389,10 @@ export const persistSettings = async (changes: Record<string, unknown>, ctx?: Br
     delete restChanges.sessionWorkEnabled;
   }
 
+  if ('sessionWorkDoneHintEnabled' in restChanges && typeof restChanges.sessionWorkDoneHintEnabled !== 'boolean') {
+    delete restChanges.sessionWorkDoneHintEnabled;
+  }
+
   if ('sessionGoalEnabled' in restChanges && typeof restChanges.sessionGoalEnabled !== 'boolean') {
     delete restChanges.sessionGoalEnabled;
   }

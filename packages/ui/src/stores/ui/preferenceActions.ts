@@ -13,6 +13,7 @@ export const createPreferenceActions: UIStoreSlice<
   | 'setSessionRecapEnabled'
   | 'setSessionSuggestionEnabled'
   | 'setSessionWorkEnabled'
+  | 'setSessionWorkDoneHintEnabled'
   | 'setSessionReviewOfferEnabled'
   | 'setSessionGoalEnabled'
   | 'setSessionGoalChecker'
@@ -128,6 +129,10 @@ export const createPreferenceActions: UIStoreSlice<
 
   setSessionWorkEnabled: (value) => {
     set({ sessionWorkEnabled: value });
+  },
+
+  setSessionWorkDoneHintEnabled: (value) => {
+    set({ sessionWorkDoneHintEnabled: value });
   },
 
   setSessionReviewOfferEnabled: (value) => {

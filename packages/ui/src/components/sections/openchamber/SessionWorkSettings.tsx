@@ -10,6 +10,8 @@ export const SessionWorkSettings: React.FC = () => {
   const { t } = useI18n();
   const enabled = useUIStore((state) => state.sessionWorkEnabled);
   const setEnabled = useUIStore((state) => state.setSessionWorkEnabled);
+  const doneHintEnabled = useUIStore((state) => state.sessionWorkDoneHintEnabled);
+  const setDoneHintEnabled = useUIStore((state) => state.setSessionWorkDoneHintEnabled);
   const showChatsSection = useSessionDisplayStore((state) => state.showChatsSection);
   const setShowChatsSection = useSessionDisplayStore((state) => state.setShowChatsSection);
 
@@ -38,6 +40,14 @@ export const SessionWorkSettings: React.FC = () => {
         label={t('settings.openchamber.sessionWork.field.enabled')}
         ariaLabel={t('settings.openchamber.sessionWork.field.enabled')}
         info={t('settings.openchamber.sessionWork.info')}
+      />
+      <SettingsCheckboxRow
+        settingsItem="sessions.work-done-hint"
+        checked={doneHintEnabled}
+        onChange={setDoneHintEnabled}
+        label={t('settings.openchamber.sessionWork.field.doneHint')}
+        ariaLabel={t('settings.openchamber.sessionWork.field.doneHint')}
+        info={t('settings.openchamber.sessionWork.field.doneHintInfo')}
       />
     </SettingsSection>
   );
