@@ -132,7 +132,7 @@ export const settingsDict = {
   'settings.page.git.title': 'Git',
   'settings.page.appearance.title': 'Внешний вид',
   'settings.page.chat.title': 'Чат',
-  'settings.page.shortcuts.title': 'Ярлыки',
+  'settings.page.shortcuts.title': 'Хоткеи',
   'settings.page.general.title': 'Общие',
   'settings.page.sessions.title': 'Сессии',
   'settings.page.magicPrompts.title': 'Магические промпты',

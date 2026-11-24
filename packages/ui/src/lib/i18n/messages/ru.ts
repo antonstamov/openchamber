@@ -721,7 +721,7 @@ export const dict = {
   'sessions.sidebar.header.search.placeholder': 'Поиск сессий...',
   'sessions.sidebar.header.search.clear': 'Очистить поиск',
   'sessions.sidebar.footer.actions.settings': 'Настройки',
-  'sessions.sidebar.footer.actions.shortcuts': 'Ярлыки',
+  'sessions.sidebar.footer.actions.shortcuts': 'Хоткеи',
   'sessions.sidebar.footer.actions.aboutOpenChamber': 'О OpenChamber',
   'sessions.sidebar.footer.actions.update': 'Обновить',
   'sessions.sidebar.footer.actions.updateApp': 'Обновить приложение',
