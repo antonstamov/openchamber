@@ -105,7 +105,7 @@ jobs:
           prompt="$prompt
 
           Upstream head: $(git rev-parse upstream/main). Worktree is on main-ru with no merge in progress; start it yourself."
-          timeout --signal=TERM --kill-after=60s 45m \
+          timeout --signal=TERM --kill-after=60s 90m \
             opencode run --agent fork-merge --model "$MODEL" --format json "$prompt" \
             | tee "$RUNNER_TEMP/fork-merge.jsonl" \
             | jq -r 'if .type == "text" then "[\(.timestamp / 1000 | floor | strftime("%Y-%m-%d %H:%M:%S"))] \(.part.text // "")"
