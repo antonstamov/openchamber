@@ -653,6 +653,33 @@ describe('OpenChamber control service', () => {
     expect(sessionService.send).not.toHaveBeenCalled();
   });
 
+  it('passes existingBranch and setUpstream through on session.create and rejects it on send/fork', async () => {
+    const { service, sessionService } = createService();
+    await service.execute('session.create', {
+      worktree: ' fix-x ',
+      existingBranch: ' dre/fix/x ',
+      setUpstream: true,
+    }, '/repo');
+    expect(sessionService.create.mock.calls).toEqual([
+      [{ directory: '/repo', worktree: { name: 'fix-x', existingBranch: 'dre/fix/x' }, setUpstream: true }],
+    ]);
+
+    await expect(service.execute('session.create', { existingBranch: ' dre/fix/x ' }, '/repo'))
+      .rejects.toMatchObject({ statusCode: 400, message: 'existingBranch needs worktree: pass the folder name for the worktree that checks the branch out' });
+    for (const existingBranch of ['  ', 42, null]) {
+      await expect(service.execute('session.create', { worktree: 'fix-x', existingBranch }, '/repo'))
+        .rejects.toMatchObject({ statusCode: 400, message: 'existingBranch must be a non-empty branch name' });
+    }
+    expect(sessionService.create).toHaveBeenCalledTimes(1);
+
+    await expect(service.execute('session.send', { sessionId: 'ses_1', prompt: 'Go', existingBranch: 'dre/fix/x' }, '/repo'))
+      .rejects.toThrow('existingBranch applies only to session.create or session.moveToWorktree');
+    await expect(service.execute('session.fork', { sessionId: 'ses_1', existingBranch: 'dre/fix/x' }, '/repo'))
+      .rejects.toThrow('existingBranch applies only to session.create or session.moveToWorktree');
+    expect(sessionService.send).not.toHaveBeenCalled();
+    expect(sessionService.fork).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['session.send', 'send'],
     ['session.fork', 'fork'],
@@ -1085,6 +1112,17 @@ describe('OpenChamber control service', () => {
 
       expect(result.sessions.map(({ id, status }) => [id, status.type])).toEqual([['two', 'busy'], ['four', 'busy']]);
       expect(client.session.list).toHaveBeenCalledTimes(1);
+    });
+
+    it('marks the leads and lists only them, in every project', async () => {
+      const { service, client } = createService();
+      const lead = { openchamber: { lead: { at: 1 } } };
+      client.session.list.mockResolvedValue({ data: [session('lead', { metadata: lead }), session('plain'), session('copy', { parentID: 'lead', metadata: lead })] });
+      const everything = await service.execute('session.list', {}, '/repo');
+      expect(everything.sessions.map(({ id, lead: marked }) => [id, marked])).toEqual([['lead', true], ['plain', undefined]]);
+      const leads = await service.execute('session.list', { leads: true }, '/repo');
+      expect(leads.sessions.map(({ id }) => id)).toEqual(['lead']);
+      expect(client.session.list.mock.calls.at(-1)[0]).not.toHaveProperty('directory');
     });
 
     it('lists the sessions the caller created with ownWork, with their status, and archives only those', async () => {

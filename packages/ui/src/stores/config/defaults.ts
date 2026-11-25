@@ -7,7 +7,7 @@ import { type ConfigSlice, type ConfigStore, type DirectoryScopedConfig } from '
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { fromDirectoryKey } from './directories';
 import { getProjectDefaultsForConfigDirectory, isChatDraftOpen } from './projectDefaults';
-import { resolveGitGenerationModelSelection, resolveVariantFromSelection } from './selectionResolution';
+import { resolveVariantFromSelection } from './selectionResolution';
 import { parseDictationMicrophoneSource } from '@/lib/dictation/microphone-source';
 
 interface OpenChamberDefaults {
@@ -174,7 +174,6 @@ export const createSettingsDefaults: ConfigSlice<
     | 'setSettingsDefaultFileViewerPreview'
     | 'setSettingsZenModel'
     | 'setSettingsMessageStreamTransport'
-    | 'getResolvedGitGenerationModel'
 > = (set, get) => ({
     loadSessionDefaults: async () => {
         const runtimeContext = captureConfigRuntimeContext();
@@ -279,13 +278,5 @@ export const createSettingsDefaults: ConfigSlice<
 
     setSettingsMessageStreamTransport: (transport: 'auto' | 'ws' | 'sse') => {
         set({ settingsMessageStreamTransport: transport });
-    },
-
-    getResolvedGitGenerationModel: () => {
-        const state = get();
-        return resolveGitGenerationModelSelection({
-            providers: state.providers,
-            settingsZenModel: state.settingsZenModel,
-        });
     },
 });

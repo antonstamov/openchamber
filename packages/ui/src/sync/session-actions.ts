@@ -1,6 +1,5 @@
 
-import type { FilePart, FormRequest, Message, Metadata, ModelSelection, Part, PermissionRequest, Session, SyntheticMessage, TextPart, UserMessage } from "@/lib/opencode/model"
-import { compact, partIds } from "@/lib/opencode/model"
+import { compact, partIds, type FilePart, type FormRequest, type Message, type Metadata, type ModelSelection, type Part, type PermissionRequest, type Session, type SyntheticMessage, type TextPart, type UserMessage } from "@/lib/opencode/model"
 import { readSubagentRun } from "@/lib/opencode/subagent-run"
 import { attachmentBasename, withMissingCitations } from "@/lib/attachmentIdentity"
 import { isAutoModel } from "@/lib/routing/autoModel"
@@ -49,7 +48,7 @@ import { useGlobalSessionStatusStore } from "./global-session-status"
 import { recordSendFailure } from "./send-failure-log"
 import { draftFromContextPayload, readContextPart, type ContextCarrierPart } from "@/lib/messages/contextParts"
 import { useInlineCommentDraftStore, type InlineCommentDraftTarget } from "@/stores/useInlineCommentDraftStore"
-import { materializeSessionSnapshots } from "./materialization"
+import { getStaleRunningToolMessageID, materializeSessionSnapshots } from "./materialization"
 import { sessionEvents } from "@/lib/sessionEvents"
 import { fileTreeChanges } from "@/lib/fileTreeChanges"
 import {
@@ -75,7 +74,7 @@ import { isRelayModeActive } from "@/lib/relay/runtime-tunnel"
 import { getErrorStatus, isAmbiguousSendFailure } from "./send-failure-classification"
 import { isFormAlreadySettledError, isFormRequestNotFoundError } from "./form-request-error"
 import { ConnectionLostError } from "./connection-lost-error"
-import { getStaleRunningToolMessageID } from "./materialization"
+import { noteSessionMoveEvent, requestSessionMove } from "./session-move-confirmation"
 import { promoteRestoredSessionOrdering } from "./session-ordering"
 import { normalizePath } from "@/lib/pathNormalization"
 import { mergeMessages } from "./optimistic"
@@ -107,6 +106,7 @@ type OptimisticConfirmInput = OptimisticRemoveInput
 let _optimisticAdd: ((input: OptimisticAddInput) => void) | null = null
 let _optimisticRemove: ((input: OptimisticRemoveInput) => void) | null = null
 let _optimisticConfirm: ((input: OptimisticConfirmInput) => void) | null = null
+let _optimisticAdmit: ((input: OptimisticConfirmInput) => void) | null = null
 
 function sessionsMutationPatch(
   state: ReturnType<DirectoryStoreApi["getState"]>,
@@ -165,10 +165,12 @@ export function setOptimisticRefs(
   add: (input: OptimisticAddInput) => void,
   remove: (input: OptimisticRemoveInput) => void,
   confirm?: (input: OptimisticConfirmInput) => void,
+  admit?: (input: OptimisticConfirmInput) => void,
 ) {
   _optimisticAdd = add
   _optimisticRemove = remove
   _optimisticConfirm = confirm ?? null
+  _optimisticAdmit = admit ?? null
 }
 
 function dirStore() {
@@ -335,12 +337,12 @@ export async function moveSessionToDirectory(
   sourceDirectory: string,
   destinationDirectory: string,
   isCurrent?: () => boolean,
-): Promise<void> {
-  await opencodeClient.moveSession(session.id, destinationDirectory)
+): Promise<string> {
+  const confirmed = await requestSessionMove(session.id, () => opencodeClient.moveSession(session.id, destinationDirectory))
 
-  if (isCurrent && !isCurrent()) return
+  if ((isCurrent && !isCurrent()) || confirmed) return confirmed ?? destinationDirectory
 
-  relocateSession(session, sourceDirectory, destinationDirectory)
+  return relocateSession(session, sourceDirectory, destinationDirectory).directory
 }
 
 export function adoptSessionMove(sessionId: string, sourceDirectory: string, destinationDirectory: string): void {
@@ -348,6 +350,7 @@ export function adoptSessionMove(sessionId: string, sourceDirectory: string, des
     ?? _childStores?.getChild(destinationDirectory)?.getState().session.find((candidate) => candidate.id === sessionId)
     ?? useGlobalSessionsStore.getState().entityById.get(sessionId)
   if (!session) return
+  noteSessionMoveEvent(sessionId, destinationDirectory)
   relocateSession(session, sourceDirectory, destinationDirectory)
 }
 
@@ -1859,9 +1862,9 @@ export async function optimisticSend(input: {
   const messageID = ascendingId("msg")
   const optimisticIDs = [...context.map((item) => item.id), messageID]
 
-  const optimisticParts: Part[] = [
-    { id: partIds.userText(messageID), sessionID: input.sessionId, messageID, type: "text", text: input.content },
-  ]
+  const optimisticParts: Part[] = input.content.length > 0
+    ? [{ id: partIds.userText(messageID), sessionID: input.sessionId, messageID, type: "text", text: input.content }]
+    : []
   if (input.files) {
     input.files.forEach((file, index) => {
       optimisticParts.push({
@@ -1924,6 +1927,7 @@ export async function optimisticSend(input: {
     assertRuntimeUnchanged()
     requestSent = true
     await input.send(messageID, context, commitRevert)
+    for (const id of optimisticIDs) _optimisticAdmit?.({ sessionID: input.sessionId, directory: targetDirectory, messageID: id })
   } catch (error) {
     const status = getErrorStatus(error)
     const ambiguousFailure = requestSent && isAmbiguousSendFailure(error)
@@ -1933,13 +1937,7 @@ export async function optimisticSend(input: {
 
     if (acceptedRecords) {
       materializeConfirmedSendRecords(store, input.sessionId, optimisticIDs, acceptedRecords)
-      for (const optimisticID of optimisticIDs) {
-        optimisticConfirm?.({
-          sessionID: input.sessionId,
-          directory: targetDirectory,
-          messageID: optimisticID,
-        })
-      }
+      for (const id of optimisticIDs) optimisticConfirm?.({ sessionID: input.sessionId, directory: targetDirectory, messageID: id })
       return
     }
 

@@ -85,16 +85,9 @@ within a ten-minute overall deadline.
       'service-manager'`, so clients show manual steps in place of an Update
       button.
     - Desktop-managed hosts delegate authenticated Web update requests to the Electron main process, which checks, downloads, and applies the update through `electron-updater` before restarting the host. A host installed from a Linux `.deb` or `.rpm` asks for the administrator password on its own screen, so its check reports `installBlocked: 'desktop-host'` and the install route answers 409 `DESKTOP_UPDATE_LOCAL_ONLY` before anything stops; clients say to update on that computer.
-    - Foreground servers running under a systemd user unit queue installation in
+    - Foreground servers running under a systemd unit queue installation in
       a separate transient unit and restart the configured service afterwards.
       `OPENCHAMBER_SYSTEMD_UNIT` overrides the default `openchamber.service`.
-      Before queueing, the route verifies the unit is loaded and running
-      (`systemctl --user show`): a unit the manager does not know or that is
-      not active answers 409 `SYSTEMD_UNIT_NOT_ACTIVE` at once, naming the
-      unit and the manual start command, instead of queueing a job whose
-      restart can never land while the UI waits out its deadline. The queued
-      answer carries `serviceUnit` beside `jobId` and `logPath`, so the
-      client can name the unit in its stall message without guessing it.
     - Foreground servers running under a macOS launchd User LaunchAgent update the
       package and trigger a `launchctl kickstart` (with a `launchctl bootstrap`
       fallback, as `openchamber startup enable` uses) against

@@ -30,6 +30,7 @@ const createApp = ({
   execPath = '/usr/bin/node',
   plistExists = false,
   openCodeVersion = '2.2.6',
+  uid = 1000,
 } = {}) => {
   const app = express();
   const dependencies = {
@@ -61,6 +62,7 @@ const createApp = ({
       platform,
       execPath,
       exit: vi.fn(),
+      getuid: () => uid,
     },
     server: {
       address: () => ({ port: 7897 }),
@@ -362,6 +364,7 @@ describe('OpenChamber foreground update route', () => {
     const { app } = createApp({
       environment: {
         INVOCATION_ID: 'systemd-invocation',
+        MANAGERPID: '1234',
         OPENCHAMBER_SYSTEMD_UNIT: 'openchamber@wsl.service',
         PATH: '/home/syu/.npm-global/bin:/usr/bin:/bin',
       },
@@ -414,7 +417,7 @@ describe('OpenChamber foreground update route', () => {
       if (command === 'systemctl') return { status: 0, stdout: 'activating\nloaded\n', stderr: '' };
       return { status: 0, stdout: '', stderr: '' };
     });
-    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation' } });
+    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation', MANAGERPID: '1234' } });
 
     const response = await request(app).post('/api/openchamber/update-install').expect(200);
 
@@ -428,7 +431,7 @@ describe('OpenChamber foreground update route', () => {
       if (command === 'systemctl') return { status: 0, stdout: 'inactive\nloaded\n', stderr: '' };
       return { status: 0, stdout: '', stderr: '' };
     });
-    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation' } });
+    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation', MANAGERPID: '1234' } });
 
     await request(app)
       .post('/api/openchamber/update-install')
@@ -444,7 +447,7 @@ describe('OpenChamber foreground update route', () => {
 
   it('refuses a foreground update when the user manager is unreachable', async () => {
     childProcess.spawnSync.mockImplementation(() => ({ status: 1, stdout: '', stderr: 'Failed to connect to bus' }));
-    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation' } });
+    const { app } = createApp({ environment: { INVOCATION_ID: 'systemd-invocation', MANAGERPID: '1234' } });
 
     await request(app)
       .post('/api/openchamber/update-install')
@@ -455,6 +458,61 @@ describe('OpenChamber foreground update route', () => {
 
     expect(childProcess.spawnSync).toHaveBeenCalledOnce();
     expect(childProcess.spawnSync).not.toHaveBeenCalledWith('systemd-run', expect.anything(), expect.anything());
+    expect(packageManager.cleanStaleGlobalBins).not.toHaveBeenCalled();
+  });
+
+  it('queues the install with the system manager for a root system unit, which has no MANAGERPID, into the unit\'s install target', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    childProcess.spawnSync.mockImplementation((command) => {
+      if (command === 'systemctl') return { status: 0, stdout: 'active\nloaded\n', stderr: '' };
+      return { status: 0, stdout: '', stderr: '' };
+    });
+    const { app } = createApp({
+      uid: 0,
+      environment: {
+        INVOCATION_ID: 'systemd-invocation',
+        PATH: '/usr/bin:/bin',
+        HOME: '/root',
+        NPM_CONFIG_PREFIX: '/opt/openchamber',
+      },
+    });
+
+    const response = await request(app).post('/api/openchamber/update-install').expect(200);
+
+    expect(response.body.logPath).toBe('journalctl -u openchamber-update-1700000000000.service');
+    expect(childProcess.spawnSync).toHaveBeenCalledWith('systemd-run', [
+      '--unit=openchamber-update-1700000000000',
+      '--collect',
+      '--service-type=exec',
+      '--setenv=PATH=/usr/bin:/bin',
+      '--setenv=HOME=/root',
+      '--setenv=NPM_CONFIG_PREFIX=/opt/openchamber',
+      '/bin/sh',
+      '-c',
+      "set -eu\nnpm install -g @openchamber/web@latest\nsystemctl restart 'openchamber.service'",
+    ], expect.any(Object));
+  });
+
+  it('refuses a system-unit update for a non-root server even when the system manager would accept the job', async () => {
+    childProcess.spawnSync.mockReturnValue({ status: 0, stdout: '', stderr: '' });
+    const { app, dependencies } = createApp({
+      uid: 1000,
+      environment: {
+        INVOCATION_ID: 'systemd-invocation',
+        PATH: '/home/svc/.npm-global/bin:/usr/bin:/bin',
+      },
+    });
+
+    const response = await request(app).post('/api/openchamber/update-install').expect(409);
+
+    expect(response.body).toEqual({
+      code: 'SYSTEM_UNIT_UPDATE_MANUAL',
+      error: "OpenChamber runs as a system service (openchamber.service) under a non-root user, so it can't update itself. Update the copy this service runs with the package manager and account that installed it, then run systemctl restart openchamber.service.",
+    });
+    expect(childProcess.spawnSync).not.toHaveBeenCalled();
+    expect(childProcess.spawn).not.toHaveBeenCalled();
+    expect(dependencies.server.close).not.toHaveBeenCalled();
+    expect(dependencies.process.exit).not.toHaveBeenCalled();
   });
 
   it('rejects foreground update on macOS when launchd plist does not exist', async () => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { DictationOrigin } from '../../composer/state/useDictationOrigin';
 
 import type { DictationStatus } from '@/hooks/useDictation';
 import type { ComposerDictationController } from '@/components/dictation/ComposerDictation';
@@ -6,6 +7,7 @@ import type { ComposerDictationController } from '@/components/dictation/Compose
 export function useComposerDictationState() {
     const dictationSendEndRef = React.useRef<(() => void) | null>(null);
     const dictationSendInFlightRef = React.useRef(false);
+    const dictationOriginRef = React.useRef<DictationOrigin | null>(null);
     // A Send or Enter pressed during recording or transcription confirms the
     // dictation and queues the send: the transcript lands below and the
     // message goes out whole. The ref mirrors the state so the submit path
@@ -29,7 +31,7 @@ export function useComposerDictationState() {
     }, []);
 
     return {
-        dictationSendInFlightRef, dictationSendEndRef,
+        dictationSendInFlightRef, dictationSendEndRef, dictationOriginRef,
         dictationControllerRef, dictationStatus, dictationSendPending, setDictationSendPending,
         dictationSendPendingRef, commentDictationWaitRef, handleDictationStatusChange,
     };

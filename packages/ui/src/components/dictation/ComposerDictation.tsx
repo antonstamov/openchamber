@@ -131,6 +131,7 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
     onSendStart,
     onActiveChange,
     onStatusChange,
+    onContentHeightChange,
     controllerRef,
     renderTrigger = true,
 }) => {
@@ -186,7 +187,6 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
     // (Port of upstream fix(dictation) 51751fa8a; Enter/Escape still never
     // captured here — that is the fork's deliberate non-blocking behavior.)
     const shown = supported && (dictationEnabled || status !== 'idle');
-
     const isModelDownloading = status === 'recording' && errorReason === 'model_download_in_progress';
     const downloadPercent = useModelDownloadProgress(isModelDownloading);
 
@@ -285,6 +285,79 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
             if (statusRef.current !== 'idle') onStatusChangeRef.current?.('idle');
         };
     }, [shown]);
+
+    const overlayRef = React.useRef<HTMLDivElement | null>(null);
+    const transcriptAreaRef = React.useRef<HTMLDivElement | null>(null);
+    const transcriptContentRef = React.useRef<HTMLDivElement | null>(null);
+    const [footerHeight, setFooterHeight] = React.useState<number | null>(null);
+    const isActiveStatus = status !== 'idle';
+    const hasSalvageText = status === 'failed' && Boolean(partialTranscript.trim());
+
+    const onContentHeightChangeRef = React.useRef(onContentHeightChange);
+    React.useEffect(() => {
+        onContentHeightChangeRef.current = onContentHeightChange;
+    }, [onContentHeightChange]);
+    const hasReportedHeightRef = React.useRef(false);
+    React.useLayoutEffect(() => {
+        if (!hasSalvageText) {
+            if (hasReportedHeightRef.current) {
+                hasReportedHeightRef.current = false;
+                onContentHeightChangeRef.current?.(null);
+            }
+            return;
+        }
+        const area = transcriptAreaRef.current;
+        const content = transcriptContentRef.current;
+        if (!area || !content) return;
+        const firstReport = !hasReportedHeightRef.current;
+        let followEnd = firstReport
+            || area.scrollHeight - area.scrollTop - area.clientHeight <= 24;
+        const trackScroll = () => {
+            followEnd = area.scrollHeight - area.scrollTop - area.clientHeight <= 24;
+        };
+        area.addEventListener('scroll', trackScroll, { passive: true });
+        const reportHeight = () => {
+            const style = window.getComputedStyle(area);
+            const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+            hasReportedHeightRef.current = true;
+            onContentHeightChangeRef.current?.(content.offsetHeight + padding);
+            if (followEnd) {
+                area.scrollTop = area.scrollHeight;
+            }
+        };
+        reportHeight();
+        const initialFollowFrame = firstReport ? window.requestAnimationFrame(() => {
+            area.scrollTop = area.scrollHeight;
+            followEnd = true;
+        }) : null;
+        const cleanupScroll = () => {
+            area.removeEventListener('scroll', trackScroll);
+            if (initialFollowFrame !== null) window.cancelAnimationFrame(initialFollowFrame);
+        };
+        if (!window.ResizeObserver) return cleanupScroll;
+        const observer = new window.ResizeObserver(reportHeight);
+        observer.observe(content);
+        observer.observe(area);
+        return () => {
+            observer.disconnect();
+            cleanupScroll();
+        };
+    }, [hasSalvageText, partialTranscript]);
+    React.useEffect(() => () => {
+        if (hasReportedHeightRef.current) {
+            hasReportedHeightRef.current = false;
+            onContentHeightChangeRef.current?.(null);
+        }
+    }, []);
+    React.useLayoutEffect(() => {
+        if (!isActiveStatus) {
+            return;
+        }
+        const realFooter = overlayRef.current?.closest<HTMLElement>('[data-chat-input-footer="true"]');
+        if (realFooter && realFooter.offsetHeight > 0) {
+            setFooterHeight(realFooter.offsetHeight);
+        }
+    }, [isActiveStatus]);
 
     if (!shown) {
         return null;

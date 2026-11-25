@@ -635,7 +635,8 @@ render.
 
 ### Why a share waits for the draft to be the one on screen
 
-A share (the Android share intent) always opens a new-session draft of its own
+A share (Android's share intent, or the iOS share extension's inbox) always
+opens a new-session draft of its own
 (`openSharedFilesSession` in `apps/deepLinkNavigation.ts`) in the last-used
 project: the projects store's active project, which opening a session keeps
 current, or the first project when none is active. A project draft is listed in
@@ -1619,6 +1620,28 @@ command can leave the queue untouched and delivery can take only part of it.
   just opened must render in the same commit
   (`useShownSessionSelection`, see `sync/DOCUMENTATION.md`, "Session switch
   commit"): a deferred draft recorded the session still on screen (#6927).
+  The transcript stays in the visible composer when its draft identity matches
+  the origin, or when the composer still shows the new-session draft (same
+  draft id, same runtime) where recording started. A new-session draft's
+  identity includes its directory, so its identity alone makes a project or
+  Chat/Project switch of the same draft look like another composer (#7529).
+  Existing sessions and BTW match by identity only. Identity also counts for
+  drafts on its own because two Chat drafts share one slot. While the dictation
+  is pending, `useComposerDraft` reports the move that carries the draft's text
+  and the origin follows it, so opening another session after a move keeps the
+  transcript with the moved draft.
+  **Insert** adds the text to that composer. **Insert and send** captures the
+  identity on screen at confirmation: a draft moved before confirming sends to
+  the new project, and a draft moved between confirmation and the transcript
+  keeps the text unsent, because the user never confirmed sending it there. A
+  draft moved away and back in that time counts as moved. Opening another
+  session and returning does not, since the draft itself stayed put. The check
+  compares the origin record: each carried move replaces it, so it is read
+  before the transcript clears the origin.
+  The hook closes over the rendered identity: `useDictation` and
+  `ComposerDictation` keep their handlers in refs written after commit, so a
+  render that suspends or is deferred cannot change the target. VS Code has no
+  dictation (see `components/dictation/DOCUMENTATION.md`).
   The dictation shortcut starts in the focused composer's form, falling back
   to the main chat when no form has focus. Mobile mic triggers explicitly
   address their own form. One mounted dictation engine owns capture and
@@ -2324,6 +2347,23 @@ comment uses the trimmed `selectionApprovalText` setting, falling back to
 `Sounds good`. Existing drafts, attachments and linked references stay in place;
 the user sends them together through the normal Send action. The shortcut
 focuses the composer on desktop and does not request keyboard focus on mobile.
+
+## What a context row opens
+
+A review comment row's head opens what the comment was written on, through
+`components/comments/useOpenCommentSource.ts`; on the phone, where a tap on
+the row edits the comment, the collapsed row's label is that opener. A comment
+on uncommitted changes opens the file at its line (the Files drawer on the
+phone). A comment on a commit, a branch comparison or a change request opens
+that diff at the line, because the file on disk is another version. A comment on
+an earlier agent turn opens that turn's diff the way a turn's changed-file chip
+does; one on "Last turn" names no turn and gets no opener. The quoted code keeps
+its own behaviour: only a chat quote's reveals its source.
+
+The opener is withheld where the place cannot be shown: a branch comment while
+another branch is checked out, a comparison comment in VS Code, and any comment
+in the mini chat window, which has no file or diff viewer. A plan comment keeps
+no opener: its label is the plan document, which may not be a file yet.
 
 ## Mobile comment mode
 

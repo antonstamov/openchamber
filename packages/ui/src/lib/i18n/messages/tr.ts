@@ -14,7 +14,7 @@ import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { documentToolbarI18n } from './document-toolbar.i18n';
 import { uiBlocksI18n } from './ui-blocks.i18n';
-import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
+import { updateDialogCanaryI18n } from './update-dialog-canary.i18n'; import { updateIdleI18n } from './update-idle.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
@@ -24,6 +24,7 @@ import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { sessionCostI18n } from './session-cost.i18n';
 import { connectionHeartbeatI18n } from './connection-heartbeat.i18n';
 import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
@@ -65,6 +66,7 @@ import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
+import { integrateConflictI18n } from './integrate-conflict.i18n';
 import { workflowsI18n } from './workflows.i18n';
 import { subagentsI18n } from './subagents.i18n';
 import { sessionReferencesI18n } from './session-references.i18n';
@@ -155,7 +157,7 @@ export const dict = {
   ...htmlRenderI18n.tr,
   ...documentToolbarI18n.tr,
   ...uiBlocksI18n.tr,
-  ...updateDialogCanaryI18n.tr,
+  ...updateDialogCanaryI18n.tr, ...updateIdleI18n.tr,
   ...aboutReleaseNotesI18n.tr,
   ...updateCheckErrorsI18n.tr,
   ...secretRequestI18n.tr,
@@ -165,6 +167,7 @@ export const dict = {
   ...usageStatsI18n.tr,
   ...webSearchI18n.tr,
   ...sessionWarmingI18n.tr,
+  ...sessionCostI18n.tr,
   ...connectionHeartbeatI18n.tr,
   ...compactionSettingsI18n.tr,
   ...heapSnapshotI18n.tr,
@@ -205,6 +208,7 @@ export const dict = {
   ...markdownOutlineI18n['tr'],
   ...markdownGithubI18n['tr'],
   ...autocompleteScopeI18n['tr'],
+  ...integrateConflictI18n['tr'],
   ...workflowsI18n['tr'],
   ...subagentsI18n['tr'],
   ...sessionReferencesI18n['tr'],
@@ -629,6 +633,7 @@ export const dict = {
   'sessions.sidebar.header.displayMode.minimal': 'Minimal',
   'sessions.sidebar.header.displayMode.showWork': 'Devam eden bölümünü göster',
   'sessions.sidebar.header.displayMode.showPinned': 'Sabitlenenler bölümünü göster',
+  'sessions.sidebar.header.displayMode.showSubagents': 'Alt ajan oturumlarını göster',
   'sessions.sidebar.header.displayMode.detailedZoneRows': 'Ayrıntılı satırlar',
   'sessions.sidebar.header.displayMode.worktreeNameByBranch': 'Worktree’leri dala göre adlandır',
   'sessions.sidebar.activity.pinnedTitle': 'Sabitlenenler',
@@ -1483,6 +1488,7 @@ export const dict = {
   'walkthrough.blocked.emptyDiff.description': 'Bu kapsamda henüz değişiklik yok.',
   'walkthrough.blocked.contextTooSmall.title': 'Bu diff, geçerli model için çok büyük',
   'walkthrough.blocked.contextTooSmall.description': '{model} yaklaşık {available}K karakter alabiliyor; bu diff ise yaklaşık {required}K gerektiriyor. Hiçbir şey kırpılmaz — bunun yerine daha büyük bağlam alanı olan bir model seç.',
+  'walkthrough.blocked.contextTooSmall.descriptionRefused': '{model}, çok uzun olduğu için bu diff\'i reddetti. Daha büyük bağlam alanı olan bir model seç veya daha dar bir kapsamı incele.',
   'walkthrough.blocked.structuredOutput.title': 'Bu model yapılandırılmış çıktı üretemiyor',
   'walkthrough.blocked.structuredOutput.description': '{model}, bir inceleme turunun ihtiyaç duyduğu yapılandırılmış yanıtları desteklemiyor.',
   'walkthrough.blocked.chooseModel': 'Küçük modeli seç',
@@ -1880,6 +1886,8 @@ export const dict = {
   'diffView.state.loadingDiff': 'Diff yükleniyor...',
   'diffView.state.loadingChanges': 'Değişiklikler yükleniyor...',
   'diffView.state.largeDiff': 'Büyük diff ({count} değiştirilen satır)',
+  'diffView.state.largeDiffLongLines': 'Büyük diff (çok uzun satırlar)',
+  'diffView.state.largeFile': 'Büyük dosya',
   'diffView.state.largeDiffDescription': 'Görüntüleme yavaş olabilir. Aşağıya tıklayarak diff\'i yine de görüntüleyebilirsiniz.',
   'diffView.summary.changedFilesSingle': '{count} dosya değişti',
   'diffView.summary.changedFilesPlural': '{count} dosya değişti',
@@ -2290,6 +2298,9 @@ export const dict = {
   'session.githubPrPicker.empty.noPullRequestsFound': 'Pull request bulunamadı',
   'session.githubPrPicker.loading.pullRequests': 'Pull request\'ler yükleniyor...',
   'session.githubPrPicker.actions.loadMore': 'Daha fazla yükle',
+  'session.githubPrPicker.filter.group.repository': 'Depo',
+  'session.githubPrPicker.filter.group.author': 'Yazar',
+  'session.githubPrPicker.filter.clearAll': 'Filtreleri temizle',
   'session.newWorktree.title': 'Yeni Worktree',
   'session.newWorktree.mode.newBranch': 'Yeni Branch',
   'session.newWorktree.mode.existingBranch': 'Mevcut Branch',
@@ -2970,6 +2981,11 @@ export const dict = {
   'openInApp.actions.copyPath': 'Yolu Kopyala',
   'openInApp.actions.refreshApps': 'Uygulamaları Yenile',
   'openInApp.toast.pathCopied': 'Yol panoya kopyalandı',
+  'openInApp.toast.sshOpenFailed': '{app} açılamadı. Bu bilgisayarda yüklü olduğundan emin olun.',
+  'openInApp.toast.sshInstanceChanged': '{app} açılmadan önce bu pencere başka bir örneğe geçti. Tekrar deneyin.',
+  'openInApp.toast.sshSettingsMismatch': '{app} bu örnekle aynı şekilde bağlanmaz: SSH komutu {settings} ayarlıyor ve {app} bunları okumuyor. Bunları ~/.ssh/config içindeki ana bilgisayar girdisine taşıyın.',
+  'openInApp.toast.sshUnresolved': 'Bu örneğin SSH ayarları okunamadı, bu yüzden {app} açılmadı. SSH komutunu kontrol edin.',
+  'openInApp.toast.sshUnsupported': '{app} bu projeyi SSH üzerinden açamıyor.',
   'projectActions.actions.addActionAria': 'Eylem ekle',
   'projectActions.actions.addAction': 'Eylem ekle',
   'projectActions.actions.addNewAction': 'Yeni eylem ekle',

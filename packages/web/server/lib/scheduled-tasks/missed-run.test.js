@@ -17,6 +17,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createScheduledTasksRuntime } from './runtime.js';
 
+// The missed-slot logic under test sits behind the folder-reachability probe
+// (an offline folder reads as missing loops and skips the reconcile path).
+// These tests pin the probe answered so they exercise the sync behavior,
+// not the prober's fake-timer interplay.
+vi.mock('./loops.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, readProjectLoops: vi.fn(async () => []) };
+});
+
 const opencode = { sessionCreates: [] };
 
 const jsonResponse = (body) => new Response(JSON.stringify(body), {

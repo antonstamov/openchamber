@@ -15,6 +15,7 @@ import { htmlRenderI18n } from './html-render.i18n';
 import { documentToolbarI18n } from './document-toolbar.i18n';
 import { uiBlocksI18n } from './ui-blocks.i18n';
 import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
+import { updateIdleI18n } from './update-idle.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
@@ -24,6 +25,7 @@ import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { sessionCostI18n } from './session-cost.i18n';
 import { connectionHeartbeatI18n } from './connection-heartbeat.i18n';
 import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
@@ -65,6 +67,7 @@ import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
+import { integrateConflictI18n } from './integrate-conflict.i18n';
 import { workflowsI18n } from './workflows.i18n';
 import { subagentsI18n } from './subagents.i18n';
 import { sessionReferencesI18n } from './session-references.i18n';
@@ -217,6 +220,7 @@ export const dict = {
   ...documentToolbarI18n.ru,
   ...uiBlocksI18n.ru,
   ...updateDialogCanaryI18n.ru,
+  ...updateIdleI18n.ru,
   ...aboutReleaseNotesI18n.ru,
   ...updateCheckErrorsI18n.ru,
   ...secretRequestI18n.ru,
@@ -226,6 +230,7 @@ export const dict = {
   ...usageStatsI18n.ru,
   ...webSearchI18n.ru,
   ...sessionWarmingI18n.ru,
+  ...sessionCostI18n.ru,
   ...connectionHeartbeatI18n.ru,
   ...compactionSettingsI18n.ru,
   ...heapSnapshotI18n.ru,
@@ -275,6 +280,7 @@ export const dict = {
   ...markdownOutlineI18n['ru'],
   ...markdownGithubI18n['ru'],
   ...autocompleteScopeI18n['ru'],
+  ...integrateConflictI18n['ru'],
   ...workflowsI18n['ru'],
   ...subagentsI18n['ru'],
   ...sessionReferencesI18n['ru'],
@@ -705,6 +711,7 @@ export const dict = {
   'sessions.sidebar.header.displayMode.minimal': 'Минимальный',
   'sessions.sidebar.header.displayMode.showWork': 'Показывать в разделе «В работе»',
   'sessions.sidebar.header.displayMode.showPinned': 'Показывать раздел закреплённых',
+  'sessions.sidebar.header.displayMode.showSubagents': 'Показывать сессии субагентов',
   'sessions.sidebar.header.displayMode.detailedZoneRows': 'Подробные строки',
   'sessions.sidebar.header.displayMode.worktreeNameByBranch': 'Называть worktree по ветке',
   'sessions.sidebar.activity.pinnedTitle': 'Закреплённые',
@@ -1608,6 +1615,7 @@ export const dict = {
   'walkthrough.blocked.emptyDiff.description': 'В этой области пока нет изменений.',
   'walkthrough.blocked.contextTooSmall.title': 'Этот diff слишком велик для текущей модели',
   'walkthrough.blocked.contextTooSmall.description': '{model} вмещает около {available} тыс. символов, а этому diff нужно около {required} тыс. Ничего не обрезается — выберите модель с большим контекстом.',
+  'walkthrough.blocked.contextTooSmall.descriptionRefused': '{model} отказался от этого diff, потому что он слишком длинный. Выберите модель с большим контекстом или разберите более узкий фрагмент.',
   'walkthrough.blocked.structuredOutput.title': 'Эта модель не поддерживает структурированный вывод',
   'walkthrough.blocked.structuredOutput.description': '{model} не поддерживает структурированные ответы, нужные для разбора.',
   'walkthrough.blocked.chooseModel': 'Выберите малую модель',
@@ -2006,6 +2014,8 @@ export const dict = {
   'diffView.state.loadingDiff': 'Загрузка разницы...',
   'diffView.state.loadingChanges': 'Загрузка изменений...',
   'diffView.state.largeDiff': 'Большой diff ({count} изменённых строк)',
+  'diffView.state.largeDiffLongLines': 'Большой diff (очень длинные строки)',
+  'diffView.state.largeFile': 'Большой файл',
   'diffView.state.largeDiffDescription': 'Рендеринг может быть медленным. Вы всё равно можете просмотреть diff кнопкой ниже.',
   'diffView.summary.changedFilesSingle': 'Изменён {count} файл',
   'diffView.summary.changedFilesPlural': 'Изменено {count} файлов',
@@ -2429,6 +2439,9 @@ export const dict = {
   'session.githubPrPicker.empty.noPullRequestsFound': 'PR не найдены',
   'session.githubPrPicker.loading.pullRequests': 'Загрузка PR...',
   'session.githubPrPicker.actions.loadMore': 'Загрузить больше',
+  'session.githubPrPicker.filter.group.repository': 'Репозиторий',
+  'session.githubPrPicker.filter.group.author': 'Автор',
+  'session.githubPrPicker.filter.clearAll': 'Очистить фильтры',
   'session.newWorktree.title': 'Новый worktree',
   'session.newWorktree.mode.newBranch': 'Новая ветка',
   'session.newWorktree.mode.existingBranch': 'Существующая ветка',
@@ -3154,6 +3167,11 @@ export const dict = {
   'openInApp.actions.copyPath': 'Копировать путь',
   'openInApp.actions.refreshApps': 'Обновить приложения',
   'openInApp.toast.pathCopied': 'Путь скопирован в буфер обмена',
+  'openInApp.toast.sshOpenFailed': 'Не удалось открыть {app}. Проверьте, что оно установлено на этом компьютере.',
+  'openInApp.toast.sshInstanceChanged': 'Это окно переключилось на другой инстанс раньше, чем открылось {app}. Попробуйте снова.',
+  'openInApp.toast.sshSettingsMismatch': '{app} не подключается так, как этот инстанс: его SSH-команда задаёт {settings}, которые {app} не читает. Перенесите их в запись хоста в ~/.ssh/config.',
+  'openInApp.toast.sshUnresolved': 'Не удалось прочитать SSH-настройки этого инстанса, поэтому {app} не открыт. Проверьте его SSH-команду.',
+  'openInApp.toast.sshUnsupported': '{app} не может открыть этот проект по SSH.',
   'projectActions.actions.addActionAria': 'Добавить действие',
   'projectActions.actions.addAction': 'Добавить действие',
   'projectActions.actions.addNewAction': 'Добавить новое действие',

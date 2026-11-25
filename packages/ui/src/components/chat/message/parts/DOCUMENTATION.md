@@ -164,9 +164,9 @@ stayed twenty lines tall, and with the sticky user header on those lines stayed
 over the chat. A collapsed message now gets two lines: the text takes one or
 two, and context items get what is left, each shown whole or not at all
 (`contextPartsPastCollapse`). The rest waits behind the message's one show more
-link. The text wins because it is what the user typed. Lines follow the chat's
-width, so `UserTextPart` measures them before paint, and clamping the block by
-height would cut an item in half.
+link, which says how many items it hides. The text wins because it is what the
+user typed. Lines follow the chat's width, so `UserTextPart` measures them
+before paint, and clamping the block by height would cut an item in half.
 
 ### Why a chat quote has no caption
 
@@ -1108,7 +1108,12 @@ Why: only navigation tools use the compact static path; all other tools need obs
   either chip opens the item in the Tracker (`useOpenAttachment`). A `linear-issue` context payload from before trackers parses as a
   `tracker-item` of Linear (`lib/messages/contextParts.ts`). Legacy pre-metadata messages still render
   via text sniffing (`<terminal_context>` blocks, `GitHub issue context (JSON)`
-  and `Linear issue context (JSON)` prefixes).
+  and `Linear issue context (JSON)` prefixes). A `code-comment` or `file-quote`
+  card carries an open button beside its caption that opens the file or diff
+  the comment was written on (`components/comments/useOpenCommentSource.ts`),
+  so a sent comment leads back to its line. It is a separate action so the
+  quote keeps expanding on click, and a whole-file comment with no quote still
+  has it.
 - Tools: `ToolPart.tsx`, `toolRow/`, `ToolPartDiffPreview.tsx`, `PlainDiffFallback.tsx`, `ProgressiveGroup.tsx`, `toolPresentation.tsx`, `toolRenderUtils.ts`, `GuestToolTable.tsx`, `GuestToolCard.tsx`
 - Reasoning: `ReasoningPart.tsx`
 - Status/placeholders: `WorkingPlaceholder.tsx`, `SessionActiveSpinner.tsx`, `MigratingPart.tsx`; the dots after a busy label are `components/ui/busy-dots.tsx`

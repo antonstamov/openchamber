@@ -127,7 +127,18 @@ operation contracts belong to the runtime APIs and source-control modules.
   revealed and scrolled to; a file missing from the snapshot falls back to the
   working tree, selecting its nested repository or opening it outside any
   repository, as the separate Changes view did.
-- The wide layout fetches the selected file even when no row is expanded.
+- A file the panel is told to open is held at the top of the list until the
+  reader moves it. Entries above it still load their diffs and grow, and a diff
+  instance mounting shifts the shared scroller as it replaces content, so the
+  hold re-aligns on content resizes and on scroll changes it did not make.
+  Reader wheel, touch, pointer, focus or scroll-key input, a newer request and
+  the settle window end it; a row that has not rendered yet is scrolled once it
+  registers (`useScrollToSection`), and a row that unregisters or leaves the
+  document ends it. A find reveal cancels the hold and any request still waiting
+  for its row (the wide layout registers none), expands the entry and scrolls to
+  the match, so neither the match nor a later narrowing is pulled to a header.
+- The wide layout fetches only the selected file, even when no row is
+  expanded; the narrow expansion set waits until the panel narrows again.
 - The wide layout's sidebar always shows files as a tree, folders expanded
   until the user collapses one; the flat list is only the narrow layout's.
   A newly selected file opens its collapsed group and folders, so the selected
@@ -143,7 +154,8 @@ operation contracts belong to the runtime APIs and source-control modules.
   the sidebar lists commits or pull requests, picking one turns the sidebar
   into that item's file tree under a header with an icon-only back button, and
   the right side shows the selected file. Narrow: the list, then the item's
-  files as accordions under the same header. Pull requests are listed in
+  files as accordions under the same header (windowed from 1,000 files, as in
+  `diffView/DOCUMENTATION.md`). Pull requests are listed in
   `PullRequestListPanel` instead of a dropdown; a pull request selected from
   elsewhere (a handoff or the branch's own) opens drilled in.
 - The panel header's toolbar holds the scope, review and sync controls; the
@@ -184,9 +196,10 @@ operation contracts belong to the runtime APIs and source-control modules.
   view's hooks (`useDiffViewFind`, `useDiffFindSurface`, `useChangedFileStepping`)
   in both bodies: working changes (`useWorkingDiffNavigation`) and the review
   scopes. Each body's root is its own `[data-find-surface]` and hosts the
-  `DiffFindBar`. A find match or a step lands where a chat reveal does: working
-  changes through `useWorkingFocus`'s `focus` (open the group, expand, select,
-  scroll), review scopes through `revealTurnFile`. Review scopes search and step
+  `DiffFindBar`. A step lands where a chat reveal does: working changes through
+  `useWorkingFocus`'s `focus` (open the group, expand, select, scroll), review
+  scopes through `revealTurnFile`. A find match takes the same path without the
+  scroll to the header (`revealEntry`, `expandTurnFile`). Review scopes search and step
   only while files are on screen, so not over a commit or pull request list.
 - Every scroller that holds `MultiFileDiffEntry` diffs (both layouts, both
   bodies) is a `data-diff-virtual-root` around a `data-diff-virtual-content`,
@@ -205,8 +218,9 @@ operation contracts belong to the runtime APIs and source-control modules.
   refresh hints, per-file nonces), the file's status letters and line counts,
   and the number of times the panel has been shown, so an edit made while the
   panel was closed is read again on reopen. A comparison source's revision
-  holds the comparison range, so a path one commit has not loaded yet never
-  reuses another commit's patch.
+  holds the comparison range and the file's branch revision, so a path one
+  commit has not loaded yet never reuses another commit's patch, and a patch
+  the stacked window evicts and reads again is not searched again.
 - The navigation cursor follows the user: opening a file by hand in the narrow
   layout selects it, so Alt+Up/Down steps from there. Review scopes close find
   when their files leave the screen (back to the commit or pull request list).

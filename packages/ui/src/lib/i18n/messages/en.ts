@@ -14,7 +14,7 @@ import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { documentToolbarI18n } from './document-toolbar.i18n';
 import { uiBlocksI18n } from './ui-blocks.i18n';
-import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
+import { updateDialogCanaryI18n } from './update-dialog-canary.i18n'; import { updateIdleI18n } from './update-idle.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
@@ -24,6 +24,7 @@ import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { sessionCostI18n } from './session-cost.i18n';
 import { connectionHeartbeatI18n } from './connection-heartbeat.i18n';
 import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
@@ -65,6 +66,7 @@ import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
+import { integrateConflictI18n } from './integrate-conflict.i18n';
 import { workflowsI18n } from './workflows.i18n';
 import { subagentsI18n } from './subagents.i18n';
 import { sessionReferencesI18n } from './session-references.i18n';
@@ -216,7 +218,7 @@ export const dict = {
   ...htmlRenderI18n.en,
   ...documentToolbarI18n.en,
   ...uiBlocksI18n.en,
-  ...updateDialogCanaryI18n.en,
+  ...updateDialogCanaryI18n.en, ...updateIdleI18n.en,
   ...aboutReleaseNotesI18n.en,
   ...updateCheckErrorsI18n.en,
   ...secretRequestI18n.en,
@@ -226,6 +228,7 @@ export const dict = {
   ...usageStatsI18n.en,
   ...webSearchI18n.en,
   ...sessionWarmingI18n.en,
+  ...sessionCostI18n.en,
   ...connectionHeartbeatI18n.en,
   ...compactionSettingsI18n.en,
   ...heapSnapshotI18n.en,
@@ -266,6 +269,7 @@ export const dict = {
   ...markdownOutlineI18n['en'],
   ...markdownGithubI18n['en'],
   ...autocompleteScopeI18n['en'],
+  ...integrateConflictI18n['en'],
   ...workflowsI18n['en'],
   ...subagentsI18n['en'],
   ...sessionReferencesI18n['en'],
@@ -705,6 +709,7 @@ export const dict = {
   'sessions.sidebar.header.displayMode.minimal': 'Minimal',
   'sessions.sidebar.header.displayMode.showWork': 'Show in work section',
   'sessions.sidebar.header.displayMode.showPinned': 'Show pinned section',
+  'sessions.sidebar.header.displayMode.showSubagents': 'Show subagent sessions',
   'sessions.sidebar.header.displayMode.detailedZoneRows': 'Detailed rows',
   'sessions.sidebar.header.displayMode.worktreeNameByBranch': 'Name worktrees by branch',
   'sessions.sidebar.activity.pinnedTitle': 'Pinned',
@@ -1608,6 +1613,7 @@ export const dict = {
   'walkthrough.blocked.emptyDiff.description': 'There are no changes in this scope yet.',
   'walkthrough.blocked.contextTooSmall.title': 'This diff is too large for the current model',
   'walkthrough.blocked.contextTooSmall.description': '{model} fits about {available}K characters and this diff needs about {required}K. Nothing gets truncated — pick a model with a larger context instead.',
+  'walkthrough.blocked.contextTooSmall.descriptionRefused': '{model} refused this diff because it is too long. Pick a model with a larger context, or review a narrower scope.',
   'walkthrough.blocked.structuredOutput.title': 'This model cannot produce structured output',
   'walkthrough.blocked.structuredOutput.description': '{model} does not support the structured responses a walkthrough needs.',
   'walkthrough.blocked.chooseModel': 'Choose the small model',
@@ -2006,6 +2012,8 @@ export const dict = {
   'diffView.state.loadingDiff': 'Loading diff...',
   'diffView.state.loadingChanges': 'Loading changes...',
   'diffView.state.largeDiff': 'Large diff ({count} changed lines)',
+  'diffView.state.largeDiffLongLines': 'Large diff (very long lines)',
+  'diffView.state.largeFile': 'Large file',
   'diffView.state.largeDiffDescription': 'Rendering may be slow. You can still view the diff by clicking below.',
   'diffView.summary.changedFilesSingle': '{count} file changed',
   'diffView.summary.changedFilesPlural': '{count} files changed',
@@ -2429,6 +2437,9 @@ export const dict = {
   'session.githubPrPicker.empty.noPullRequestsFound': 'No pull requests found',
   'session.githubPrPicker.loading.pullRequests': 'Loading pull requests...',
   'session.githubPrPicker.actions.loadMore': 'Load more',
+  'session.githubPrPicker.filter.group.repository': 'Repository',
+  'session.githubPrPicker.filter.group.author': 'Author',
+  'session.githubPrPicker.filter.clearAll': 'Clear filters',
   'session.newWorktree.title': 'New worktree',
   'session.newWorktree.mode.newBranch': 'New branch',
   'session.newWorktree.mode.existingBranch': 'Existing branch',
@@ -3154,6 +3165,11 @@ export const dict = {
   'openInApp.actions.copyPath': 'Copy Path',
   'openInApp.actions.refreshApps': 'Refresh Apps',
   'openInApp.toast.pathCopied': 'Path copied to clipboard',
+  'openInApp.toast.sshOpenFailed': 'Couldn\'t open {app}. Check that it\'s installed on this computer.',
+  'openInApp.toast.sshInstanceChanged': 'This window switched to another instance before {app} opened. Try again.',
+  'openInApp.toast.sshSettingsMismatch': '{app} wouldn\'t connect the way this instance does: its SSH command sets {settings}, which {app} doesn\'t read. Move them to the host\'s entry in ~/.ssh/config.',
+  'openInApp.toast.sshUnresolved': 'Couldn\'t read this instance\'s SSH settings, so {app} wasn\'t opened. Check its SSH command.',
+  'openInApp.toast.sshUnsupported': '{app} can\'t open this project over SSH.',
   'projectActions.actions.addActionAria': 'Add action',
   'projectActions.actions.addAction': 'Add action',
   'projectActions.actions.addNewAction': 'Add new action',

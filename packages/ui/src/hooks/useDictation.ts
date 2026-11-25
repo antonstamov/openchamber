@@ -181,20 +181,6 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
         });
     }, [client, reportError]);
 
-    const audio = useDictationAudioSource({
-        onPcmSegment: (audioData) => {
-            senderRef.current?.enqueueSegment(audioData);
-        },
-        onError: (err) => {
-            onErrorRef.current?.(err);
-        },
-        microphoneSource: useConfigStore((state) => state.dictationMicrophoneSource),
-    });
-    const audioStopRef = useRef(audio.stop);
-    useEffect(() => {
-        audioStopRef.current = audio.stop;
-    }, [audio.stop]);
-
     const getStatus = useCallback((): DictationStatus => statusRef.current, []);
 
     const handleSuccess = useCallback(
@@ -216,6 +202,7 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
 
     const handleFailure = useCallback(
         (failure: unknown) => {
+            senderRef.current?.cancel();
             if (senderRef.current?.hasSegments()) {
                 setStatus('failed');
             } else {
@@ -225,6 +212,26 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
         },
         [reportError],
     );
+
+    const audio = useDictationAudioSource({
+        onPcmSegment: (audioData) => {
+            senderRef.current?.enqueueSegment(audioData);
+            if (senderRef.current?.runtimeChanged && statusRef.current === 'recording' && !actionGateRef.current.confirming) {
+                statusRef.current = 'failed';
+                stopDurationTracking();
+                void audioStopRef.current().catch(() => undefined);
+                handleFailure(new Error('Runtime changed'));
+            }
+        },
+        onError: (err) => {
+            onErrorRef.current?.(err);
+        },
+        microphoneSource: useConfigStore((state) => state.dictationMicrophoneSource),
+    });
+    const audioStopRef = useRef<() => Promise<void>>(async () => undefined);
+    useEffect(() => {
+        audioStopRef.current = audio.stop;
+    }, [audio.stop]);
 
     useEffect(() => {
         return client.subscribeStreamError((dictationId, streamError) => {
@@ -237,6 +244,10 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
             }
             if (streamError.reasonCode === 'model_download_in_progress') {
                 reportError(streamError);
+                return;
+            }
+            if (streamError.reasonCode === 'stream_released' && (gate.confirming || statusRef.current === 'recording')) {
+                senderRef.current?.markReleased();
                 return;
             }
             if (gate.confirming) {
@@ -307,15 +318,11 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
 
         setStatus('idle');
         statusRef.current = 'idle';
-        try {
-            senderRef.current?.cancel();
-        } catch {
-            // no-op
-        }
+        const stopped = audio.stop();
         clearStreamingState();
 
         try {
-            await audio.stop();
+            await stopped;
         } catch {
             // Cancelled anyway; mic teardown failures are not user-actionable.
         } finally {
@@ -369,7 +376,7 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
         statusRef.current = 'uploading';
 
         try {
-            senderRef.current.resetStreamForReplay();
+            senderRef.current.cancel();
             const finalSeq = senderRef.current.getFinalSeq();
             const result = await senderRef.current.finish(finalSeq);
             return handleSuccess(result.text);
@@ -392,11 +399,6 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
         setStatus('idle');
         statusRef.current = 'idle';
         clearError();
-        try {
-            senderRef.current?.cancel();
-        } catch {
-            // no-op
-        }
         clearStreamingState();
         if (!text) {
             return null;
@@ -447,7 +449,7 @@ export function useDictation(options: UseDictationOptions = {}, client: Dictatio
             }
             stopDurationTracking();
             void audioStopRef.current().catch(() => undefined);
-            senderRef.current?.cancel();
+            senderRef.current?.clearAll();
         };
     }, [confirmDictation, handoffRef, stopDurationTracking]);
 

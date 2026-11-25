@@ -400,6 +400,10 @@
       "scope": "profile",
       "perSurface": true
     },
+    "sidebarShowSubagentSessions": {
+      "scope": "profile",
+      "perSurface": true
+    },
     "sidebarWorktreeNameByBranch": {
       "scope": "profile"
     },
@@ -843,6 +847,15 @@
       "scope": "profile"
     },
     "sessionGoalDefaultBudget": {
+      "scope": "profile"
+    },
+    "sessionCostAlertsEnabled": {
+      "scope": "profile"
+    },
+    "sessionCostWarnThreshold": {
+      "scope": "profile"
+    },
+    "sessionCostCriticalThreshold": {
       "scope": "profile"
     },
     "summarizeLastMessage": {

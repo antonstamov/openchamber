@@ -9,7 +9,7 @@ Own filesystem API behavior for the web server runtime, including workspace-boun
 - `canonical-path.ts` resolves existing path aliases and missing descendants without creating folders. Filesystem authorization and chat-directory cleanup share it so a missing child cannot hide its existing ancestor's identity. Permission, symlink-loop and non-directory failures propagate.
 - `packages/web/server/lib/fs/content-search.ts`: find in files, run by ripgrep (`GET /api/fs/find-in-files`).
 - `packages/web/server/lib/fs/ripgrep.ts`: where the ripgrep binary comes from.
-- `folder-change-watch.ts` owns signal-driven fingerprint/settle scheduling for extension packages and custom themes. Each root has one watcher, one 30-second safety interval and at most one pending fast check. Its first fingerprint starts at creation; stop closes the watcher, cancels timers and suppresses in-flight results.
+- `folder-change-watch.ts` owns signal-driven fingerprint/settle scheduling for extension packages, custom themes and settings files. Each root has one watcher, one 30-second safety interval and at most one pending fast check. Its first fingerprint starts at creation; stop closes the watcher, cancels timers and suppresses in-flight results. A changed fingerprint becomes reported only after its awaited notification succeeds, so a failed publication can be retried.
 
 ### Why folder change checks retain a safety interval
 
@@ -195,6 +195,12 @@ The rejected alternative is canonicalizing the whole target for every route. It 
 
 A concurrent swap of the link between canonicalization and the operation can still land outside; closing that needs dirfd-relative operations, which neither this module nor the upload route has.
 
+### Why only a chat's session folder falls back to the chats root
+
+A project such as the home directory can contain the chats root lexically while a link or junction puts the real folder elsewhere. Checked against the project, creating the first chat of a day answers 403. When the workspace check refuses, mkdir and delete of `<chats root>/<YYYY-MM-DD>/session-<id>` therefore repeat the same canonical containment check with the chats root as the base. `containedChatSessionFolder` in `workspace-target.ts` owns that rule. Checking the chats root first would refuse a target behind a day folder that links elsewhere inside the project, which the workspace check allows.
+
+The rejected alternative is picking the deepest root for every route. Rename requires both paths to share a base, so it would refuse moves between a project and a managed folder inside it, and an HTML preview would get a narrower read root.
+
 ### Why route inputs retain property and string guards
 
 HTTP bodies and thrown values expose only optional unchecked properties until
@@ -278,7 +284,11 @@ Git startup and Windows untracked-file walks make repeated name lookups expensiv
 
 ### Why Windows folder reveal uses the default handler and not Explorer selection
 
-Opening a folder through its default handler respects replacement file managers. File selection inside a folder remains Explorer-specific.
+Opening a folder through its default handler respects replacement file managers. File selection inside a folder remains Explorer-specific. `windows-shell-open.ts` runs both through PowerShell `Start-Process`, and the desktop app's project header button imports the same helper so every way to open a project folder lands in the same file manager.
+
+### Why the Windows reveal path travels in an environment variable and not in the command text
+
+PowerShell ends a single-quoted string at `'` and also at the typographic quotes U+2018 to U+201B, which folder names carry after autocorrect. With the path inside the command, `Bob’s app` failed to open, and a folder named `x’;calc;’` ran `calc`. Read from `$env:` the path is never parsed as code, so no escaping rule has to keep up with PowerShell's quote set.
 
 ## Legacy clone route
 

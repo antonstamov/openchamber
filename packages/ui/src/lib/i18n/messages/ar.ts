@@ -15,7 +15,7 @@ import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { documentToolbarI18n } from './document-toolbar.i18n';
 import { uiBlocksI18n } from './ui-blocks.i18n';
-import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
+import { updateDialogCanaryI18n } from './update-dialog-canary.i18n'; import { updateIdleI18n } from './update-idle.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
@@ -25,6 +25,7 @@ import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { sessionCostI18n } from './session-cost.i18n';
 import { connectionHeartbeatI18n } from './connection-heartbeat.i18n';
 import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
@@ -66,6 +67,7 @@ import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
+import { integrateConflictI18n } from './integrate-conflict.i18n';
 import { workflowsI18n } from './workflows.i18n';
 import { subagentsI18n } from './subagents.i18n';
 import { sessionReferencesI18n } from './session-references.i18n';
@@ -622,6 +624,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.displayMode.minimal': 'مبسّط',
   'sessions.sidebar.header.displayMode.showWork': 'إظهار قسم قيد العمل',
   'sessions.sidebar.header.displayMode.showPinned': 'إظهار قسم المثبّتة',
+  'sessions.sidebar.header.displayMode.showSubagents': 'إظهار جلسات الوكلاء الفرعيين',
   'sessions.sidebar.header.displayMode.detailedZoneRows': 'صفوف مفصّلة',
   'sessions.sidebar.header.displayMode.worktreeNameByBranch': 'تسمية worktree باسم الفرع',
   'sessions.sidebar.activity.pinnedTitle': 'المثبّتة',
@@ -1524,6 +1527,7 @@ export const dict: Record<I18nKey, string> = {
   'walkthrough.blocked.emptyDiff.description': 'لا توجد تغييرات في هذا النطاق بعد.',
   'walkthrough.blocked.contextTooSmall.title': 'هذه الفروقات كبيرة جدًا على النموذج الحالي',
   'walkthrough.blocked.contextTooSmall.description': 'يتسع {model} لنحو {available}K حرف وتحتاج هذه الفروقات إلى نحو {required}K. لن يُقتطع أي شيء — اختر بدلًا من ذلك نموذجًا بسياق أكبر.',
+  'walkthrough.blocked.contextTooSmall.descriptionRefused': 'رفض {model} هذه الفروقات لأنها أطول من اللازم. اختر نموذجًا بسياق أكبر، أو راجع نطاقًا أضيق.',
   'walkthrough.blocked.structuredOutput.title': 'لا يستطيع هذا النموذج إنتاج مخرجات منظّمة',
   'walkthrough.blocked.structuredOutput.description': 'لا يدعم {model} الردود المنظّمة التي تحتاجها جولة الشرح.',
   'walkthrough.blocked.chooseModel': 'اختر النموذج الصغير',
@@ -1907,6 +1911,8 @@ export const dict: Record<I18nKey, string> = {
   'diffView.state.loadingDiff': 'جارٍ تحميل الفروقات…',
   'diffView.state.loadingChanges': 'جارٍ تحميل التغييرات…',
   'diffView.state.largeDiff': 'فروقات كبيرة ({count} سطرًا متغيرًا)',
+  'diffView.state.largeDiffLongLines': 'فروقات كبيرة (أسطر طويلة جدًا)',
+  'diffView.state.largeFile': 'ملف كبير',
   'diffView.state.largeDiffDescription': 'قد يكون العرض بطيئًا. لا يزال بإمكانك عرض الفروقات بالنقر أدناه.',
   'diffView.summary.changedFilesSingle': 'تغيّر ملف واحد ({count})',
   'diffView.summary.changedFilesPlural': 'تغيّرت {count} ملفات',
@@ -2323,6 +2329,9 @@ export const dict: Record<I18nKey, string> = {
   'session.githubPrPicker.empty.noPullRequestsFound': 'لم يُعثر على طلبات سحب',
   'session.githubPrPicker.loading.pullRequests': 'جارٍ تحميل طلبات السحب…',
   'session.githubPrPicker.actions.loadMore': 'تحميل المزيد',
+  'session.githubPrPicker.filter.group.repository': 'المستودع',
+  'session.githubPrPicker.filter.group.author': 'المؤلف',
+  'session.githubPrPicker.filter.clearAll': 'مسح عوامل التصفية',
   'session.newWorktree.title': 'شجرة عمل (worktree) جديدة',
   'session.newWorktree.mode.newBranch': 'فرع جديد',
   'session.newWorktree.mode.existingBranch': 'فرع موجود',
@@ -3048,6 +3057,11 @@ export const dict: Record<I18nKey, string> = {
   'openInApp.actions.copyPath': 'نسخ المسار',
   'openInApp.actions.refreshApps': 'تحديث التطبيقات',
   'openInApp.toast.pathCopied': 'تم نسخ المسار إلى الحافظة',
+  'openInApp.toast.sshOpenFailed': 'تعذّر فتح {app}. تأكد من أنه مثبّت على هذا الكمبيوتر.',
+  'openInApp.toast.sshInstanceChanged': 'انتقلت هذه النافذة إلى مثيل آخر قبل فتح {app}. حاول مرة أخرى.',
+  'openInApp.toast.sshSettingsMismatch': 'لن يتصل {app} بالطريقة التي يتصل بها هذا المثيل: أمر SSH الخاص به يضبط {settings}، ولا يقرأها {app}. انقلها إلى إدخال المضيف في ~/.ssh/config.',
+  'openInApp.toast.sshUnresolved': 'تعذّرت قراءة إعدادات SSH لهذا المثيل، لذلك لم يُفتح {app}. تحقق من أمر SSH الخاص به.',
+  'openInApp.toast.sshUnsupported': 'لا يستطيع {app} فتح هذا المشروع عبر SSH.',
   'projectActions.actions.addActionAria': 'إضافة إجراء',
   'projectActions.actions.addAction': 'إضافة إجراء',
   'projectActions.actions.addNewAction': 'إضافة إجراء جديد',
@@ -3979,7 +3993,7 @@ export const dict: Record<I18nKey, string> = {
   ...htmlRenderI18n.ar,
   ...documentToolbarI18n.ar,
   ...uiBlocksI18n.ar,
-  ...updateDialogCanaryI18n.ar,
+  ...updateDialogCanaryI18n.ar, ...updateIdleI18n.ar,
   ...aboutReleaseNotesI18n.ar,
   ...updateCheckErrorsI18n.ar,
   ...secretRequestI18n.ar,
@@ -3989,6 +4003,7 @@ export const dict: Record<I18nKey, string> = {
   ...usageStatsI18n.ar,
   ...webSearchI18n.ar,
   ...sessionWarmingI18n.ar,
+  ...sessionCostI18n.ar,
   ...connectionHeartbeatI18n.ar,
   ...compactionSettingsI18n.ar,
   ...heapSnapshotI18n.ar,
@@ -4029,6 +4044,7 @@ export const dict: Record<I18nKey, string> = {
   ...markdownOutlineI18n['ar'],
   ...markdownGithubI18n['ar'],
   ...autocompleteScopeI18n['ar'],
+  ...integrateConflictI18n['ar'],
   ...workflowsI18n['ar'],
   ...subagentsI18n['ar'],
   ...sessionReferencesI18n['ar'],

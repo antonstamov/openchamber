@@ -14,6 +14,8 @@ export const SessionWorkSettings: React.FC = () => {
   const setDoneHintEnabled = useUIStore((state) => state.setSessionWorkDoneHintEnabled);
   const showChatsSection = useSessionDisplayStore((state) => state.showChatsSection);
   const setShowChatsSection = useSessionDisplayStore((state) => state.setShowChatsSection);
+  const showSubagentSessions = useSessionDisplayStore((state) => state.showSubagentSessions);
+  const setShowSubagentSessions = useSessionDisplayStore((state) => state.setShowSubagentSessions);
 
   return (
     <SettingsSection
@@ -33,6 +35,17 @@ export const SessionWorkSettings: React.FC = () => {
           ariaLabel={t('settings.openchamber.defaults.field.showChats')}
         />
       )}
+      <SettingsCheckboxRow
+        settingsItem="sessions.show-subagents"
+        checked={showSubagentSessions}
+        onChange={(checked) => {
+          setShowSubagentSessions(checked);
+          void updateDesktopSettings({ sidebarShowSubagentSessions: checked });
+        }}
+        label={t('settings.openchamber.defaults.field.showSubagents')}
+        ariaLabel={t('settings.openchamber.defaults.field.showSubagents')}
+        info={t('settings.openchamber.defaults.field.showSubagentsInfo')}
+      />
       <SettingsCheckboxRow
         settingsItem="sessions.work-enabled"
         checked={enabled}

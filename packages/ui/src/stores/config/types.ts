@@ -7,7 +7,6 @@ import { type UseBoundStore, type StoreApi } from 'zustand';
 export type ProviderModel = Model;
 export type ProviderWithModelList = Provider & { models: Model[] };
 
-export type GitModelSelection = { providerId: string; modelId: string };
 export type ProviderModelSelection = { providerId: string; modelId: string; variant?: string | null } | null;
 
 export type DefaultAgentModelSelection = {
@@ -136,7 +135,7 @@ export interface ConfigStore {
     setLocalTtsModelId: (modelId: string) => void;
     setTtsFollowTextLanguage: (enabled: boolean) => void;
     setOpenaiVoice: (voice: string) => void;
-    setVoiceApiKey: (kind: VoiceApiKeyKind, apiKey: string | null) => Promise<boolean>;
+    setVoiceApiKey: (kind: VoiceApiKeyKind, apiKey: string | null, speechServer?: string | null) => Promise<boolean>;
     refreshVoiceApiKeys: (options?: { force?: boolean }) => Promise<void>;
     setOpenaiCompatibleUrl: (url: string) => void;
     setOpenaiCompatibleVoice: (voice: string) => void;
@@ -170,6 +169,7 @@ export interface ConfigStore {
     invalidateProviderCache: (directory?: string | null) => void;
     setProvider: (providerId: string) => void;
     setModel: (modelId: string) => void;
+    followModel: (providerId: string, modelId: string) => void;
     setCurrentVariant: (variant: string | undefined) => void;
     setCurrentVariantOverride: (override: string | null | undefined, inherited: string | null | undefined) => void;
     cycleCurrentVariant: () => string | undefined;
@@ -192,7 +192,6 @@ export interface ConfigStore {
     setSettingsDefaultFileViewerPreview: (enabled: boolean) => void;
     setSettingsZenModel: (model: string | undefined) => void;
     setSettingsMessageStreamTransport: (transport: 'auto' | 'ws' | 'sse') => void;
-    getResolvedGitGenerationModel: () => { providerId: string; modelId: string } | null;
     saveAgentModelSelection: (agentName: string, providerId: string, modelId: string) => void;
     getAgentModelSelection: (agentName: string) => { providerId: string; modelId: string } | null;
     probeConnection: (options?: { timeoutMs?: number }) => Promise<boolean>;

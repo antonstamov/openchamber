@@ -1,5 +1,5 @@
 import type { Session } from '@/lib/opencode/model';
-import { listedChildren } from './listedChildren';
+import { listedChildren, listedRoots } from './listedChildren';
 import type { SessionFolder, SessionFoldersMap } from '@/stores/useSessionFoldersStore';
 import { compareSessionsByLifecycleOrder, EMPTY_SESSION_ORDER_RANKS } from '@/sync/session-ordering';
 import { isSessionPinned } from '@/lib/sessionPins';
@@ -130,7 +130,7 @@ export type SessionSidebarRowModelArgs = {
   draftsByGroupKey?: ReadonlyMap<string, readonly SessionDraft[]>;
   movedSessionIds?: ReadonlySet<string>;
   movedGroupKeys?: ReadonlySet<string>;
-  detailedZoneRows?: boolean;
+  detailedZoneRows?: boolean; showSubagentSessions?: boolean;
   foldersMap: SessionFoldersMap;
   contentSearchResults?: readonly ConversationResult[];
   revealedSearchSections?: ReadonlySet<SearchResultSection>;
@@ -538,7 +538,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         ? null
         : getAuthoritativeSessionFolderOwnerKey(current.node.session, sessionOwner) ?? ownerKey);
       const expanded = args.expandedParents.has(expandedKey(rowContext, options.archived, current.node.session.id));
-      const children = listedChildren(current.node);
+      const children = listedChildren(current.node, args.showSubagentSessions ?? true);
       push({
         kind: 'session',
         key: rowKey,
@@ -727,7 +727,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         }
         return;
       }
-      appendSessions({ nodes: entry.nodes, containerKey: folderKey, projectId, groupDirectory: entry.scopeDirectory ?? group.directory, selectionScopeKey: ownerKey, zoneScopeKey: placement.zoneScopeKey, archived: group.isArchivedBucket === true, renderContext: 'project', indexedNodes: indexed, selectionPoolOffset, baseDepth: contentDepth + 1, detailedRoots: detailedWorks, secondaryMeta: detailedMeta, insideWork });
+      appendSessions({ nodes: listedRoots(entry.nodes, args.showSubagentSessions ?? true), containerKey: folderKey, projectId, groupDirectory: entry.scopeDirectory ?? group.directory, selectionScopeKey: ownerKey, zoneScopeKey: placement.zoneScopeKey, archived: group.isArchivedBucket === true, renderContext: 'project', indexedNodes: indexed, selectionPoolOffset, baseDepth: contentDepth + 1, detailedRoots: detailedWorks, secondaryMeta: detailedMeta, insideWork });
       for (const worktree of folderWorktrees) {
         appendGroup(worktree.group, worktree.groupKey, projectId, false, undefined, {
           keyPrefix: '', depth: contentDepth + 1, mixed: false, zoneScopeKey: placement.zoneScopeKey,
@@ -1043,22 +1043,21 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     projectSections: readonly ProjectSection[],
     caption: { key: 'projects' | `section:${string}`; label?: string; preview?: boolean; always: boolean },
   ): void => {
-    let captioned = !caption.always && (!args.projectsCaption || args.singleProjectMode || args.showOnlyMainWorkspace || (rows.length === 0 && !args.projectsCaptionAtTop));
+    const captionHidden = !caption.always && (!args.projectsCaption || args.singleProjectMode || args.showOnlyMainWorkspace || (rows.length === 0 && !args.projectsCaptionAtTop && projectSections.length > 0));
     if (caption.always && projectSections.length === 0) {
       push({ kind: 'caption', key: `caption:${caption.key}`, estimateSize: SECTION_HEADER_ESTIMATE, caption: caption.key, collapsed: false, label: caption.label, preview: caption.preview });
       push({ kind: 'empty', key: `caption:${caption.key}:empty`, estimateSize: STATUS_ESTIMATE, emptyKind: 'section' });
       return;
     }
+    if (!captionHidden && sections.length > 0) {
+      const collapseKey = caption.key === 'projects' ? PROJECTS_CAPTION_COLLAPSE_KEY : caption.key;
+      const captionCollapsed = args.collapsedActivities.has(collapseKey);
+      push({ kind: 'caption', key: `caption:${caption.key}`, estimateSize: SECTION_HEADER_ESTIMATE, caption: caption.key, collapsed: captionCollapsed, label: caption.label, preview: caption.preview });
+      if (captionCollapsed) return;
+    }
     for (const section of projectSections) {
       const descriptors = buildGroupRenderDescriptors(section, { mainWorkspaceOnly: args.showOnlyMainWorkspace });
       const projectCollapsed = !args.singleProjectMode && !args.showOnlyMainWorkspace && args.collapsedProjects.has(section.project.id);
-      if (!captioned) {
-        captioned = true;
-        const collapseKey = caption.key === 'projects' ? PROJECTS_CAPTION_COLLAPSE_KEY : caption.key;
-        const captionCollapsed = args.collapsedActivities.has(collapseKey);
-        push({ kind: 'caption', key: `caption:${caption.key}`, estimateSize: SECTION_HEADER_ESTIMATE, caption: caption.key, collapsed: captionCollapsed, label: caption.label, preview: caption.preview });
-        if (captionCollapsed) break;
-      }
       if (!args.showOnlyMainWorkspace) {
         const rowIndex = rows.length;
         push({ kind: 'project-header', key: `project:${section.project.id}:header`, estimateSize: SECTION_HEADER_ESTIMATE, section, collapsed: projectCollapsed });

@@ -15,7 +15,7 @@ import { fileEditorAidsI18n } from './file-editor-aids.i18n';
 import { htmlRenderI18n } from './html-render.i18n';
 import { documentToolbarI18n } from './document-toolbar.i18n';
 import { uiBlocksI18n } from './ui-blocks.i18n';
-import { updateDialogCanaryI18n } from './update-dialog-canary.i18n';
+import { updateDialogCanaryI18n } from './update-dialog-canary.i18n'; import { updateIdleI18n } from './update-idle.i18n';
 import { aboutReleaseNotesI18n } from './about-release-notes.i18n';
 import { updateCheckErrorsI18n } from './update-check-errors.i18n';
 import { secretRequestI18n } from './secret-request.i18n';
@@ -25,6 +25,7 @@ import { settingsHintsI18n } from './settings-hints.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { sessionWarmingI18n } from './session-warming.i18n';
+import { sessionCostI18n } from './session-cost.i18n';
 import { connectionHeartbeatI18n } from './connection-heartbeat.i18n';
 import { compactionSettingsI18n } from './compaction-settings.i18n';
 import { heapSnapshotI18n } from './heap-snapshot.i18n';
@@ -66,6 +67,7 @@ import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
 import { autocompleteScopeI18n } from './autocomplete-scope.i18n';
+import { integrateConflictI18n } from './integrate-conflict.i18n';
 import { workflowsI18n } from './workflows.i18n';
 import { subagentsI18n } from './subagents.i18n';
 import { sessionReferencesI18n } from './session-references.i18n';
@@ -217,7 +219,7 @@ export const dict: Record<I18nKey, string> = {
   ...htmlRenderI18n['zh-TW'],
   ...documentToolbarI18n['zh-TW'],
   ...uiBlocksI18n['zh-TW'],
-  ...updateDialogCanaryI18n['zh-TW'],
+  ...updateDialogCanaryI18n['zh-TW'], ...updateIdleI18n['zh-TW'],
   ...aboutReleaseNotesI18n['zh-TW'],
   ...updateCheckErrorsI18n['zh-TW'],
   ...secretRequestI18n['zh-TW'],
@@ -227,6 +229,7 @@ export const dict: Record<I18nKey, string> = {
   ...usageStatsI18n['zh-TW'],
   ...webSearchI18n['zh-TW'],
   ...sessionWarmingI18n['zh-TW'],
+  ...sessionCostI18n['zh-TW'],
   ...connectionHeartbeatI18n['zh-TW'],
   ...compactionSettingsI18n['zh-TW'],
   ...heapSnapshotI18n['zh-TW'],
@@ -267,6 +270,7 @@ export const dict: Record<I18nKey, string> = {
   ...markdownOutlineI18n['zh-TW'],
   ...markdownGithubI18n['zh-TW'],
   ...autocompleteScopeI18n['zh-TW'],
+  ...integrateConflictI18n['zh-TW'],
   ...workflowsI18n['zh-TW'],
   ...subagentsI18n['zh-TW'],
   ...sessionReferencesI18n['zh-TW'],
@@ -731,6 +735,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.displayMode.minimal': '精簡',
   'sessions.sidebar.header.displayMode.showWork': '顯示進行中部分',
   'sessions.sidebar.header.displayMode.showPinned': '顯示已釘選部分',
+  'sessions.sidebar.header.displayMode.showSubagents': '顯示子代理工作階段',
   'sessions.sidebar.header.displayMode.detailedZoneRows': '詳細列',
   'sessions.sidebar.header.displayMode.worktreeNameByBranch': '依分支命名 worktree',
   'sessions.sidebar.activity.pinnedTitle': '已釘選',
@@ -1628,6 +1633,7 @@ export const dict: Record<I18nKey, string> = {
   'walkthrough.blocked.emptyDiff.description': '此範圍目前沒有變更。',
   'walkthrough.blocked.contextTooSmall.title': '目前模型無法容納這份差異',
   'walkthrough.blocked.contextTooSmall.description': '{model} 大約可容納 {available} 千字元，而這份差異約需 {required} 千字元。我們不會截斷內容，請改選上下文更大的模型。',
+  'walkthrough.blocked.contextTooSmall.descriptionRefused': '這份差異過長，遭到 {model} 拒絕。請選擇上下文更大的模型，或縮小審閱範圍。',
   'walkthrough.blocked.structuredOutput.title': '此模型不支援結構化輸出',
   'walkthrough.blocked.structuredOutput.description': '{model} 不支援導讀所需的結構化回應。',
   'walkthrough.blocked.chooseModel': '選擇小模型',
@@ -1989,6 +1995,8 @@ export const dict: Record<I18nKey, string> = {
   'diffView.state.loadingDiff': '正在載入差異...',
   'diffView.state.loadingChanges': '正在載入變更...',
   'diffView.state.largeDiff': '大型差異（{count} 行變更）',
+  'diffView.state.largeDiffLongLines': '大型差異（超長行）',
+  'diffView.state.largeFile': '大型檔案',
   'diffView.state.largeDiffDescription': '渲染可能較慢。你仍可點擊下方按鈕查看差異。',
   'diffView.summary.changedFilesSingle': '{count} 個檔案已變更',
   'diffView.summary.changedFilesPlural': '{count} 個檔案已變更',
@@ -2406,6 +2414,9 @@ export const dict: Record<I18nKey, string> = {
   'session.githubPrPicker.empty.noPullRequestsFound': '找不到 Pull Request',
   'session.githubPrPicker.loading.pullRequests': '正在載入 Pull Request...',
   'session.githubPrPicker.actions.loadMore': '載入更多',
+  'session.githubPrPicker.filter.group.repository': '儲存庫',
+  'session.githubPrPicker.filter.group.author': '作者',
+  'session.githubPrPicker.filter.clearAll': '清除篩選',
   'session.newWorktree.title': '新增 Worktree',
   'session.newWorktree.mode.newBranch': '新分支',
   'session.newWorktree.mode.existingBranch': '現有分支',
@@ -3131,6 +3142,11 @@ export const dict: Record<I18nKey, string> = {
   'openInApp.actions.copyPath': '複製路徑',
   'openInApp.actions.refreshApps': '重新整理應用程式',
   'openInApp.toast.pathCopied': '路徑已複製到剪貼簿',
+  'openInApp.toast.sshOpenFailed': '無法開啟 {app}。請確認這台電腦上已安裝它。',
+  'openInApp.toast.sshInstanceChanged': '在 {app} 開啟之前，此視窗已切換到另一個實例。請再試一次。',
+  'openInApp.toast.sshSettingsMismatch': '{app} 無法以此實例的方式連線：它的 SSH 指令設定了 {settings}，而 {app} 不會讀取這些設定。請把它們移到 ~/.ssh/config 中該主機的項目裡。',
+  'openInApp.toast.sshUnresolved': '無法讀取此實例的 SSH 設定，因此未開啟 {app}。請檢查它的 SSH 指令。',
+  'openInApp.toast.sshUnsupported': '{app} 無法透過 SSH 開啟此專案。',
   'projectActions.actions.addActionAria': '新增操作',
   'projectActions.actions.addAction': '新增操作',
   'projectActions.actions.addNewAction': '新增新操作',
