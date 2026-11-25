@@ -180,6 +180,13 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
     } = dictation;
     const recordingBlink = useWaitingBlink(status === 'recording');
 
+    // Stay mounted while a recording (or its aftermath) is live even if the
+    // setting is turned off mid-way: the inline status must survive until the
+    // recording ends, otherwise the transcript has nowhere to land.
+    // (Port of upstream fix(dictation) 51751fa8a; Enter/Escape still never
+    // captured here — that is the fork's deliberate non-blocking behavior.)
+    const shown = supported && (dictationEnabled || status !== 'idle');
+
     const isModelDownloading = status === 'recording' && errorReason === 'model_download_in_progress';
     const downloadPercent = useModelDownloadProgress(isModelDownloading);
 
@@ -248,7 +255,7 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
     // Keyboard shortcut (toggle_dictation): idle -> start recording,
     // recording -> confirm. Dispatched by useKeyboardShortcuts.
     React.useEffect(() => {
-        if (!supported || !dictationEnabled) return;
+        if (!shown) return;
         const marker = composerMarkerRef.current;
         const onToggle = (event: Event) => {
             const requestedForm = (event as CustomEvent<{ composer?: HTMLFormElement }>).detail?.composer;
@@ -267,7 +274,7 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
         };
         window.addEventListener('openchamber:dictation-toggle', onToggle);
         return () => window.removeEventListener('openchamber:dictation-toggle', onToggle);
-    }, [supported, dictationEnabled, startRecording, confirmWith, dictationAutoSend]);
+    }, [shown, startRecording, confirmWith, dictationAutoSend]);
 
     React.useEffect(() => {
         const marker = composerMarkerRef.current;
@@ -277,9 +284,9 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
             // report idle and let the host drop any queued send.
             if (statusRef.current !== 'idle') onStatusChangeRef.current?.('idle');
         };
-    }, [supported, dictationEnabled]);
+    }, [shown]);
 
-    if (!supported || !dictationEnabled) {
+    if (!shown) {
         return null;
     }
 
