@@ -20,7 +20,7 @@ type MermaidRenderingMode = 'svg' | 'ascii';
 
 type UserMessageRenderingMode = 'markdown' | 'plain';
 
-type ActivityRenderMode = 'collapsed' | 'text' | 'summary';
+type ActivityRenderMode = 'collapsed' | 'grouped' | 'summary';
 
 export type SessionRetentionAction = 'archive' | 'delete';
 
@@ -335,6 +335,7 @@ export interface UIStore {
   selectionApprovalText: string;
   showToolFileIcons: boolean;
   showTurnChangedFiles: boolean;
+  keepEarlierReplies: boolean;
   timeFormatPreference: TimeFormatPreference;
   weekStartPreference: WeekStartPreference;
   desktopWindowControlsPosition: DesktopWindowControlsPosition;
@@ -614,6 +615,7 @@ export interface UIStore {
   setSelectionApprovalText: (value: string) => void;
   setShowToolFileIcons: (value: boolean) => void;
   setShowTurnChangedFiles: (value: boolean) => void;
+  setKeepEarlierReplies: (value: boolean) => void;
   setTimeFormatPreference: (value: TimeFormatPreference) => void;
   setWeekStartPreference: (value: WeekStartPreference) => void;
   setDesktopWindowControlsPosition: (value: DesktopWindowControlsPosition) => void;

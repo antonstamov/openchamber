@@ -223,6 +223,7 @@ export const createInitialUIState = (): Pick<UIStore,
   | 'selectionApprovalText'
   | 'showToolFileIcons'
   | 'showTurnChangedFiles'
+  | 'keepEarlierReplies'
   | 'timeFormatPreference'
   | 'weekStartPreference'
   | 'desktopWindowControlsPosition'
@@ -331,7 +332,7 @@ export const createInitialUIState = (): Pick<UIStore,
   sessionGoalDefaultBudget: 200_000,
   collapsibleThinkingBlocks: true,
   expandReasoningWhileStreaming: false,
-  activityRenderMode: 'summary',
+  activityRenderMode: 'grouped',
   showDeletionDialog: true,
   autoDeleteEnabled: false,
   autoSaveEnabled: true,
@@ -461,6 +462,7 @@ export const createInitialUIState = (): Pick<UIStore,
   selectionApprovalText: '',
   showToolFileIcons: true,
   showTurnChangedFiles: false,
+  keepEarlierReplies: false,
   timeFormatPreference: 'auto',
   weekStartPreference: 'auto',
   desktopWindowControlsPosition: 'right',

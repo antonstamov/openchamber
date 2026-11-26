@@ -20,7 +20,8 @@ import { HoverTooltip } from '@/components/ui/row-tooltip';
 import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { readBrowserAnnotationPrompt, withoutBrowserAnnotationComment, withoutBrowserAnnotationScreenshot } from '@/lib/browser/annotationPrompt';
 import { legacyChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
-import { quoteDisplayText } from '@/lib/messages/quoteDisplayText';
+import { chatQuoteExcerpt, quoteDisplayText } from '@/lib/messages/quoteDisplayText';
+import { ChatQuoteBody } from '../../ChatQuoteBody';
 import { fileWithDiffCommentOrigin } from '@/lib/diffCommentOrigin';
 import { useI18n } from '@/lib/i18n';
 import { getRuntimeKey } from '@/lib/runtime-switch';
@@ -67,6 +68,8 @@ type RowView = {
     title: string;
     snippet: string;
     quote: string;
+    quoteContent?: React.ReactNode;
+    quoteDir?: 'ltr' | 'rtl' | 'auto';
     mono: boolean;
     comment: string;
     editable: boolean;
@@ -463,7 +466,7 @@ const DraftRow: React.FC<{
             </div>
             {view.quote.trim() ? (
                 <div
-                    dir="auto"
+                    dir={view.quoteDir ?? 'auto'}
                     className={cn(
                         'mx-1.5 mt-1 max-h-60 overflow-y-auto whitespace-pre-wrap break-words text-muted-foreground',
                         QUOTE_BAR_CLASS,
@@ -474,7 +477,7 @@ const DraftRow: React.FC<{
                     onClick={onRevealQuote ?? undefined}
                     title={onRevealQuote ? t('chat.message.context.showQuoteSource') : undefined}
                 >
-                    {view.quote}
+                    {view.quoteContent ?? view.quote}
                 </div>
             ) : null}
             {onOpenScreenshot && draft.screenshot ? (
@@ -585,11 +588,14 @@ function ComposerContextRowsView({ draftTarget, isMobile, onOpenAttachment, surf
         switch (draft.source) {
             case 'chat-quote': {
                 const quote = quoteDisplayText(draft.code);
+                const excerpt = chatQuoteExcerpt(draft.code, draft.anchor);
                 return {
                     icon: 'chat-1',
                     title: t('chat.message.context.chatQuote'),
                     snippet: firstLine(quote),
                     quote,
+                    quoteContent: <ChatQuoteBody excerpt={excerpt} />,
+                    quoteDir: excerpt.dir ?? 'auto',
                     mono: false,
                     comment: draft.text,
                     editable: true,

@@ -76,6 +76,7 @@ export const createPreferenceActions: UIStoreSlice<
   | 'setCopyMessagesAsPlainText'
   | 'setShowToolFileIcons'
   | 'setShowTurnChangedFiles'
+  | 'setKeepEarlierReplies'
   | 'setTimeFormatPreference'
   | 'setWeekStartPreference'
   | 'setDesktopWindowControlsPosition'
@@ -388,6 +389,10 @@ export const createPreferenceActions: UIStoreSlice<
 
   setShowToolFileIcons: (value) => {
     set({ showToolFileIcons: value });
+  },
+
+  setKeepEarlierReplies: (value) => {
+    set({ keepEarlierReplies: value });
   },
 
   setShowTurnChangedFiles: (value) => {
