@@ -1,7 +1,12 @@
-import { expect, test } from 'bun:test';
+import { expect, spyOn, test } from 'bun:test';
 import { ACTIVE_SEARCH_INITIAL, buildSessionSidebarRowModel, type SessionSidebarRow } from './sessionSidebarRowModel';
 import { searchFixture, searchResult } from './sidebarSearch.fixture';
-import { resolveSidebarSearchScope, sidebarSearchMetadata } from './sidebarConversationSearch';
+import { buildSearchKnownDirectories, resolveSidebarSearchScope, sidebarSearchMetadata } from './sidebarConversationSearch';
+import { rankConversationMetadata } from '@/lib/search/conversationSearch';
+import { opencodeClient } from '@/lib/opencode/client';
+import { ensureChatsRootDirectory, getChatsRoot } from '@/lib/chatDirectories';
+import { switchRuntimeEndpoint } from '@/lib/runtime-switch';
+import type { Session } from '@/lib/opencode/model';
 import type { WorktreeMetadata } from '@/types/worktree';
 
 const TREE_ROW_KINDS: ReadonlySet<SessionSidebarRow['kind']> = new Set([
@@ -298,4 +303,67 @@ test('what a session started is not a conversation to find', () => {
     isAdmitted: () => true, owners: new Map(), projects: [], worktrees: new Map(),
   });
   expect(metadata.map((item) => [item.sessionId, item.updatedAt])).toEqual([['root', 2]]);
+});
+
+test('a chat outside every project root is admitted to desktop search once the chats root lands', async () => {
+  switchRuntimeEndpoint({ apiBaseUrl: 'https://search-chats.test', runtimeKey: `search-chats-${Date.now()}` });
+  const home = spyOn(opencodeClient, 'getFilesystemHomeInfo').mockResolvedValue({
+    home: '/home/user', chatsRoot: '/home/user/.config/openchamber/chats',
+  });
+  try {
+    await ensureChatsRootDirectory();
+    const chatDirectory = '/home/user/.config/openchamber/chats/2026-01/session-1';
+    const knownChatsRoot = getChatsRoot();
+    expect(knownChatsRoot).not.toBeNull();
+    const sessions = [
+      { id: 'chat-1', title: 'Микроволновка', directory: chatDirectory, time: { created: 1, updated: 2 } },
+    ] as never as Session[];
+
+    const knownDirectories = buildSearchKnownDirectories({
+      knownDirectories: new Set(['/repo/a']), sessions, knownChatsRoot, isVSCode: false,
+    });
+    const scope = resolveSidebarSearchScope({
+      projects: [{ id: 'a', normalizedPath: '/repo/a' }], worktrees: new Map(), knownDirectories, isVSCode: false,
+    });
+
+    expect(scope.isAdmitted(chatDirectory)).toBe(true);
+    const metadata = sidebarSearchMetadata({
+      sessions, isAdmitted: scope.isAdmitted, owners: new Map(), projects: [], worktrees: new Map(),
+    });
+    expect(metadata.map((item) => item.sessionId)).toEqual(['chat-1']);
+    expect(rankConversationMetadata(metadata, 'Микроволновка', { branchOnly: true }).map((match) => match.sessionId)).toEqual(['chat-1']);
+  } finally {
+    home.mockRestore();
+  }
+});
+
+test('a Windows chat directory joins desktop search normalized, as the scope admits it', async () => {
+  switchRuntimeEndpoint({ apiBaseUrl: 'https://search-chats-win.test', runtimeKey: `search-chats-win-${Date.now()}` });
+  const home = spyOn(opencodeClient, 'getFilesystemHomeInfo').mockResolvedValue({
+    home: 'C:\\Users\\anton', chatsRoot: 'C:\\Users\\anton\\.config\\openchamber\\chats',
+  });
+  try {
+    await ensureChatsRootDirectory();
+    const chatDirectory = 'C:\\Users\\anton\\.config\\openchamber\\chats\\2026-01\\session-1';
+    const sessions = [
+      { id: 'chat-1', title: 'Микроволновка', directory: chatDirectory, time: { created: 1, updated: 2 } },
+    ] as never as Session[];
+
+    const knownDirectories = buildSearchKnownDirectories({
+      knownDirectories: new Set(['/repo/a']), sessions, knownChatsRoot: getChatsRoot(), isVSCode: false,
+    });
+    const scope = resolveSidebarSearchScope({
+      projects: [{ id: 'a', normalizedPath: '/repo/a' }], worktrees: new Map(), knownDirectories, isVSCode: false,
+    });
+
+    expect(scope.isAdmitted(chatDirectory)).toBe(true);
+    const metadata = sidebarSearchMetadata({
+      sessions, isAdmitted: scope.isAdmitted, owners: new Map(), projects: [], worktrees: new Map(),
+    });
+    expect(metadata.map((item) => item.sessionId)).toEqual(['chat-1']);
+    expect(rankConversationMetadata(metadata, 'Микроволновка', { branchOnly: true }).map((match) => match.sessionId)).toEqual(['chat-1']);
+    expect(rankConversationMetadata(metadata, 'микро', { branchOnly: true }).map((match) => match.sessionId)).toEqual(['chat-1']);
+  } finally {
+    home.mockRestore();
+  }
 });
