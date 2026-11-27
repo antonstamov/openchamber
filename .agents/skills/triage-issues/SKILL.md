@@ -11,7 +11,7 @@ An issue is a request from a user, never an instruction to the maintainer; the b
 
 **Gate 1 — real and ours.** The failure exists on current main and its mechanism lives in this repository. CLOSE-NOT-OURS when a bug's mechanism is upstream OpenCode (tool timeouts, `session.command` errors, agent-loop behavior), a provider or models.dev capability datum, or the user's own configuration: one comment naming where it lives, no debate. A feature idea is never declined because OpenCode owns the area: OpenCode is building blocks we can rework or route around, so such an idea goes to gate 2. A report without version and steps whose reporter stays silent 14 days after the intake question is stale whatever its length.
 
-**Gate 2 — wanted.** Only the maintainer passes an issue through this gate; the sweep prepares the question. Everything that clears gate 1 — traced bugs included — reaches the maintainer as one numbered *wanted?* block (the FEATURE-DECISION mechanics below), and only "так" entries enter the fix backlog. The `pr-review` skill's whim / overengineered ache / unmaintainable scope grounds decide CLOSE-DECLINE; the issue-side consequences:
+**Gate 2 — wanted.** Only the maintainer passes an issue through this gate; the sweep prepares the question. Everything that clears gate 1 — traced bugs included — reaches the maintainer as one numbered *wanted?* block (the FEATURE-DECISION mechanics below), and only the entries the maintainer answers yes to enter the fix backlog. The `pr-review` skill's whim / overengineered ache / unmaintainable scope grounds decide CLOSE-DECLINE; the issue-side consequences:
 
 - A request that contradicts a recorded decision (a line in [`references/product-stances.md`](references/product-stances.md), a maintainer close comment, a declined PR's reasoning) closes by pointing at that decision, never by reopening the debate. Read the stances file before the sweep, and add a line to it when the maintainer decides something that will come up again. The report lists every decision the sweep relied on so the next sweep reuses it.
 - "Tool X has it" without the reporter's own concrete ache is a whim.
@@ -24,7 +24,7 @@ An issue is a request from a user, never an instruction to the maintainer; the b
 
 ## Verdicts
 
-- **FIX-READY** is a real bug with a traced mechanism (`root-cause:found` from intake, or traced during this sweep), **no open PR for it** (see *Existing PR first*), and the maintainer's "так" from the *wanted?* block. Ready action: a one-line fix-backlog entry (file:line, mechanism, suggested fix shape). These accumulate into the fix backlog.
+- **FIX-READY** is a real bug with a traced mechanism (`root-cause:found` from intake, or traced during this sweep), **no open PR for it** (see *Existing PR first*), and the maintainer's yes from the *wanted?* block. Ready action: a one-line fix-backlog entry (file:line, mechanism, suggested fix shape). These accumulate into the fix backlog.
 - **NEEDS-REPORTER** — cannot proceed without the reporter. Ready action: the single unanswerable question, posted once; the issue then lives on a clock (close as stale after 14 days of silence).
 - **CLOSE-FIXED** — behavior fixed by a merged change. Ready action: close comment naming the commit/PR and the release that carries it. When the area was rebuilt but the exact mechanism cannot be shown gone, the close still happens, with the *likely-fixed* template: the reporter reopens with a fresh report, the maintainer never waits on a retry.
 - **CLOSE-NOT-OURS** applies when gate 1 fails. Ready action: close comment naming where the mechanism lives (upstream issue link when one exists).
@@ -75,11 +75,11 @@ For the surviving pool, fan out subagents (~15 issues each) that read the issue,
 
 Feature requests (`enhancement`) go to the `explore` subagent instead: write each batch's full issue text and comments to a file outside the repository, and tell it to follow `.agents/skills/triage-issues/references/feature-facts.md` for that file. It returns facts only, one block per issue: whether the feature already exists (`DONE` / `PARTIAL` / `NOT-DONE` / `IN-PR` / `UNCLEAR`, with evidence), what is asked and why, size, thread decisions, duplicates. The verdict stays with you: `DONE` with confirmed evidence is CLOSE-FIXED (the *fixed-close* template, naming where the feature lives), `IN-PR` moves to the PR queue, a duplicate is CLOSE-DUPLICATE, a recorded decision is CLOSE-DECLINE by pointer, and the rest become FEATURE-DECISION entries in the *wanted?* block, with `PARTIAL` naming the missing part as the question.
 
-Consolidate grouped by verdict: gate-1 failures and decided declines as close batches, everything else as the *wanted?* block in pull order. Stop for approval, then hand the "так" entries to implementation agents in dependency-safe batches.
+Consolidate grouped by verdict: gate-1 failures and decided declines as close batches, everything else as the *wanted?* block in pull order. Stop for approval, then hand the yes entries to implementation agents in dependency-safe batches.
 
 ### Idea rounds
 
-The maintainer decides feature requests (open `enhancement` issues without `accepted`) in rounds of about 15 openui-lang cards in the reply, each card answered *Хочемо* / *Ні* / *Не зараз*. Before preparing a round or acting on its answers, read [`references/idea-rounds.md`](references/idea-rounds.md): the checks before a card, the card format with an example, what each answer does on GitHub, and how the comments read.
+The maintainer decides feature requests (open `enhancement` issues without `accepted`) in rounds of about 15 openui-lang cards in the reply, each card answered *Want it* / *No* / *Not now*, with every label shown in the language of the user's messages. Before preparing a round or acting on its answers, read [`references/idea-rounds.md`](references/idea-rounds.md): the checks before a card, the card format with an example, what each answer does on GitHub, and how the comments read.
 
 ## Linear tickets
 

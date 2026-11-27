@@ -290,3 +290,14 @@ test('unmount while recording reports idle so the host drops a queued send', asy
     await act(async () => root.render(<></>));
     expect(statusLog.main.slice(calls)).toEqual(['idle']);
 });
+
+test('a start-only request starts an idle composer but never confirms its recording', async () => {
+    const main = document.querySelector<HTMLFormElement>('#main')!;
+    const startOnly = () => act(async () => window.dispatchEvent(new CustomEvent('openchamber:dictation-toggle', { detail: { composer: main, startOnly: true } })));
+    await startOnly();
+    expect(starts).toEqual([0]);
+    await startOnly();
+    expect(starts).toEqual([0]);
+    expect(completions).toHaveLength(0);
+    expect(messages).toEqual([]);
+});

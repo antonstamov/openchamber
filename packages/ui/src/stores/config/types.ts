@@ -108,6 +108,7 @@ export interface ConfigStore {
     openaiCompatibleVoice: string;
     openaiCompatibleTtsModel: string;
     openaiCompatibleTtsEndpointPath: string;
+    openaiCompatibleKeyProvider: string | undefined;
     dictationEnabled: boolean;
     dictationAutoSend: boolean;
     dictationMicrophoneSource: 'default' | 'built-in';
@@ -115,6 +116,7 @@ export interface ConfigStore {
     sttServerUrl: string;
     sttModel: string;
     sttEndpointPath: string;
+    sttKeyProvider: string | undefined;
     sttLocalModel: string;
     sttLanguage: string;
     sttCorrectTranscript: boolean;
@@ -141,6 +143,7 @@ export interface ConfigStore {
     setOpenaiCompatibleVoice: (voice: string) => void;
     setOpenaiCompatibleTtsModel: (model: string) => void;
     setOpenaiCompatibleTtsEndpointPath: (path: string) => void;
+    setOpenaiCompatibleKeyProvider: (providerId: string) => void;
     setDictationEnabled: (enabled: boolean) => void;
     setDictationAutoSend: (enabled: boolean) => void;
     setDictationMicrophoneSource: (source: 'default' | 'built-in') => void;
@@ -148,6 +151,7 @@ export interface ConfigStore {
     setSttServerUrl: (url: string) => void;
     setSttModel: (model: string) => void;
     setSttEndpointPath: (path: string) => void;
+    setSttKeyProvider: (providerId: string) => void;
     setSttLocalModel: (model: string) => void;
     setSttLanguage: (lang: string) => void;
     setSttCorrectTranscript: (enabled: boolean) => void;

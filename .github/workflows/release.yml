@@ -153,6 +153,11 @@ jobs:
       - name: Build packages
         run: bun run build
 
+      # bun-patches/ reach users only through bundleDependencies.
+      - name: Check patched dependencies in an install of the tarball
+        working-directory: packages/web
+        run: bun run check:packed-install
+
       - name: Pack web and SDK tarballs
         run: |
           bun pm pack --cwd packages/web
