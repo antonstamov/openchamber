@@ -155,6 +155,7 @@ export const createInitialUIState = (): Pick<UIStore,
   | 'diffFileTreeWidth'
   | 'walkthroughTocWidth'
   | 'gitChangesViewMode'
+  | 'lastGitPanelScope'
   | 'toolJsonViewMode'
   | 'isTimelineDialogOpen'
   | 'isPromptNavigatorPanelOpen'
@@ -222,6 +223,7 @@ export const createInitialUIState = (): Pick<UIStore,
   | 'copyMessagesAsPlainText'
   | 'selectionApprovalText'
   | 'showToolFileIcons'
+  | 'showLiveActivityPreview'
   | 'showTurnChangedFiles'
   | 'keepEarlierReplies'
   | 'timeFormatPreference'
@@ -237,6 +239,7 @@ export const createInitialUIState = (): Pick<UIStore,
   | 'showMessageTimestamps'
   | 'allowPromptingSubagentSessions'
   | 'savePastedImagesAsFiles'
+  | 'keepModelOnAgentSwitch'
   | 'draftStartersVisible'
   | 'isExpandedInput'
   | 'reportUsage'
@@ -389,6 +392,7 @@ export const createInitialUIState = (): Pick<UIStore,
   diffFileTreeWidth: 240,
   walkthroughTocWidth: 224,
   gitChangesViewMode: 'flat',
+  lastGitPanelScope: 'working',
   toolJsonViewMode: 'summary',
   isTimelineDialogOpen: false,
   isPromptNavigatorPanelOpen: false,
@@ -461,6 +465,7 @@ export const createInitialUIState = (): Pick<UIStore,
   copyMessagesAsPlainText: true,
   selectionApprovalText: '',
   showToolFileIcons: true,
+  showLiveActivityPreview: true,
   showTurnChangedFiles: false,
   keepEarlierReplies: false,
   timeFormatPreference: 'auto',
@@ -476,6 +481,7 @@ export const createInitialUIState = (): Pick<UIStore,
   showMessageTimestamps: false,
   allowPromptingSubagentSessions: false,
   savePastedImagesAsFiles: false,
+  keepModelOnAgentSwitch: false,
   draftStartersVisible: true,
   isExpandedInput: false,
   reportUsage: true,

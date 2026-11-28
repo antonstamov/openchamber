@@ -500,6 +500,9 @@
     "showToolFileIcons": {
       "scope": "profile"
     },
+    "showLiveActivityPreview": {
+      "scope": "profile"
+    },
     "codeBlockLineWrap": {
       "scope": "profile"
     },
@@ -670,6 +673,9 @@
       "scope": "profile"
     },
     "savePastedImagesAsFiles": {
+      "scope": "profile"
+    },
+    "keepModelOnAgentSwitch": {
       "scope": "profile"
     },
     "followUpBehavior": {
@@ -1050,6 +1056,10 @@
       "local": true
     },
     "gitSidebarWidth": {
+      "scope": "device",
+      "local": true
+    },
+    "lastGitPanelScope": {
       "scope": "device",
       "local": true
     },

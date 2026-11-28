@@ -63,6 +63,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { diffReviewedI18n } from './diff-reviewed.i18n';
 import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
@@ -131,8 +132,7 @@ export const dict = {
   'commitComparison.loadError': 'Не удалось загрузить коммиты',
   'commitComparison.noCommits': 'Коммиты не найдены',
   'commitComparison.emptyDiff': 'В этом коммите нет изменений',
-  'chat.liveActivity.title': 'Активность',
-  'chat.liveActivity.moreRows': '+{count} ещё',
+  'chat.liveActivity.working': 'Работаю…',
   'chat.liveActivity.changedFile': 'Изменён {count} файл',
   'chat.liveActivity.changedFiles': 'Изменено файлов: {count}',
   'chat.liveActivity.explored': 'Изучил кодовую базу',
@@ -277,6 +277,7 @@ export const dict = {
   ...tooltipsChatI18n.ru,
   ...integrationsCatalogI18n['ru'],
   ...diffFindI18n['ru'],
+  ...diffReviewedI18n['ru'],
   ...contextWindowI18n['ru'],
   ...markdownOutlineI18n['ru'],
   ...markdownGithubI18n['ru'],

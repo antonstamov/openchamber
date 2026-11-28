@@ -63,6 +63,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { diffReviewedI18n } from './diff-reviewed.i18n';
 import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
@@ -131,13 +132,12 @@ export const dict: Record<I18nKey, string> = {
   'commitComparison.loadError': 'No se pudieron cargar los commits',
   'commitComparison.noCommits': 'No se encontraron commits',
   'commitComparison.emptyDiff': 'No hay cambios en este commit',
-  'chat.liveActivity.title': 'Actividad',
-  'chat.liveActivity.moreRows': '+{count} más',
   'chat.liveActivity.changedFile': '{count} archivo modificado',
   'chat.liveActivity.changedFiles': '{count} archivos modificados',
-  'chat.liveActivity.explored': 'Código explorado',
+  'chat.liveActivity.working': 'Trabajando…',
   'chat.liveActivity.ranCommand': '{count} comando ejecutado',
   'chat.liveActivity.ranCommands': '{count} comandos ejecutados',
+  'chat.liveActivity.explored': 'Código explorado',
   'chat.liveActivity.researched': 'Investigación en la web realizada',
   'chat.liveActivity.usedSubagent': '{count} subagente utilizado',
   'chat.liveActivity.usedSubagents': '{count} subagentes utilizados',
@@ -277,6 +277,7 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n.es,
   ...integrationsCatalogI18n['es'],
   ...diffFindI18n['es'],
+  ...diffReviewedI18n['es'],
   ...contextWindowI18n['es'],
   ...markdownOutlineI18n['es'],
   ...markdownGithubI18n['es'],

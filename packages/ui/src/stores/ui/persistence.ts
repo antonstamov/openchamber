@@ -233,6 +233,15 @@ const uiStorePersistOptions = {
       if (state.gitChangesViewMode !== 'flat' && state.gitChangesViewMode !== 'tree') {
         state.gitChangesViewMode = 'flat';
       }
+      if (
+        state.lastGitPanelScope !== 'working'
+        && state.lastGitPanelScope !== 'branch'
+        && state.lastGitPanelScope !== 'commit'
+        && state.lastGitPanelScope !== 'pr'
+        && state.lastGitPanelScope !== 'turn'
+      ) {
+        state.lastGitPanelScope = 'working';
+      }
     }
 
     delete state.linearIssueListStatus;
@@ -372,6 +381,7 @@ const uiStorePersistOptions = {
     diffFileTreeWidth: state.diffFileTreeWidth,
     walkthroughTocWidth: state.walkthroughTocWidth,
     gitChangesViewMode: state.gitChangesViewMode,
+    lastGitPanelScope: state.lastGitPanelScope,
     toolJsonViewMode: state.toolJsonViewMode,
     nativeNotificationsEnabled: state.nativeNotificationsEnabled,
     notificationMode: state.notificationMode,
@@ -428,6 +438,7 @@ const uiStorePersistOptions = {
     copyMessagesAsPlainText: state.copyMessagesAsPlainText,
     selectionApprovalText: state.selectionApprovalText,
     showToolFileIcons: state.showToolFileIcons,
+    showLiveActivityPreview: state.showLiveActivityPreview,
     showTurnChangedFiles: state.showTurnChangedFiles,
     keepEarlierReplies: state.keepEarlierReplies,
     timeFormatPreference: state.timeFormatPreference,
@@ -444,6 +455,7 @@ const uiStorePersistOptions = {
     showMessageTimestamps: state.showMessageTimestamps,
     allowPromptingSubagentSessions: state.allowPromptingSubagentSessions,
     savePastedImagesAsFiles: state.savePastedImagesAsFiles,
+    keepModelOnAgentSwitch: state.keepModelOnAgentSwitch,
     draftStartersVisible: state.draftStartersVisible,
     shortcutOverrides: state.shortcutOverrides,
     fileEditorKeymap: state.fileEditorKeymap,

@@ -29,6 +29,7 @@ import { createWorktreeInstanceDisposer, registerGitRoutes } from '../git/routes
 import { registerDevServerRoutes } from '../dev-servers/routes.js';
 import { registerMagicPromptRoutes } from '../magic-prompts/routes.js';
 import { registerSessionFoldersRoutes } from '../session-folders/routes.js';
+import type { SessionFoldersStore } from '../session-folders/store.js';
 import { registerSessionDraftRoutes } from '../session-drafts/routes.js';
 import { registerProjectContextRoutes } from '../project-context/routes.js';
 import { registerProjectDirectoryRoutes, registerProjectSetupRoutes } from '../projects/routes.js';
@@ -164,7 +165,7 @@ type RouteDependencies =
   & Required<Pick<ScheduledTaskOptions, 'scheduledTaskService'>>
   & Pick<Parameters<typeof registerSkillRoutes>[1], 'sanitizeSkillCatalogs' | 'isUnsafeSkillRelativePath' | 'getOpenCodePort' | 'getManagedOpenCodeProcessEnv'>
   & {
-    settingsRuntime: Pick<SettingsRuntime, 'readSettingsFromDisk' | 'readSettingsFromDiskMigrated' | 'persistSettings' | 'persistResolvedSettings' | 'watchSettingsFiles' | 'reconcileExternalSettings' | 'subscribeTakenInSettings'>;
+    settingsRuntime: Pick<SettingsRuntime, 'readSettingsFromDisk' | 'readSettingsFromDiskMigrated' | 'persistSettings' | 'persistResolvedSettings' | 'watchSettingsFiles' | 'reconcileExternalSettings' | 'subscribeTakenInSettings' | 'takeSetAsideSettingsFiles'>;
     fs: typeof import('node:fs');
     formatSettingsResponse: ReturnType<typeof createSettingsHelpers>['formatSettingsResponse'];
     buildOpenCodeUrl: ReturnType<typeof createOpenCodeNetworkRuntime>['buildOpenCodeUrl'];
@@ -191,6 +192,7 @@ type RouteDependencies =
     sessionKnowledgeRuntime: Parameters<typeof registerSessionKnowledgeRoutes>[1]['sessionKnowledgeRuntime'];
     openChamberSessionService: NonNullable<SessionOptions['sessionService']>;
     openChamberControlService: Parameters<typeof registerOpenChamberControlRoutes>[1]['controlService'];
+    sessionFoldersStore?: SessionFoldersStore;
     getOpenChamberEventClients: () => Set<EventClient>;
     writeSseEvent: ReturnType<typeof createNotificationEmitterRuntime>['writeSseEvent'];
     permissionAutoAcceptRuntime: Parameters<typeof registerPermissionAutoAcceptRoutes>[1];
@@ -314,6 +316,7 @@ export const createFeatureRoutesRuntime = (dependencies: FeatureRuntimeDependenc
       messageSearchRuntime,
       sessionWarmingRuntime,
       sessionTodosRuntime,
+      sessionFoldersStore,
       crypto,
       fs,
       os,
@@ -384,7 +387,7 @@ export const createFeatureRoutesRuntime = (dependencies: FeatureRuntimeDependenc
       openchamberVersion,
       workflowRuntime = null,
     } = routeDependencies;
-    const { readSettingsFromDisk, readSettingsFromDiskMigrated, persistSettings, persistResolvedSettings } = settingsRuntime;
+    const { readSettingsFromDisk, readSettingsFromDiskMigrated, persistSettings, persistResolvedSettings, takeSetAsideSettingsFiles } = settingsRuntime;
 
     registerSettingsUtilityRoutes(app, {
       readCustomThemesFromDisk,
@@ -410,7 +413,7 @@ export const createFeatureRoutesRuntime = (dependencies: FeatureRuntimeDependenc
       getOpenCodeCompatibility,
       installOpenCodeV2,
       formatSettingsResponse,
-      readSettingsFromDiskMigrated,
+      readSettingsFromDiskMigrated, takeSetAsideSettingsFiles,
       persistSettings,
       resolveProjectDirectory,
       getProviderSources,
@@ -873,7 +876,7 @@ export const createFeatureRoutesRuntime = (dependencies: FeatureRuntimeDependenc
       },
       onGuestsChanged: () => announceChange('openchamber:guests-changed'),
       watchFolderInstalls: true,
-      surfaceViewerHeaders, trackers,
+      surfaceViewerHeaders, trackers, gitAccounts: { readAccount: resolveSourceControlAccount, credentialResolver: gitCredentialResolver },
       opencodePlugins: { delivery: getOpenCodePluginDelivery, readGlobalEntries: readGlobalPluginEntries, addGlobalEntry: addGlobalPluginEntry },
     }));
     await extensionSourceControlProviders.reconcile().catch((error) => {
@@ -961,21 +964,7 @@ export const createFeatureRoutesRuntime = (dependencies: FeatureRuntimeDependenc
       setGlobalWarmingDuration: setWarmingDuration,
     });
 
-    registerSessionFoldersRoutes(app, {
-      fsPromises,
-      path,
-      openchamberDataDir,
-      onChanged: (updatedAt) => {
-        const clients = getOpenChamberEventClients();
-        for (const client of clients) {
-          try {
-            writeSseEvent(client, { type: 'openchamber:session-folders-changed', properties: { updatedAt } });
-          } catch {
-            clients.delete(client);
-          }
-        }
-      },
-    });
+    registerSessionFoldersRoutes(app, sessionFoldersStore ? { store: sessionFoldersStore } : { fsPromises, path, openchamberDataDir });
     registerSessionDraftRoutes(app, {
       fsPromises,
       path,

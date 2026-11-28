@@ -52,6 +52,11 @@ mock.module('@/components/ui/action-toolbar', () => ({ ButtonTooltip: Passthroug
 mock.module('@/components/ui/tooltip', () => ({ Tooltip: Passthrough, TooltipTrigger: Passthrough, TooltipContent: () => null }));
 
 const { ComposerDictation } = await import('./ComposerDictation');
+const { ComposerPromptReadOnlyContext, ComposerRecordingSlotContext, ComposerUnderMessageSelectionContext, useSlotComposerRecording } = await import('@/lib/dictation/composerRecording');
+interface ColumnView {
+    seen: ReturnType<typeof useSlotComposerRecording>;
+}
+
 let root: Root;
 let dom: Window;
 const messages: Array<{ session: string; text: string }> = [];
@@ -300,4 +305,65 @@ test('a start-only request starts an idle composer but never confirms its record
     expect(starts).toEqual([0]);
     expect(completions).toHaveLength(0);
     expect(messages).toEqual([]);
+});
+
+test('a chat column sees its composer recording until it ends, and finishing it there inserts into that composer', async () => {
+    const slot = 'column';
+    const column: ColumnView = { seen: null };
+    const Column = () => {
+        column.seen = useSlotComposerRecording(slot);
+        return null;
+    };
+    await act(async () => root.render(
+        <>
+            <ComposerRecordingSlotContext.Provider value={slot}><Composer session="main" /></ComposerRecordingSlotContext.Provider>
+            <Composer session="pinned" />
+            <Column />
+        </>,
+    ));
+    focus('pinned');
+    await toggle();
+    expect(column.seen).toBeNull();
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+
+    focus('main');
+    await toggle();
+    expect(column.seen?.view.status).toBe('recording');
+    await act(async () => column.seen!.actions.finish());
+    expect(column.seen?.view.status).toBe('uploading');
+    await finish();
+    expect(insertions).toEqual([{ session: 'main', text: 'transcript' }]);
+    expect(messages).toEqual([]);
+    expect(column.seen).toBeNull();
+});
+
+test('Enter in a composer hidden behind a read-only row inserts and never sends, even with auto-send on', async () => {
+    await act(async () => root.render(
+        <ComposerPromptReadOnlyContext.Provider value={true}><Composer session="main" /></ComposerPromptReadOnlyContext.Provider>,
+    ));
+    await toggle(document.querySelector<HTMLFormElement>('#main')!);
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    await act(async () => window.dispatchEvent(enter));
+    await finish();
+    expect(messages).toEqual([]);
+    expect(insertions).toEqual([{ session: 'main', text: 'transcript' }]);
+});
+
+test('behind the message selection bar, Escape and Enter pass through and the shortcut inserts, even with auto-send on', async () => {
+    const render = (selecting: boolean) => act(async () => root.render(
+        <ComposerUnderMessageSelectionContext.Provider value={selecting}><Composer session="main" /></ComposerUnderMessageSelectionContext.Provider>,
+    ));
+    await render(false);
+    await toggle(document.querySelector<HTMLFormElement>('#main')!);
+    await render(true);
+    for (const key of ['Escape', 'Enter']) {
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+        await act(async () => window.dispatchEvent(event));
+        expect(event.defaultPrevented).toBe(false);
+    }
+    expect(completions).toHaveLength(0);
+    await toggle(document.querySelector<HTMLFormElement>('#main')!);
+    await finish();
+    expect(messages).toEqual([]);
+    expect(insertions).toEqual([{ session: 'main', text: 'transcript' }]);
 });

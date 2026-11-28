@@ -63,6 +63,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { diffReviewedI18n } from './diff-reviewed.i18n';
 import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
@@ -131,13 +132,12 @@ export const dict: Record<I18nKey, string> = {
   'commitComparison.loadError': 'コミットを読み込めませんでした',
   'commitComparison.noCommits': 'コミットが見つかりません',
   'commitComparison.emptyDiff': 'このコミットに変更はありません',
-  'chat.liveActivity.title': 'アクティビティ',
-  'chat.liveActivity.moreRows': 'さらに {count} 件',
   'chat.liveActivity.changedFile': '{count} ファイルを変更',
   'chat.liveActivity.changedFiles': '{count} ファイルを変更',
-  'chat.liveActivity.explored': 'コードベースを調査',
+  'chat.liveActivity.working': '作業中…',
   'chat.liveActivity.ranCommand': '{count} コマンドを実行',
   'chat.liveActivity.ranCommands': '{count} コマンドを実行',
+  'chat.liveActivity.explored': 'コードベースを調査',
   'chat.liveActivity.researched': 'ウェブを調査',
   'chat.liveActivity.usedSubagent': '{count} サブエージェントを使用',
   'chat.liveActivity.usedSubagents': '{count} サブエージェントを使用',
@@ -267,6 +267,7 @@ export const dict: Record<I18nKey, string> = {
   ...pluginsGridI18n.ja,
   ...integrationsCatalogI18n['ja'],
   ...diffFindI18n['ja'],
+  ...diffReviewedI18n['ja'],
   ...contextWindowI18n['ja'],
   ...markdownOutlineI18n['ja'],
   ...markdownGithubI18n['ja'],

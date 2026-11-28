@@ -56,6 +56,7 @@ import { LargeTextPasteChoice } from '../../composer/ui/LargeTextPasteChoice';
 import { FormDock } from '@/components/chat/FormDock';
 import { PermissionDock } from '@/components/chat/PermissionDock';
 import { MessageSelectionBar } from '@/components/chat/messageSelection/MessageSelectionBar';
+import { ComposerUnderMessageSelectionContext } from '@/lib/dictation/composerRecording';
 import type { ChatInputProps } from './chatInputProps';
 import { renderDraftTitle } from './ComposerDraftTitle';
 import { MAX_MOBILE_COMPOSER_LINES, MAX_VISIBLE_COMPOSER_LINES, MOBILE_COMPOSER_BOUND_GAP_PX } from './composerInputLimits';
@@ -100,7 +101,7 @@ type Dependencies = {
     editorHandlers: Pick<ReturnType<typeof useComposerEditorHandlers>, 'handleEditorChange' | 'handleEditorKeyDown' | 'handleEditorKeyUp' | 'handleEditorSelectionChange' | 'handleEditorBlur'>;
     paste: Pick<ReturnType<typeof useComposerPaste>, 'handlePaste'>;
     dictationState: Pick<ReturnType<typeof useComposerDictationState>, 'dictationControllerRef' | 'handleDictationStatusChange'>;
-    dictation: Pick<ReturnType<typeof useComposerDictation>, 'handleDictationInsert' | 'handleDictationInsertAndSend' | 'markDictationStart'>;
+    dictation: Pick<ReturnType<typeof useComposerDictation>, 'handleDictationInsert' | 'handleDictationInsertAndSend' | 'markDictationStart' | 'recordingActive'>;
     selection: Pick<ReturnType<typeof useComposerSelection>, 'effectiveBtwSelection' | 'btwModelSelectorOpen' | 'setBtwModelSelectorOpen' | 'pinnedComposerSelection'>;
 };
 
@@ -186,7 +187,8 @@ export function renderComposerForm({
         handleEditorBlur,
     } = editorHandlers;
     const { handlePaste } = paste;
-    const { handleDictationInsert, handleDictationInsertAndSend, markDictationStart } = dictation;
+    const { handleDictationInsert, handleDictationInsertAndSend, markDictationStart, recordingActive } = dictation;
+    const selectionSessionId = messageSelectionActive ? currentSessionId : null;
     const {
         effectiveBtwSelection, btwModelSelectorOpen, setBtwModelSelectorOpen, pinnedComposerSelection,
     } = selection;
@@ -259,22 +261,25 @@ export function renderComposerForm({
                             theme={currentTheme}
                 />
                 </>) : null}
+                {selectionSessionId ? (
+                    <MessageSelectionBar
+                        sessionId={selectionSessionId}
+                        directory={chatColumnSession?.directory ?? currentSessionDirectoryForSync ?? currentDirectory ?? null}
+                        isMobile={isMobile}
+                        radius={chatInputRadius}
+                    />
+                ) : null}
+                <ComposerUnderMessageSelectionContext.Provider value={Boolean(selectionSessionId)}>
                 <div
                     data-dictation-host="true"
                     className={cn(
                         !isMobile && 'contents',
                         isMobile && 'relative',
                         isMobileExpanded && 'flex min-h-0 flex-1 flex-col',
+                        selectionSessionId && 'hidden',
                     )}
                 >
-                {messageSelectionActive && currentSessionId ? (
-                    <MessageSelectionBar
-                        sessionId={currentSessionId}
-                        directory={chatColumnSession?.directory ?? currentSessionDirectoryForSync ?? currentDirectory ?? null}
-                        isMobile={isMobile}
-                        radius={chatInputRadius}
-                    />
-                ) : mobileCommentActive && mobileComment.draft.status === 'open' ? (
+                {selectionSessionId && !recordingActive ? null : mobileCommentActive && mobileComment.draft.status === 'open' ? (
                     <MobileCommentComposer
                         key={mobileComment.draft.generation}
                         draft={mobileComment.draft}
@@ -528,7 +533,7 @@ export function renderComposerForm({
                 </div>
                 </>
                 )}
-                {shouldMountMobileDictationEngine({ isMobile, isBtwActive, mobileCommentActive, messageSelectionActive }) ? (
+                {shouldMountMobileDictationEngine({ isMobile, isBtwActive, mobileCommentActive, messageSelectionActive, recordingActive }) ? (
                     <MemoComposerDictation
                         radius={chatInputRadius}
                         isMobile={isMobile}
@@ -547,6 +552,7 @@ export function renderComposerForm({
                     />
                 ) : null}
                 </div>
+                </ComposerUnderMessageSelectionContext.Provider>
                 {isMobile && !isBtwActive ? (
                     <MemoModelControls
                         className="hidden"

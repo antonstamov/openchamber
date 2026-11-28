@@ -12,10 +12,10 @@ import {
   isDeviceSettingsKey,
   isWritableSettingsKey,
   MIRRORED_KEYS,
-  parseSettingsDocument,
   SETTINGS_KEYS,
 } from '@/lib/settings/registry';
 import { isReadFromLegacyValue, isSameSettingValue } from '@/lib/settings/settingValue';
+import { parseServerSettingsPayload } from '@/lib/settings/setAsideSettingsFiles';
 import { SETTINGS_SURFACE_QUERY, getSettingsSurface } from '@/lib/settings/surface';
 
 export const applyPersistedHomeDirectoryToWindow = (homeDirectory: string): void => {
@@ -265,7 +265,7 @@ const applyDesktopUiPreferences = (settings: DesktopSettings): void => {
   applySettingsToStores(settings);
 };
 
-const sanitizeWebSettings = (payload: unknown): DesktopSettings | null => parseSettingsDocument(payload);
+const sanitizeWebSettings = (payload: unknown): DesktopSettings | null => parseServerSettingsPayload(payload);
 
 type SettingsRuntimeContext = { runtimeKey: string; generation: number };
 type SettingsWrite = {

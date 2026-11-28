@@ -17,7 +17,7 @@ import { installDownloadedDesktopUpdate } from './update-install.mjs';
 import { z } from 'zod';
 import { ElectronSshManager } from './ssh-manager.mjs';
 import { collectLocalFileDiagnostics, collectSshBufferDiagnostics } from '@openchamber/web/server/lib/diagnostics/local-files.js';
-import { readJsonObjectForUpdate, replaceFileWithRetry } from './windows-file-replace.mjs';
+import { readJsonObjectForUpdate, writeJsonFile } from './windows-file-replace.mjs';
 import { persistMainWindowState } from './window-state.mjs';
 import { createContextWindowController } from './context-window-controller.mjs';
 import { createWindowGeometryState } from './window-geometry-state.mjs';
@@ -84,7 +84,8 @@ import { createBrowserPanelAgentActions } from './browser-panel-agent-actions.mj
 import { createBrowserPanelWindowOpen } from './browser-panel-window-open.mjs';
 import { COMMANDS_SAFE_FOR_REMOTE, isSplashColor, parseTrayLocale, redactHostsConfigForRemote } from './remote-page-policy.mjs';
 import { connectDefaultSshInstanceAtStartup, resolveDefaultSshInstanceId } from './startup-ssh.mjs';
-import { findReusableHostWindowIndex, normalizeNotificationInput, readTrimmedString, resolveHostEntryForRuntimeKey, resolveWindowHostId, runtimeKeyForDeepLinkHost, stampForwardedNotification } from './notification-host-routing.mjs';
+import { findReusableHostWindowIndex, normalizeNotificationInput, readTrimmedString, resolveHostEntryForRuntimeKey, resolveWindowHostId, runtimeKeyForDeepLinkHost, stampForwardedNotification, windowRouteEvent, withWindowRoute } from './notification-host-routing.mjs';
+import { createTrackerItemClicks } from './notification-tracker-item.mjs';
 import { isPackagedUiRuntimeRequest } from './packaged-ui-routing.mjs';
 import { openWindowProjectInSshEditor } from './ssh-editor-url.mjs';
 import { RUNTIME_CONFIG_SCRIPT, RUNTIME_CONFIG_SCRIPT_PATHNAME, createRuntimeConfigGate, injectRuntimeConfig, isRuntimeConfigFrame } from './packaged-runtime-config.mjs';
@@ -650,22 +651,6 @@ const sshManager = new ElectronSshManager({
   appVersion: APP_VERSION,
   emit: (event, detail) => emitToAllWindows(event, detail),
 });
-
-const writeJsonFile = async (filePath, data) => {
-  const directory = path.dirname(filePath);
-  const created = await fsp.mkdir(directory, { recursive: true, mode: 0o700 });
-  if (created && process.platform !== 'win32') await fsp.chmod(directory, 0o700);
-  const tmp = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  try {
-    await fsp.writeFile(tmp, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
-    if (process.platform !== 'win32') await fsp.chmod(tmp, 0o600);
-    await replaceFileWithRetry(tmp, filePath);
-    if (process.platform !== 'win32') await fsp.chmod(filePath, 0o600);
-  } catch (error) {
-    await fsp.rm(tmp, { force: true }).catch(() => {});
-    throw error;
-  }
-};
 
 let settingsMutationChain = Promise.resolve();
 const mutateSettingsRoot = (mutator) => {
@@ -1334,6 +1319,7 @@ const maybeShowNativeNotification = (rawInput) => {
   const release = () => { activeNotifications.delete(notification); };
 
   notification.on('click', () => {
+    if (!sessionId && trackerItemClicks.openFromNotification({ itemUrl: payload.itemUrl, directory, runtimeKey }, release)) return;
     const receivingKey = readTrimmedString(primaryEventWindow()?.__ocRuntimeKey);
     if (!runtimeKey || !receivingKey || runtimeKey === receivingKey) {
       focusForegroundWindow();
@@ -2727,18 +2713,6 @@ const sessionRouteFromUrl = (raw) => {
   }
 };
 
-const withSessionRoute = (windowUrl, route) => {
-  if (!route) return windowUrl;
-  try {
-    const url = new URL(windowUrl);
-    url.searchParams.set('session', route.sessionId);
-    if (route.messageId) url.searchParams.set('message', route.messageId);
-    return url.toString();
-  } catch {
-    return windowUrl;
-  }
-};
-
 const findConfiguredHostForUrl = (raw) => {
   let origin;
   try {
@@ -2784,10 +2758,10 @@ const openHostWindow = async (host, route = null, { reuseOpenWindow = false } = 
     existing.focus();
     if (!route) return;
     if (existing.webContents.isLoading() && existing.__ocHostWindowBaseUrl) {
-      await navigateWindow(existing, withSessionRoute(existing.__ocHostWindowBaseUrl, route), { allowAbort: true });
+      await navigateWindow(existing, withWindowRoute(existing.__ocHostWindowBaseUrl, route), { allowAbort: true });
       return;
     }
-    emitToWindow(existing, 'openchamber:open-session', route);
+    emitToWindow(existing, ...windowRouteEvent(route));
     return;
   }
 
@@ -2811,12 +2785,17 @@ const openHostWindow = async (host, route = null, { reuseOpenWindow = false } = 
       requestHeaders: sanitizeRuntimeRequestHeaders(host.requestHeaders || {}),
     };
   }
-  const browserWindow = await createAdditionalWindow(withSessionRoute(windowUrl, route), { ...runtimeConfig, explicitRuntime: true });
+  const browserWindow = await createAdditionalWindow(withWindowRoute(windowUrl, route), { ...runtimeConfig, explicitRuntime: true });
   if (browserWindow) {
     browserWindow.__ocHostWindowId = host.id;
     browserWindow.__ocHostWindowBaseUrl = windowUrl;
   }
 };
+
+const trackerItemClicks = createTrackerItemClicks({
+  app, getMainWindow: () => state.mainWindow, showWindow, emitToWindow, openMainWindow, openHostWindow, hostRoutingContext, log,
+  isMainWindowReady: isMainWindowReadyForDeepLink,
+});
 
 const createAdditionalWindow = async (url, runtimeConfig = {}) => {
   if (!state.startupResolved || !url) return null;
@@ -4689,6 +4668,8 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
     case 'desktop_take_pending_extension_installs':
       if (!browserWindow || !state.mainWindow || browserWindow.id !== state.mainWindow.id) return [];
       return takePendingExtensionInstalls();
+    case 'desktop_take_pending_tracker_item':
+      return trackerItemClicks.take(browserWindow);
     case 'desktop_take_pending_session_links':
       if (!browserWindow || !state.mainWindow || browserWindow.id !== state.mainWindow.id) return [];
       mainWindowSessionLinkGate.documentAsked();
@@ -4707,6 +4688,9 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       await openHostWindow(host, parseSessionRoute(sessionId, messageId || null), { reuseOpenWindow: true });
       return { opened: true };
     }
+
+    case 'desktop_open_host_tracker_item':
+      return trackerItemClicks.openInHostWindow(args);
 
     case 'desktop_focus_main_window': {
       const sessionId = typeof args.sessionId === 'string' ? args.sessionId.trim() : '';

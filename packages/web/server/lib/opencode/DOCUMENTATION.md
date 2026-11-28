@@ -134,6 +134,10 @@ Login-shell rc files, PowerShell profiles, and PATH entries on unavailable netwo
 
 The empty-string setting clears only a previously applied settings selection. An `OPENCODE_BINARY` supplied by the user's environment remains explicit configuration and survives that clear.
 
+### Why the Windows Desktop app is recognized by its files and not its install folder
+
+OpenCode Desktop is an Electron app, and its executable cannot run as the OpenCode server, so every binary candidate is checked against it. On Windows the check is a `.exe` with `resources\app.asar` beside it. The install folder name says nothing reliable: the installer updates in place and keeps the folder name of the first install, so official installs live in `Programs\OpenCode` and also in older names such as `Programs\@opencode-aidesktop` (#7734). Current Desktop builds ship no `opencode-cli.exe`, so that file cannot be the marker. A CLI kept inside an older Desktop install, `resources\opencode-cli.exe`, still passes, because its own folder has no `resources\app.asar`. `../../../../vscode/src/opencodeCliDiscovery.ts` has the same check for the VS Code extension.
+
 ### Why Windows binary resolution prefers a baseline executable
 
 Bypassing package-manager wrappers still needs to support CPUs without AVX2. Resolution prefers the baseline platform package and unwraps shims to native executables or explicit runtime/script pairs because raw cmd shims cannot run through `spawn` with `shell: false`.
@@ -255,7 +259,28 @@ What stays outside this rule:
   own bridge (`packages/vscode/src/bridge-proxy-runtime.ts`), not through this
   proxy, so it is outside this rule.
 - Sessions already stored under an alias spelling are not migrated in bulk; a
-  later move through any of the paths above stores the real path.
+  later move through any of the paths above stores the real path. The one
+  exception is the mapped drive repair below.
+
+### Why sessions resolve with the JS `realpath` and not `fs.promises.realpath`
+
+A session directory has to come out in the spelling project paths get, because
+the sidebar, the project tree and search match the two as strings. Project
+paths resolve with Node's JS `realpath` (`settings/canonical-paths.ts`), which
+follows symlinks and junctions and keeps a mapped or `subst` drive letter. On
+Windows `fs.promises.realpath` and `realpathSync.native` answer with the
+drive's target instead: `R:\work` becomes `\\server\share\work`, which no
+project matches, so a session stored that way vanishes from the sidebar.
+
+Sessions 2.8.1 stored with the native one are moved back once OpenCode is ready
+after each start (`relocateSessionsFromDriveTargets`, Windows and a local
+OpenCode only): for each project whose native target differs from its own
+spelling, sessions stored under that target move under the project path; with
+nested targets the deepest one decides. A session already inside a registered
+project stays, such as one in a project added by its network path, and a
+running session waits for the next start. The repair cannot tell who stored a
+session there, so one the OpenCode CLI created in the network path moves too:
+it then shows up in OpenChamber, and the CLI sees it under the drive letter.
 
 ## Entrypoints and structure
 - `packages/web/server/lib/opencode/index.js`: public entrypoint (currently baseline placeholder).
@@ -496,7 +521,7 @@ configured name.
 - `getConfigPaths(workingDirectory)`, `readConfigLayers(workingDirectory)`, `readConfig(workingDirectory)`: Config file operations with layer merging (user, project, custom). `readConfigLayers` isolates `INVALID_JSONC` per layer: a broken file is omitted from the merge (`{}` for that layer only), recorded on `layerErrors`, and does not block valid sibling layers. Writes still refuse to overwrite the broken file.
 - `readConfigFile(filePath)`: Reads one config file. Missing, whitespace-only, and comment-only files return `{}`; a comment-only file is recognized by `ValueExpected` being the only parse error. A `jsonc-parser` error that produces a partial or non-object tree throws `INVALID_JSONC` — partial parse trees must never be treated as authoritative (avoids rewriting a `$schema`-only stub over a full config). Content that yields no JSON value for any other reason (YAML, plain text) also throws instead of reading as empty.
 - `readConfigLayer(filePath)`: Same parse as `readConfigFile`, but isolates `INVALID_JSONC` to `{ config: {}, error }` so plugin/MCP/agent readers can skip one broken layer without aborting valid siblings. Writes still refuse to overwrite the broken file.
-- `writeConfig(config, filePath)`: Writes config with automatic backup, replacing the file atomically through `writeFileAtomic` so a watcher or a crash never sees a partial config. Refuses to overwrite an existing non-empty file that fails the same JSONC parse check. Existing files are edited structurally, so comments, formatting, and line endings outside the changed values survive. Equal-length arrays are diffed by index, including objects and nested arrays, unless a retained value moves between changed positions; an array that only grew at its end or only lost elements is edited per element, and other resized arrays are replaced whole. Comment-only files keep their comments with the serialized config appended below, and the edited text must re-parse to exactly the intended config or the write falls back to a normalized rewrite.
+- `writeConfig(config, filePath)`: Writes config with automatic backup (`<file>.openchamber.backup`), replacing the file atomically through `writeFileAtomic` so a watcher or a crash never sees a partial config. Refuses to overwrite an existing non-empty file that fails the same JSONC parse check. A file it may not write (EACCES, EPERM, EROFS) is refused before the backup with `code: 'CONFIG_READ_ONLY'` and its `path`; the backup replaces an older one, which `copyFileSync` would have left read-only for a read-only config. Existing files are edited structurally, so comments, formatting, and line endings outside the changed values survive. Equal-length arrays are diffed by index, including objects and nested arrays, unless a retained value moves between changed positions; an array that only grew at its end or only lost elements is edited per element, and other resized arrays are replaced whole. Comment-only files keep their comments with the serialized config appended below, and the edited text must re-parse to exactly the intended config or the write falls back to a normalized rewrite.
 - `getJsonEntrySource(layers, sectionKind, entryName)`: Resolves which config layer provides an entry. `sectionKind` is `agents`, `commands`, `providers`, or `mcp`, and both the v2 and the v1 spelling are searched (v2 wins). The result carries `sectionKey` (the spelling that actually held the entry) and `legacy`, so a writer can rewrite the same file in v2 shape. A failed custom or user layer throws `INVALID_JSONC` instead of treating that file as empty. A failed project layer is skipped so a valid user/custom entry can still be found.
 - `getJsonWriteTarget(layers, preferredScope)`: Determines write target for config updates. Throws `INVALID_JSONC` when the chosen target file is the unparseable layer.
 - `getFolderConfigPaths(workingDirectory)`: Every `opencode.json(c)` and `.opencode/opencode.json(c)` OpenCode 2 finds walking up from the project folder to the filesystem root, lowest priority first in OpenCode's order (`core/src/config/discovery.ts`): plain files outermost folder first, `.jsonc` after `.json`, then the `.opencode/` files the same way. Global config files are left out. Only MCP reads use it so far; agents, commands and providers still read the single project file.
@@ -579,8 +604,8 @@ Nullish body destructuring retains the original Node error message.
   - `GET /api/provider/:providerId/source`
   - `PUT /api/provider` (create/update custom OpenAI-compatible provider config in OpenCode user/project/custom layers via `scope`; secrets stay in auth via the OpenCode auth API)
   - `POST /api/provider/discover-models` (user-initiated custom-provider model discovery; fetches the configured `/models` path server-side and optionally enriches exact model matches from the shared models.dev cache). A form with a client certificate (`tls`) presents it on an `https` endpoint as OpenCode would: `{file:...}` and `{env:...}` are resolved here, the request goes through `node:https` on a connection of its own (the global fetch takes no certificate in Node, and the shared agent pools sockets without the passphrase in its key), and redirects are not followed.
-  - `DELETE /api/provider/:providerId/auth`
-  - Enterprise mode (`../enterprise-mode.js`): `PUT /api/provider` and the OpenCode writes that would otherwise pass the generic proxy — every `POST` under `/api/integration/:id/connect` (key, OAuth start and complete, command), `POST /api/credential` (stores a key, OpenCode 2.0.20) and `POST /api/experimental/integration/wellknown`, matched by `isProviderConnectRequest` — answer 403 `enterprise_mode`. The matcher mirrors how OpenCode 2.0.18 to 2.0.20 route a path (any letter case, doubled slashes, `\` for `/`, percent escapes, anything after `;`), refuses a dot segment or a bad escape, and needs rechecking when OpenCode changes its router. Signing in to a remote MCP server (`POST /api/integration/mcp_<16 hex>/connect/oauth` and its `/:attempt/complete`) passes: it reaches a tool server from the OpenCode config, not a model provider. The VS Code extension host refuses the same requests with the same matcher. Removing, activating or renaming an existing credential still reaches OpenCode. This closes the way in through the app; OpenCode's `provider.use` policy is the real lock.
+  - `DELETE /api/provider/:providerId/auth` (`scope=user|project|custom` removes the entry from one layer; `scope=all`, which Settings' Remove sends, removes it from every layer OpenCode merges, both global files included when `opencode.jsonc` sits beside `opencode.json` (each `user` call edits the file that holds the entry, so the route repeats it until nothing is left; `deleteSectionEntry` counts own entries only, or a name such as `constructor` would read as an entry forever), and answers `removed: false` when no layer held it; the retired `scope=auth` answers 409 because OpenCode owns credentials)
+  - Enterprise mode (`../enterprise-mode.js`): `PUT /api/provider`, `DELETE /api/provider/:providerId/auth` and the OpenCode writes that would otherwise pass the generic proxy — every `POST` under `/api/integration/:id/connect` (key, OAuth start and complete, command), `POST /api/credential` (stores a key, OpenCode 2.0.20) and `POST /api/experimental/integration/wellknown`, matched by `isProviderConnectRequest` — answer 403 `enterprise_mode`. The matcher mirrors how OpenCode 2.0.18 to 2.0.20 route a path (any letter case, doubled slashes, `\` for `/`, percent escapes, anything after `;`), refuses a dot segment or a bad escape, and needs rechecking when OpenCode changes its router. Signing in to a remote MCP server (`POST /api/integration/mcp_<16 hex>/connect/oauth` and its `/:attempt/complete`) passes: it reaches a tool server from the OpenCode config, not a model provider. The VS Code extension host refuses the same requests with the same matcher. Removing, activating or renaming an existing credential still reaches OpenCode. This closes the way in through the app; OpenCode's `provider.use` policy is the real lock.
 - Owns lazy auth library loading for provider auth checks/removal.
 - Keeps route behavior independent from composition root; `index.js` now supplies dependencies only.
 
@@ -1724,15 +1749,22 @@ does not spawn OpenCode and cannot pass `OPENCODE_CONFIG` or callback env vars.
     (`../session-knowledge/DOCUMENTATION.md`, *Whether the agent has the
     tools*); the token never leaves the plugin.
   - `GET /api/config/external-opencode-plugin?directory=` answers the same
-    check as `loadedInDirectory` (null when not asked, not registered, or
-    unknown), so the Settings banner can say when the config lists the plugin
-    but OpenCode has not loaded it for the open project. The UI passes the
+    check as `loadedInDirectory` (null when not asked or unknown), so the
+    Settings banner can say when the config lists the plugin but OpenCode has
+    not loaded it for the open project, and offers nothing when OpenCode loaded
+    it without an entry in the global config (its `plugins/` folder, a project
+    config). The check runs whether or not the global config lists the plugin,
+    since the plugin answers wherever OpenCode found it. The UI passes the
     directory the user works in and nothing else, since every check starts
     that location; the route waits out a worktree removal in progress there
     first, as the proxy does. The banner reads the registration without a
     directory first and the folder check second, so a cold location never
-    holds back Add, Remove or Copy path, and it reads both again when the
-    window regains focus.
+    holds back Remove or Copy path for a registered plugin; without an entry
+    the Add offer waits for the folder check, because it decides whether there
+    is anything to add. It reads both again when the window regains focus.
+  - Adding or removing the entry answers 409 `config-read-only` with the file's
+    `path` when `writeConfig` refuses a config it may not write, so the toast
+    names that file.
 - **Why one bridge file + dynamic `tools.remove` instead of per-message metadata
   isolation:** Filtering per turn via message metadata breaks Code Mode catalog
   hiding and requires tagging every background prompt sender. Treating the

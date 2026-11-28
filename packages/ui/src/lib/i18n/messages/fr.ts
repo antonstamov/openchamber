@@ -62,6 +62,7 @@ import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
 import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 import { diffFindI18n } from './diff-find.i18n';
+import { diffReviewedI18n } from './diff-reviewed.i18n';
 import { contextWindowI18n } from './context-window.i18n';
 import { markdownOutlineI18n } from './markdown-outline.i18n';
 import { markdownGithubI18n } from './markdown-github.i18n';
@@ -130,13 +131,12 @@ export const dict = {
   'commitComparison.loadError': 'Impossible de charger les commits',
   'commitComparison.noCommits': 'Aucun commit trouvé',
   'commitComparison.emptyDiff': 'Aucune modification dans ce commit',
-  'chat.liveActivity.title': 'Activité',
-  'chat.liveActivity.moreRows': '+{count} de plus',
   'chat.liveActivity.changedFile': '{count} fichier modifié',
   'chat.liveActivity.changedFiles': '{count} fichiers modifiés',
-  'chat.liveActivity.explored': 'Base de code explorée',
+  'chat.liveActivity.working': 'En cours…',
   'chat.liveActivity.ranCommand': '{count} commande exécutée',
   'chat.liveActivity.ranCommands': '{count} commandes exécutées',
+  'chat.liveActivity.explored': 'Base de code explorée',
   'chat.liveActivity.researched': 'Recherche sur le web effectuée',
   'chat.liveActivity.usedSubagent': '{count} sous-agent utilisé',
   'chat.liveActivity.usedSubagents': '{count} sous-agents utilisés',
@@ -266,6 +266,7 @@ export const dict = {
   ...pluginsGridI18n.fr,
   ...integrationsCatalogI18n['fr'],
   ...diffFindI18n['fr'],
+  ...diffReviewedI18n['fr'],
   ...contextWindowI18n['fr'],
   ...markdownOutlineI18n['fr'],
   ...markdownGithubI18n['fr'],
